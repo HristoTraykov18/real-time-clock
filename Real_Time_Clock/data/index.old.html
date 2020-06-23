@@ -1,0 +1,538 @@
+<!-- THIS PAGE WAS USED IN THE BEGINNING OF THE PROJECT, BEFORE ADDING REQUEST HANDLERS FOR SPECIFIC FILES -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <title>Настройки на часовник</title>
+    <style>
+      body {
+        color: white;
+        text-align: center;
+        font-family: Verdana, Arial, sans-serif, monospace;
+      }
+      header {
+        padding: 1px;
+        box-shadow: 2px 2px 3px black; 
+      }
+      header, #requestForm {
+        width: 99%;
+        margin: auto;
+        background: #003fa8;
+        background-image: linear-gradient(to bottom right, #1c72ff, #75a9ff)
+      }
+      #welcome { /* Header text */
+        text-align: center;
+        font-size: 48px;
+        text-shadow: 4px 3px 4px black;
+        margin: 10px 0;
+        line-height: 45px;
+      }
+      #outsideButtonsDiv { /* Contains the buttons above the form */
+        position: relative;
+        display: block;
+        width: fit-content;
+        height: 100px;
+        margin-top: 5%;
+      }
+      #outsideButtonsDiv button {
+        width: 45%;
+        height: 110%;
+        color: white;
+        font-size: 40px;
+        font-weight: bold;
+        text-shadow: 3px 2px 3px black;
+        position: relative;
+        float: left;
+        border-radius: 5px;
+        line-height: 37px;
+      }
+      #outsideButtonsDiv button:active { background: #75a9ff; }
+      #autoSet { /* Button above the form showing fieldsets for connecting to network */
+        z-index: 2;
+        left: 2px;
+        background-color: #2779ff;
+        border: 5px solid #2779ff;
+        box-shadow: 2px -2px 3px black;
+      }
+      #manualSet { /* Button above the form showing input for manual time setting */
+        z-index: 0;
+        background-color: #3280ff;
+        border: 5px solid #3280ff;
+        box-shadow: -2px -2px 3px black;
+      }
+      #requestForm {
+        z-index: 1;
+        font-size: 42px;
+        position: relative;
+        border: 2px solid black;
+        border-radius: 10px;
+        box-shadow: 1px 1px 3px black;
+        text-align: center;
+        text-shadow: 2px 2px 3px black;
+      }
+      #message { font-weight: bold; } /* Short notification message */
+      fieldset { border: 0px; }
+      #manualFieldset {
+        display: none;
+        height: 250px;
+      }
+      #clock {
+        position: relative;
+        display: block;
+        width: 420px;
+        margin: auto;
+      }
+      .buttonsIncrease, .buttonsDecrease {
+        display: block;
+        height: 30px;
+        position: relative;
+      }
+      .buttonsIncrease { margin-bottom: 15px; }
+      .buttonsDecrease { margin-top: 15px; }
+      .increaseButton { bottom: 0; }
+      .decreaseButton { top: 0; }
+      .increaseButton, .decreaseButton {
+        height: 150%;
+        width: 80px;
+        position: absolute;
+        background: white;
+        border-radius: 2px;
+        box-shadow: 2px 2px 3px black;
+      }
+      .increaseButton:active, .decreaseButton:active { background: #ccccccaf; }
+      .increaseButton::before { /* Draws left side of the triangle in increase buttons */
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        border-top: 36px solid white;
+        border-right: 40px solid #3883ff;
+        width: 0;
+       }
+      .increaseButton::after { /* Draws right side of the triangle in increase buttons */
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        border-top: 36px solid white;
+        border-left: 40px solid #3883ff;
+        width: 0;
+      }
+      .decreaseButton::before { /* Draws left side of the triangle in decrease buttons */
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        border-bottom: 36px solid white;
+        border-right: 40px solid #3883ff;
+        width: 0;
+       }
+      .decreaseButton::after { /* Draws right side of the triangle in decrease buttons */
+        content: '';
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        border-bottom: 36px solid white;
+        border-left: 40px solid #3883ff;
+        width: 0;
+      }
+      .increaseButton:active::before, .increaseButton:active::after { border-top: 36px solid #ccccccaf; }
+      .decreaseButton:active::before, .decreaseButton:active::after { border-bottom: 36px solid #ccccccaf; }
+      #digit1_Increase, #digit1_Decrease { left: 8px; }
+      #digit2_Increase, #digit2_Decrease { left: 104px; }
+      #digit3_Increase, #digit3_Decrease { left: 240px; }
+      #digit4_Increase, #digit4_Decrease { left: 336px; }
+      .digitsValues { /* Digit inputs */
+        height: 160px;
+        display: block;
+      }
+      .digits {
+        position: absolute;
+        height: 150px;
+        width: 90px;
+        background-color: white;
+        font-size: 120px;
+        text-align: center;
+        color: #3883ff;
+        box-shadow: 2px 2px 3px black;
+      }
+      #dotsSpan {
+        width: 40px;
+        height: 155px;
+        position: relative;
+        left: 192px;
+        float: left;
+      }
+      .dots { /* Dots between the digits */
+        display: block;
+        position: absolute;
+        background: white;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        left: 8px;
+      }
+      #upperDot { top: 20%; }
+      #lowerDot { bottom: 20%; }
+      .digits:disabled { background-color: white; }
+      #digitOne { left: 0; }
+      #digitTwo { left: 96px; }
+      #digitThree { left: 232px; }
+      #digitFour { left: 328px; }
+      .container { /* Contains daylight saving text and checkbox */
+        display: block;
+        position: relative;
+        width: 660px;
+        height: 50px;
+        cursor: pointer;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        font-size: 42px;
+        margin: auto;
+        padding: 5% 0;
+      }
+      .container:active { background-color: #75a9ff; }
+      .container div {
+        position: relative;
+        line-height: 40px;
+      }
+      .container input { /* Hide the browser's default checkbox */
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .checkmark { /* Custom checkbox */
+        left: 0;
+        position: absolute;
+        height: 40px;
+        width: 40px;
+        background-color: white;
+      }
+      .container:hover input ~ .checkmark { background-color: #ccc; } /* On mouse-over, add a grey background color */
+      .container input:checked ~ .checkmark { background-color: #fff; } /* When the checkbox is checked, add background */
+      .checkmark:after { /* Checkmark/indicator (hidden when not checked) */
+        content: "";
+        position: absolute;
+        display: none;
+      }
+      .container input:checked ~ .checkmark:after { display: inline; } /* Show the checkmark when checked */
+      .container .checkmark:after { /* Style the checkmark/indicator */
+        left: 30%;
+        width: 15px;
+        height: 30px;
+        border: solid #003fa8;
+        border-width: 0 3px 3px 0;
+        -webkit-transform: rotate(45deg);
+        -ms-transform: rotate(45deg);
+        -o-transform: rotate(45deg);
+        transform: rotate(45deg);
+      }
+      .textInput, #message, #submitButton { font-size: 48px; }
+      .textInput {
+        border-radius: 10px;
+        padding: 20px 50px;
+        border: 1px solid #000;
+      }
+      .textInput, #submitButton { box-shadow: 1px 2px 2px black; }
+      #submitButton {
+        padding: 10px 50px;
+        color: #1c72ff;
+        border-radius: 10px;
+        background-color: white;
+      }
+      #submitButton:active { background-color: #ccccccaf; }
+      #dS_Value, #manualTimeValue, #settingType {
+        opacity: 0;
+        display: none;
+        visibility: hidden;
+      }
+      #neon-copyright { /* Footer text */
+        position: relative;
+        text-shadow: 1px 1px 2px black;
+        font-size: 24px;
+        text-align: left;
+        padding-left: 10px;
+      }
+      @media only screen and (min-width: 1000px) { /* Styling for desktop view */
+        header, #requestForm { width: 50%; }
+        #welcome { /* Header text */
+          font-size: 24px;
+          line-height: 24px;
+        }
+        #outsideButtonsDiv {
+          position: relative;
+          display: block;
+          width: 50%;
+          height: 40px;
+          margin-top: 2%;
+          left: 26%;
+        }
+        #outsideButtonsDiv button {
+          width: 35%;
+          height: 110%;
+          color: white;
+          font-size: 16px;
+          border-radius: 3px;
+          line-height: 12px;
+        }
+        #autoSet { border: 3px solid #2779ff; }
+        #manualSet { background-color: #3280ff; }
+        #requestForm { font-size: 24px; }
+        .textInput, #message, #submitButton { font-size: 24px; }
+        .buttonsIncrease { margin-bottom: 10px; }
+        .buttonsDecrease { margin-top: 10px; }
+        #manualFieldset { height: 215px; }
+        .increaseButton, .decreaseButton {
+          height: 90%;
+          width: 80px;
+          border-radius: 2px;
+          margin: 0;
+        }
+        .increaseButton::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          border-top: 20px solid white;
+          border-right: 40px solid #3883ff;
+          width: 0;
+        }
+        .increaseButton::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          border-top: 20px solid white;
+          border-left: 40px solid #3883ff;
+          width: 0;
+        }
+        .decreaseButton::before {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          border-bottom: 20px solid white;
+          border-right: 40px solid #3883ff;
+          width: 0;
+        }
+        .decreaseButton::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          right: 0;
+          border-bottom: 20px solid white;
+          border-left: 40px solid #3883ff;
+          width: 0;
+        }
+        .increaseButton:active::before, .increaseButton:active::after { border-top: 20px solid #ccccccaf; }
+        .decreaseButton:active::before, .decreaseButton:active::after { border-bottom: 20px solid #ccccccaf; }
+        .digitsValues { height: 135px; }
+        .digits {
+          height: 130px;
+          width: 90px;
+          font-size: 120px;
+        }
+        .textInput {
+          left: 25%;
+          font-size: 22px;
+          padding: 5px 10px;
+        }
+        .container {
+          font-size: 22px;
+          width: 400px;
+          height: inherit;
+          padding: 2% 0;
+        }
+        .container div { line-height: 20px; }
+        .checkmark {
+          height: 20px;
+          width: 20px;
+        }
+        .container .checkmark:after { /* Style the checkmark/indicator */
+          left: 6px;
+          width: 7px;
+          height: 17px;
+        }
+        #submitButton {
+          border-radius: 5px;
+          padding: 10px 25px;
+        }
+        #neon-copyright { font-size: 16px; }
+      }
+    </style>
+  </head>
+  <body onload='OnLoadCheck()'>
+    <header><p id='welcome'><b>Добре дошли в настройките за часовник</b></p></header>
+    <div id="outsideButtonsDiv">
+      <button id="autoSet" onclick="ShowAutoSettings()">Автоматична настройка на време</button>
+      <button id="manualSet" onclick="ShowManualSettings()">Ръчна настройка на време</button>
+    </div>
+    <form id='requestForm' method='POST' onsubmit="OnSubmitCheck()">
+      <p id='message'>Моля въведете име и парола на мрежата за връзка</p>
+      <fieldset class="autoFieldsets">
+        <input class='textInput' type='text' name='ssid' size='12' placeholder='Име на мрежа'>
+      </fieldset>
+      <fieldset class="autoFieldsets">
+        <input class='textInput' type='password' size='12' name='pass' placeholder='Парола'>
+      </fieldset>
+      <fieldset id="manualFieldset">
+        <span id="clock">
+          <span class="buttonsIncrease">
+            <button class="increaseButton" id="digit1_Increase" onclick="IncreaseTime(event, i=0)"></button>
+            <button class="increaseButton" id="digit2_Increase" onclick="IncreaseTime(event, i=1)"></button>
+            <button class="increaseButton" id="digit3_Increase" onclick="IncreaseTime(event, i=2)"></button>
+            <button class="increaseButton" id="digit4_Increase" onclick="IncreaseTime(event, i=3)"></button>
+          </span>
+          <span class="digitsValues">
+            <input disabled id="digitOne" class="digits" name="digitOne" type="text" value="0">
+            <input disabled id="digitTwo" class="digits" name="digitTwo" type="text" value="0">
+            <span id="dotsSpan">
+              <span class="dots" id="upperDot"></span>
+              <span class="dots" id="lowerDot"></span>
+            </span>
+            <input disabled id="digitThree" class="digits" name="digitThree" type="text" value="0">
+            <input disabled id="digitFour" class="digits" name="digitFour" type="text" value="0">
+          </span>
+          <span class="buttonsDecrease">
+            <button class="decreaseButton" id="digit1_Decrease" onclick="DecreaseTime(event, i=0)"></button>
+            <button class="decreaseButton" id="digit2_Decrease" onclick="DecreaseTime(event, i=1)"></button>
+            <button class="decreaseButton" id="digit3_Decrease" onclick="DecreaseTime(event, i=2)"></button>
+            <button class="decreaseButton" id="digit4_Decrease" onclick="DecreaseTime(event, i=3)"></button>
+          </span>
+        </span>
+      </fieldset>
+      <label class="container">
+        <input id='dS_T' type="checkbox" checked>
+        <span class="checkmark"></span>
+        <div>Активно ли е лятно време?</div>
+      </label>
+      <fieldset>
+        <input id='submitButton' type='submit' value='Промени'>
+        <input id='dS_Value' type='text' name='dS_Value'>
+        <input id="manualTimeValue" type="text" name="manualTimeValue">
+        <input id="settingType" type="text" name="settingType" value="">
+      </fieldset>
+      <p id="neon-copyright">© NEON.BG</p>
+    </form>
+    <script type="text/javascript">
+      var autoFieldsets = document.getElementsByClassName("autoFieldsets");
+
+      function OnLoadCheck() { // When the page shows create cookie if it is not created already
+        if (document.cookie == "")
+          document.cookie = "daylightSaving=active; expires=Tue, 31 Dec 2999 23:59:59 UTC; path=/";
+        
+        else if (document.cookie.includes("daylightSaving=inactive")) {
+          document.getElementById("dS_T").checked = false;
+          document.getElementById("dS_Value").value = "OFF";
+        }
+      }
+
+      function OnSubmitCheck() { // Save cookie for daylight saving
+        if (document.getElementById("dS_T").checked == true) {
+          document.getElementById("dS_Value").value = "ON";
+          document.cookie = "daylightSaving=active";
+        }
+        else {
+          document.getElementById("dS_Value").value = "OFF";
+          document.cookie = "daylightSaving=inactive";
+        }
+        
+        if (document.getElementById("manualFieldset").style.display == "block") { 
+          document.getElementById("settingType").value = "manual";
+          for (let i = 0; i < 4; i++) {
+            document.getElementById("manualTimeValue").value += document.getElementsByClassName("digits")[i].value;
+          }
+        }
+        else document.getElementById("settingType").value = "auto";
+      }
+
+      function IncreaseTime(event, i) {
+        event.preventDefault(); // Do not submit the form
+        let number = parseInt(document.getElementsByClassName("digits")[i].value) + 1; // Increase the value for the corresponding digit
+
+        if (i == 0) { // First digit can be 0, 1 and 2. Adjust the second digit according to it
+          if (number == 3) number = 0;
+
+          else if (number == 2) {
+            let secondDigit = document.getElementsByClassName("digits")[1].value;
+
+            if (secondDigit > 3) document.getElementsByClassName("digits")[1].value = "0";
+          }
+        }
+
+        else if (i == 1) { // Second digit can be 0 to 9 or 0 to 3 depending on the first digit
+          let firstDigit = parseInt(document.getElementsByClassName("digits")[0].value);
+
+          if (firstDigit < 2 && number == 10) number = 0;
+
+          else if (firstDigit == 2 && number == 4) number = 0;
+        }
+        
+        else if (i == 2 && number == 6) number = 0; // Third digit can be 0 to 5
+        
+        else if (i == 3 && number == 10) number = 0; // Fourth digit can be 0 to 9
+        
+        document.getElementsByClassName("digits")[i].value = number.toString();
+        return false;
+      }
+
+      function DecreaseTime(event, i) { // Oposite of IncreaseTime
+        event.preventDefault();
+        let number = parseInt(document.getElementsByClassName("digits")[i].value) - 1;
+        
+        if (i == 0) {
+          if (number == -1) number = 2;
+
+          if (number == 2) {
+            let secondDigit = document.getElementsByClassName("digits")[1].value;
+
+            if (secondDigit > 3) document.getElementsByClassName("digits")[1].value = "0";
+          }
+        }
+        
+        else if (i == 1) { // Second digit can be 0 to 9 or 0 to 4 depending on the first digit
+          let firstDigit = parseInt(document.getElementsByClassName("digits")[0].value);
+
+          if (firstDigit < 2 && number == -1) number = 9;
+
+          else if (firstDigit == 2 && number == -1) number = 3;
+        }
+
+        else if (i == 2 && number == -1) number = 5; // Third digit can be 0 to 5
+
+        else if (i == 3 && number == -1) number = 9; // Fourth digit can be 0 to 9
+        
+        document.getElementsByClassName("digits")[i].value = number.toString();
+        return false;
+      }
+
+      function ShowAutoSettings() { // Show the auto fieldsets
+        if (document.getElementById("autoSet").style.zIndex == 0) {
+          document.getElementById("manualSet").style.zIndex = 0;
+          document.getElementById("autoSet").style.zIndex = 2;
+        }
+        
+        document.getElementById("message").textContent = "Моля въведете име и парола на мрежата за връзка"
+        
+        for (let i = 0; i < autoFieldsets.length; i++)
+            autoFieldsets[i].style.display = "block";
+        document.getElementById("manualFieldset").style.display = "none";
+      }
+
+      function ShowManualSettings() { // Show the manual fieldset
+        if (document.getElementById("manualSet").style.zIndex == 0) {
+          document.getElementById("autoSet").style.zIndex = 0;
+          document.getElementById("manualSet").style.zIndex = 2;
+
+          document.getElementById("message").textContent = "Моля ръчно задайте час"
+
+          for (let i = 0; i < autoFieldsets.length; i++)
+            autoFieldsets[i].style.display = "none";
+          document.getElementById("manualFieldset").style.display = "block";
+        }
+      }
+    </script>
+  </body>
+</html>

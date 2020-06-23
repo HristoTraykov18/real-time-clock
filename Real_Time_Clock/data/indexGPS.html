@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' name="viewport" content="width=device-width, initial-scale=1">
+    <title>Настройки на часовник</title>
+    <link rel="stylesheet" type="text/css" href="mainStyle.css">
+    <link rel="shortcut icon" type="image/x-icon" href="neonLogoIcon.ico"/>
+  </head>
+  <body>
+    <header class="cursor-default">Добре дошли в настройките за часовник</header>
+    <div class="main-container">
+      <form method="POST">
+        <div class="option-buttons-bontainer">
+          <span id="js-auto-set-option" class="option-button cursor-default">
+            <div>Автоматична настройка на време</div>
+          </span>
+          <span id="js-manual-set-option" class="option-button cursor-default">
+            <div>Ръчна настройка на време</div>
+          </span>
+        </div>
+        <div class="form-container">
+          <svg class="logo-svg" viewBox="0 0 1195 1195" xmlns="https://www.w3.org/2000/svg">
+              <g transform="translate(0, 1195) scale(0.1, -0.1)" fill="#384575" stroke="none">
+                  <path d="M9772 11935 c-35 -8 -98 -31 -140 -52 -144 -70 -194 -131 -958 -1141
+                  -379 -503 -773 -1025 -876 -1160 -258 -340 -298 -422 -298 -614 0 -111 17
+                  -187 66 -286 132 -270 475 -401 757 -287 79 31 158 81 222 138 30 26 200 238
+                  379 471 179 232 332 428 340 436 13 10 19 10 31 0 13 -11 15 -405 13 -3464 -3
+                  -2946 -5 -3451 -17 -3451 -8 0 -1527 2043 -3376 4540 -2589 3496 -3381 4560
+                  -3446 4625 -60 62 -102 94 -150 117 -240 118 -513 77 -702 -106 -81 -78 -125
+                  -147 -164 -256 l-28 -80 0 -5415 c0 -5138 1 -5418 18 -5480 30 -112 82 -204
+                  156 -278 196 -195 457 -242 698 -127 145 70 170 101 1144 1400 487 649 895
+                  1196 906 1215 12 19 34 71 49 115 24 69 27 96 27 190 0 187 -60 325 -196 452
+                  -73 68 -176 123 -268 143 -82 18 -249 9 -329 -19 -95 -33 -191 -93 -261 -164
+                  -33 -34 -201 -249 -372 -477 -172 -228 -319 -415 -327 -415 -13 0 -15 390 -18
+                  3436 -2 3653 -4 3472 41 3436 8 -7 1485 -2001 3282 -4432 1797 -2431 3312
+                  -4479 3366 -4552 107 -141 173 -203 276 -253 374 -185 815 19 898 415 13 61
+                  15 766 15 5460 0 4783 -2 5398 -15 5450 -45 176 -177 338 -336 415 -139 66
+                  -271 84 -407 55z m244 -149 c164 -44 312 -187 353 -343 9 -31 12 -1472 12
+                  -5436 0 -5381 0 -5393 -21 -5458 -24 -79 -83 -174 -135 -217 -101 -83 -210
+                  -117 -349 -110 -164 10 -277 76 -394 230 -38 51 -1553 2100 -3366 4553 -1814
+                  2453 -3310 4472 -3326 4487 -83 77 -216 51 -267 -52 l-23 -44 0 -3446 c0
+                  -2230 4 -3458 10 -3480 5 -20 24 -50 42 -67 59 -57 122 -67 194 -33 36 18 89
+                  83 383 475 318 424 346 458 412 504 231 162 506 119 659 -105 88 -126 103
+                  -312 37 -454 -29 -63 -1785 -2400 -1864 -2481 -35 -36 -87 -79 -116 -97 -268
+                  -162 -629 15 -677 333 -7 49 -10 1703 -8 5440 l3 5370 21 57 c45 116 129 209
+                  239 264 194 95 397 57 545 -102 25 -27 1557 -2090 3404 -4584 1847 -2494 3375
+                  -4552 3396 -4572 79 -77 204 -56 255 43 13 24 15 474 15 3522 l0 3494 -22 33
+                  c-63 93 -177 112 -258 44 -16 -14 -177 -217 -356 -450 -179 -233 -349 -444
+                  -377 -469 -201 -175 -463 -179 -648 -8 -109 101 -164 260 -140 407 17 108 64
+                  190 248 433 92 122 485 641 873 1154 388 514 736 966 773 1006 79 83 144 128
+                  225 154 68 22 177 24 248 5z"/>
+              </g>
+          </svg>
+          <div id="js-auto-settings">
+            <p class="message">Моля въведете име и парола на мрежата за връзка</p>
+            <div>
+              <input type="text" class="auto-settings-input" name="ssid" size="12" placeholder="Име на мрежа">
+            </div>
+            <span class="password-field">
+              <input type="password" id="js-pass-input" class="auto-settings-input" name="pass" size="12" placeholder="Парола">
+              <span id="js-password-button-container">
+                <svg id="showPasswordButton" class="password-field-button" viewBox="0 0 24 24" 
+                  xmlns="https://www.w3.org/2000/svg">
+                  <path d="M12,7c-2.48,0-4.5,2.02-4.5,4.5S9.52,16,12,16s4.5-2.02,
+                  4.5-4.5S14.48,7,12,7z M12,14.2c-1.49,0-2.7-1.21-2.7-2.7 c0-1.49,
+                  1.21-2.7,2.7-2.7s2.7,1.21,2.7,2.7C14.7,12.99,13.49,14.2,12,14.2z"/>
+                  <path d="M12,4C7,4,2.73,7.11,1,11.5C2.73,15.89,7,19,12,
+                  19s9.27-3.11,11-7.5C21.27,7.11,17,4,12,4z M12,17 c-3.79,
+                  0-7.17-2.13-8.82-5.5C4.83,8.13,8.21,6,12,6s7.17,2.13,8.82,
+                  5.5C19.17,14.87,15.79,17,12,17z"/>
+                </svg>
+                <svg id="hide-password-button" class="password-field-button" viewBox="0 0 24 24" 
+                  xmlns="https://www.w3.org/2000/svg">
+                  <path d="M10.58,7.25l1.56,1.56c1.38,0.07,2.47,1.17,2.54,
+                  2.54l1.56,1.56C16.4,12.47,16.5,12,16.5,11.5C16.5,9.02,
+                  14.48,7,12,7 C11.5,7,11.03,7.1,10.58,7.25z"/>
+                  <path d="M12,6c3.79,0,7.17,2.13,8.82,5.5c-0.64,1.32-1.56,
+                  2.44-2.66,3.33l1.42,1.42c1.51-1.26,2.7-2.89,3.43-4.74 C21.27,7.11,
+                  17,4,12,4c-1.4,0-2.73,0.25-3.98,0.7L9.63,6.3C10.4,6.12,11.19,6,12,6z"/>
+                  <path d="M16.43,15.93l-1.25-1.25l-1.27-1.27l-3.82-3.82L8.82,8.32L7.57,
+                  7.07L6.09,5.59L3.31,2.81L1.89,4.22l2.53,2.53 C2.92,8.02,1.73,9.64,1,
+                  11.5C2.73,15.89,7,19,12,19c1.4,0,2.73-0.25,3.98-0.7l4.3,
+                  4.3l1.41-1.41l-3.78-3.78L16.43,15.93z M11.86,
+                  14.19c-1.38-0.07-2.47-1.17-2.54-2.54L11.86,14.19z M12,17c-3.79,
+                  0-7.17-2.13-8.82-5.5c0.64-1.32,1.56-2.44,2.66-3.33 l1.91,1.91C7.6,
+                  10.53,7.5,11,7.5,11.5c0,2.48,2.02,4.5,4.5,4.5c0.5,0,0.97-0.1,
+                  1.42-0.25l0.95,0.95C13.6,16.88,12.81,17,12,17z"/>
+                </svg>
+              </span>
+            </span>
+          </div>
+          <div id="js-manual-settings">
+            <p class="message">Моля ръчно задайте час</p>
+            <div class="increase-buttons-container">
+              <div class="increase-button"></div>
+              <div class="increase-button"></div>
+              <div class="divider"></div>
+              <div class="increase-button"></div>
+              <div class="increase-button"></div>
+            </div>
+            <div>
+              <input type="text" class="clock-digit" name="digitOne" value="0" disabled>
+              <input type="text" class="clock-digit" name="digitTwo" value="0" disabled>
+              <div class="dots-container">
+                <div class="clock-dot upper-dot"></div>
+                <div class="clock-dot lower-dot"></div>
+              </div>
+              <input type="text" class="clock-digit" name="digitThree" value="0" disabled>
+              <input type="text" class="clock-digit" name="digitFour" value="0" disabled>
+            </div>
+            <div class="decrease-buttons-container">
+              <div class="decrease-button"></div>
+              <div class="decrease-button"></div>
+              <div class="divider"></div>
+              <div class="decrease-button"></div>
+              <div class="decrease-button"></div>
+            </div>
+            </span>
+          </div>
+          <div class="checkbox-container">
+            <label class="checkbox-label">
+              <div>Страна с лятна времева зона</div>
+              <input type="checkbox" id="js-daylight-saving" class="hidden-input" name="daylightSaving">
+              <span class="checkbox-box"></span>
+            </label>
+            <label id="js-brightness-control-label" class="checkbox-label">
+              <div>Автоматична настройка на яркост</div>
+              <input type="checkbox" id="js-brightness-control" class="hidden-input" name="brightnessControl" checked>
+              <span class="checkbox-box"></span>
+            </label>
+            <div id="js-slider-container">
+              <div class="slider-track">
+                <input type="range" id="js-slider-input" name="brightnessValue" value="3" min="0" max="6">
+              </div>
+              <div id="js-slider-thumb"></div>
+            </div>
+          </div>
+          <div>
+            <div>Метод за сверяване:</div>
+            <div id="radio-buttons-container">
+              <label class="radio-button-label">
+                <div>Wi-Fi</div>
+                <input type="radio" id="js-wifi-input" class="js-time-sync-type hidden-input" name="radioInput">
+                <span class="radio-button-circle"></span>
+              </label>
+              <label class="radio-button-label">
+                <div>GPS</div>
+                <input type="radio" id="js-gps-input" class="js-time-sync-type hidden-input" name="radioInput">
+                <span class="radio-button-circle"></span>
+              </label>
+            </div>
+          </div>
+          <div class="button-container">
+            <input type="submit" class="button-red cursor-pointer" value="Промени">
+          </div>
+          <input type="text" id="js-time-sync-mode" class="hidden-input" name="timeSyncMode" value="auto">
+        </div>
+        <div class="form-container loader-container">
+          <div class="loader"></div>
+        </div>
+      </form>
+    </div>
+    <div id="js-popup-container">
+      <div class="popup">
+        <p id="js-popup-message" class="message"></p>
+        <div class="button-container">
+          <div id="js-popup-button" class="button-red cursor-pointer">OK</div>
+        </div>
+      </div>
+      <div class="popup-background"></div>
+    </div>
+    <script type="text/javascript" src="mainScript.js"></script>
+  </body>
+</html>
