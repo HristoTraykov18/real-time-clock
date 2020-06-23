@@ -9,3 +9,4 @@ Personal clock project with arduino based board (ESP8266) with web interface, te
 * DallasTemperature 3.8.0 (pre-release) - https://github.com/milesburton/Arduino-Temperature-Control-Library
 * TinyGPS++ 1.0.2 - https://github.com/mikalhart/TinyGPSPlus
 * OneWire 2.3.5 - https://github.com/PaulStoffregen/OneWire
+* RTCLib 1.6.0 - https://github.com/adafruit/RTClib
