@@ -1,234 +1,271 @@
 
 // ___________________________________________________ Additional functions ___________________________________________________ //
 
-// --------------------------- Function that checks if someone has connected to the ESP's network ---------------------------- //
-void CheckForUserConnection() {
-  if (WiFi.softAPgetStationNum() == 1 && !activeConnection) {
-    someoneJustConnected = true;
-    activeConnection = true;
+// ----------------------------------- Check if someone has connected to the ESP's network ----------------------------------- //
+void checkForUserConnection() {
+  if (WiFi.softAPgetStationNum() == 1 && !active_connection) {
+    someone_just_connected = true;
+    active_connection = true;
   }
-  else if (WiFi.softAPgetStationNum() == 0 && activeConnection) {
-    someoneJustConnected = false;
-    activeConnection = false;
+  else if (WiFi.softAPgetStationNum() == 0 && active_connection) {
+    someone_just_connected = false;
+    active_connection = false;
   }
 
   // Prevents network hanging
-  if (WiFi.status() == WL_NO_SSID_AVAIL || WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_DISCONNECTED)
+  if (WiFi.status() == WL_NO_SSID_AVAIL || WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_DISCONNECTED) {
     WiFi.disconnect();
+    WiFi.begin();
+
+#ifdef  RTC_INFO_MESSAGES
+    Serial.println(F("Network reset"));
+#endif
+  }
 }
 
-// ------------------------------- Try to establish network connection with the last known network ------------------------- //
-void ConnectToLastKnownNetwork() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println(F("Trying to connect to last known network")); // Try connecting to prevously saved network
-    WiFi.begin();
-    
+// ---------------------------------- Try to establish network connection with specific network ---------------------------------- //
+bool connectClockToNetwork(const String& ssid, const String& pass) {
+  bool is_connected = false;
+
+  if ((WiFi.status() != WL_CONNECTED || WiFi.softAPgetStationNum() > 0) && ssid != WiFi.SSID()) {
+    WiFi.begin(ssid, pass);
+
+#ifdef  RTC_INFO_MESSAGES
+    Serial.print(F("Trying to connect to "));
+    Serial.println(ssid);
+#endif
+
     for (int i = 0; i < CONNECT_TO_NETWORK_LOOP_COUNT; i++) {
       if (WiFi.status() != WL_CONNECTED) {
+#ifdef  RTC_INFO_MESSAGES
         Serial.print(F("."));
-        
+#endif
+
         if (i == CONNECT_TO_NETWORK_LOOP_COUNT - 1) {
-          Serial.println(F("\nFailed to connect"));
+#ifdef  RTC_INFO_MESSAGES
+          Serial.println();
+#endif
         }
       }
-      else {
-        Serial.println(F("\nConnected"));
+      else { // Save the network information and set time update variable
+        time_update_pending = true;
+        saveNetworkInfo(ssid.c_str(), pass.c_str());
+
+#ifdef  RTC_INFO_MESSAGES
+        Serial.println();
+#endif
+        is_connected = true;
         break;
       }
-      
+
       delay(CONNECT_TO_NETWORK_LOOP_DELAY);
     }
   }
-  else {
+#ifdef  RTC_INFO_MESSAGES
+  else
     Serial.println(("Connected to " + WiFi.SSID()).c_str());
-  }
+#endif
+
+  return is_connected;
 }
 
 // ------------------------------------------- Daylight saving time check function -------------------------------------------- //
-void DaylightSavingChange(int& hourNow) { // Hours change on last Sunday in March/October
-  // Check if today is the last sunday of March/October
-  int lastSundayDate = -1;
-  if ((rtc.now().month() == 3 || rtc.now().month() == 10) && (31 - rtc.now().day() < 7) && rtc.now().dayOfTheWeek() == 0) {
-    lastSundayDate = rtc.now().day();
-    dstHasChanged = true;
+// Daylight saving time change is on last Sunday in March/October
+void daylightSavingChange(uint8_t &hour_now) {
+  if (rtc.now().month() > 3 && rtc.now().month() < 10) {
+    hour_now += 1;
   }
+  else {
+    uint8_t days_until_sunday = 7 - rtc.now().dayOfTheWeek();
+    uint8_t next_sunday_date = rtc.now().day() + days_until_sunday;
+    uint8_t last_sunday_date = 31 - ((31 - next_sunday_date) % 7);
 
-  if ((rtc.now().month() > 3 && rtc.now().month() < 10) ||
-      ((rtc.now().month() == 3 && rtc.now().day() >= lastSundayDate) ||
-      (rtc.now().month() == 10 && rtc.now().day() < lastSundayDate) && lastSundayDate != -1))
-    hourNow += timezone + 1;
-  else
-    hourNow += timezone;
+    if ((rtc.now().month() == 3 && rtc.now().day() > last_sunday_date) ||
+        (rtc.now().month() == 10 && rtc.now().day() < last_sunday_date)) {
+      hour_now += 1;
+    }
+  }
 }
 
 // ----------------------------------- Display on the TM1637 that the clock just updated time ----------------------------------- //
-void DisplayClockJustUpdated(bool updatedFromGPS) {
-  if (updatedFromGPS) {
+void displayClockJustUpdated(bool updated_from_gps) {
+  // Effect when the clock time is set
+  const uint8_t TIME_SET_ANIMATION[8][4] = {{(SEG_E | SEG_F), 0, 0, 0 }, {(SEG_A | SEG_B | SEG_C | SEG_D), 0, 0, 0},
+    {(SEG_A | SEG_D), (SEG_E | SEG_F), 0, 0}, {(SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D), 0, 0},
+    {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_E | SEG_F), 0}, {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D), 0},
+    {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_E | SEG_F)}, {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D)}
+  };
+
+  // Animate effect
+  if (updated_from_gps) {
     for (int j = 7; j > -1; j--) {
-      tm1637.setSegments(connectingToNetworkAnimation[j]);
+      tm1637.setSegments(TIME_SET_ANIMATION[j]);
       delay(75);
     }
   }
   else {
     for (int j = 0; j < 8; j++) {
-      tm1637.setSegments(connectingToNetworkAnimation[j]);
+      tm1637.setSegments(TIME_SET_ANIMATION[j]);
       delay(75);
     }
   }
 }
 
 // --------------------------------------------- Edit settings file with user input --------------------------------------------- //
-// daylightSaving, setTimeWithGPS, autoBrightness, displayBrightness, timezone
-void EditClockSettings(bool dS, bool setWithGPS, bool autoBr, int displayBr, const char tz[], const char ip[]) {
-  int tagsCount = sizeof(startTags) / 4;
-  File f = LittleFS.open("/espSettings.xml", "w");
-  f.write((settingsFile.substring(0, settingsFile.indexOf(startTags[0]) + strlen(startTags[0]))).c_str());
-  
-  for (int i = 0; i < tagsCount; i++) {
-    switch (i) { // Override each value
-      case 0:
-        f.write(dS ? "Active" : "Inactive"); // daylightSaving
-        break;
-      case 1:
-        f.write(setWithGPS ? "GPS" : "WiFi"); // setTimeWithGPS
-        break;
-      case 2:
-        f.write(autoBr ? "Auto" : "Manual"); // autoBrightness
-        break;
-      case 3:
-        f.write(char(displayBr + '0')); // displayBrightness
-        break;
-      case 4:
-        f.write(tz); // timezone
-        break;
-      case 5:
-        f.write(ip); // ip
-        break;
-      default:
-        break;
-    }
-    if (i < tagsCount - 1)
-      f.write((settingsFile.substring(settingsFile.indexOf(endTags[i]), settingsFile.indexOf(startTags[i + 1]) + strlen(startTags[i + 1]))).c_str());
-    else
-      f.write((settingsFile.substring(settingsFile.indexOf(endTags[i]), settingsFile.length())).c_str());
+void editClockSettings(const char new_value[], uint8_t tags_id) {
+  switch (tags_id) {
+    case 0:
+      if (daylight_saving != (strcmp(new_value, "true") == 0)) {
+        editSettingsFile(new_value, tags_id);
+        daylight_saving = !daylight_saving;
+      }
+
+      break;
+
+    case 1:
+#ifdef  GPS_MODULE
+      if (set_time_with_gps != (strcmp(new_value, "gps") == 0)) {
+        editSettingsFile(new_value, tags_id);
+        set_time_with_gps = !set_time_with_gps;
+      }
+#endif
+
+      break;
+
+    case 2:
+      if (auto_brightness != (strcmp(new_value, "true") == 0)) {
+        editSettingsFile(new_value, tags_id);
+        auto_brightness = !auto_brightness;
+      }
+
+      break;
+
+    case 3:
+      editSettingsFile(new_value, tags_id); // Manual brightness level (set by user)
+
+      if (!auto_brightness)
+        last_display_brightness = display_brightness;
+
+      break;
+
+    case 4:
+      editSettingsFile(new_value, tags_id); // Manual brightness level (set by user)
+      break;
   }
-  
+}
+
+void editSettingsFile(const char new_value[], uint8_t tags_id) {
+  String settings_file = readFileToString("/espSettings.xml");
+  File f = LittleFS.open("/espSettings.xml", "w");
+
+  // Rewrite everything before the opening tag
+  f.write((settings_file.substring(0, settings_file.indexOf(START_TAGS[tags_id]) + strlen(START_TAGS[tags_id]))).c_str());
+  f.write(new_value);
+
+  // Rewrite everything after the closing tag
+  f.write((settings_file.substring(settings_file.indexOf(END_TAGS[tags_id]), settings_file.length())).c_str());
   f.close();
 }
 
-// ----------------------------------- If the ESP is connected to network turn on the LED ------------------------------------- //
-void ESP_ToNetworkConnection() {
-  if (digitalRead(LED_PIN) == LOW && WiFi.status() != WL_CONNECTED) {
-    digitalWrite(LED_PIN, HIGH);
-  }
-  else if (digitalRead(LED_PIN) == HIGH && WiFi.status() == WL_CONNECTED)
-    digitalWrite(LED_PIN, LOW);
-}
-
 // --------------------- Flash the display if someone connects to the ESP or if it connects to NTP server --------------------- //
-void FlashDisplay() {
-  if (someoneJustConnected && flashesOnConnect == 0) {
-    flashesOnConnect = 6;
-    lastAutoBrightness = autoBrightness;
-    lastDisplayBrightness = displayBrightness;
-    autoBrightness = false;
+void flashDisplay() {
+  if (someone_just_connected && blink_count == 0) {
+    blink_count = 6;
+    last_auto_brightness = auto_brightness;
+    last_display_brightness = display_brightness;
+    auto_brightness = false;
   }
-  
-  if (flashesOnConnect > 0) {
-    if (displayBrightness == lastDisplayBrightness) {
-      if (connectedTo_NTP)
-        displayBrightness = displayBrightness != 6 ? 6 : 0;
+
+  if (blink_count > 0) {
+    if (display_brightness == last_display_brightness) {
+      if (connected_to_ntp)
+        display_brightness = display_brightness != 6 ? 6 : 0;
       else
-        displayBrightness = displayBrightness != 0 ? 0 : 6;
+        display_brightness = display_brightness != 0 ? 0 : 6;
     }
     else
-      displayBrightness = lastDisplayBrightness;
-      
-    flashesOnConnect--;
-    
-    if (flashesOnConnect == 0) {
-      someoneJustConnected = false;
-      autoBrightness = lastAutoBrightness;
-    }
-    
-    if (!someoneJustConnected && !connectedTo_NTP) {
-      flashesOnConnect = 0;
-      autoBrightness = lastAutoBrightness;
-      displayBrightness = lastDisplayBrightness;
-    }
-  }
-  
-  tm1637.setBrightness(displayBrightness);
-}
+      display_brightness = last_display_brightness;
 
-// -------------------------------------- Get infomation from the xml file in the ESP ------------------------------------- //
-void GetClockSettings() {
-  settingsFile = ReadPage("/espSettings.xml");
-  String elValue = "";
-  int tagsCount = sizeof(startTags) / 4;
+    blink_count--;
 
-  for (int i = 0; i < tagsCount; i++) {
-    elValue = settingsFile.substring(settingsFile.indexOf(startTags[i]) + strlen(startTags[i]), settingsFile.indexOf(endTags[i]));
-    switch (i) {
-      case 0:
-        daylightSaving = elValue == "Active";
-        break;
-        
-      case 1:
-        setTimeWithGPS = elValue == "GPS";
-        break;
-        
-      case 2:
-        autoBrightness = elValue == "Auto";
-        break;
-        
-      case 3:
-        displayBrightness = elValue.toInt(); // Manual brightness level (set by user)
-        if (!autoBrightness)
-          lastDisplayBrightness = displayBrightness;
-        break;
+    if (blink_count == 0) {
+      someone_just_connected = false;
+      auto_brightness = last_auto_brightness;
+    }
+
+    if (!someone_just_connected && !connected_to_ntp) {
+      blink_count = 0;
+      auto_brightness = last_auto_brightness;
+      display_brightness = last_display_brightness;
     }
   }
+
+  tm1637.setBrightness(display_brightness);
 }
 
-int GetNTP_PacketLength(IPAddress& address) {
-  SendNTP_Packet(address);
+// ---------------------------------- Get length of the packet received from the NTP server ---------------------------------- //
+int getNTP_PacketLength(IPAddress& address) {
+  sendNTP_Packet(address);
 
-  unsigned long startMillis = millis();
-  unsigned long lastMillis = startMillis;
-  unsigned long packetLength = 0;
-  
-  while (millis() - startMillis < 800 && packetLength == 0) {
-    packetLength = udp.parsePacket();
-    if (millis() != lastMillis && ((millis() - startMillis) % 100) == 0) {
+  unsigned long start_millis = millis();
+  unsigned long last_millis = start_millis;
+  unsigned long packet_length = 0;
+
+  while (millis() - start_millis < 800 && packet_length == 0) {
+    packet_length = udp.parsePacket();
+
+    if (millis() != last_millis && ((millis() - start_millis) % 100) == 0) {
+#ifdef  RTC_INFO_MESSAGES
       Serial.print(F("."));
-      lastMillis = millis();
+#endif
+
+      last_millis = millis();
     }
   }
-  
-  return packetLength;
+
+  return packet_length;
 }
 
-// ------------------------------------------- Print the current time to the TM1637 ------------------------------------------- //
-void PrintCurrentTime() {
+// --------------------------------------- Update the time manually from the user's device ---------------------------------------- //
+void manualTimeUpdate() {
+  String current_time_str = server.arg("currentTime");
+  const uint8_t PARAMS_COUNT = 6;
+  const char delimiter = ',';
+  uint16_t current_time[PARAMS_COUNT];
+
+  for (uint8_t i = 0; i < PARAMS_COUNT; i++) {
+    String time_value = current_time_str.substring(0, current_time_str.indexOf(delimiter));
+    current_time[i] = time_value.toInt();
+
+    if (i < 5)
+      current_time_str.remove(0, time_value.length() + 1);
+  }
+
+  rtc.adjust(DateTime(current_time[0], current_time[1] + 1, current_time[2],
+                      current_time[3], current_time[4], current_time[5]));
+}
+
+// --------------------------------------------- Print the current time to the TM1637 --------------------------------------------- //
+void printCurrentTime() {
   int h = rtc.now().hour(); // Current hour
   int m = rtc.now().minute(); // Current minute
-  int digitsToPrint = ((h / 10) * 1000) + ((h % 10) * 100) + ((m / 10) * 10) + (m % 10);
+  int digits_to_print = ((h / 10) * 1000) + ((h % 10) * 100) + ((m / 10) * 10) + (m % 10);
 
-  if (s % 2 == 1)
-    tm1637.showNumberDecEx(digitsToPrint, 16);
+  if (second_now % 2 == 1)
+    tm1637.showNumber(digits_to_print, 32); // tm1637.showNumber(digits_to_print, 32, true); // OSRAM NBG_CLOCK_00001 & NBG_CLOCK_00002 ONLY
   else
-    tm1637.showNumberDecEx(digitsToPrint, 0);
+    tm1637.showNumber(digits_to_print, 0); // tm1637.showNumber(digits_to_print, 0, true); // OSRAM NBG_CLOCK_00001 & NBG_CLOCK_00002 ONLY
 
-  lastSecond = s;
+  last_second = second_now;
 
+#ifdef  RTC_INFO_MESSAGES
   Serial.print(F("Time: "));
   Serial.print(h);
   Serial.print(F(":"));
   Serial.print(m);
   Serial.print(F(":"));
-  Serial.print(s);
-  Serial.print(F(", "));
+  Serial.print(second_now);
+  Serial.print(F(" "));
   Serial.print(rtc.now().day());
   Serial.print(F("."));
   Serial.print(rtc.now().month());
@@ -237,201 +274,202 @@ void PrintCurrentTime() {
   Serial.print(F(", Day of the week: "));
   Serial.print(rtc.now().dayOfTheWeek());
   Serial.print(F(", "));
-}
-
-// ------------------------------------------- Print the current time to the TM1637 ------------------------------------------- //
-void PrintCurrentTimeOrTemperature() {
-  // Get actual time, update dots, flash if someone connects once per second to save CPU power
-  if (showTime) {
-    PrintCurrentTime();
-    showDuration--;
-
-    if (showDuration == 0) {
-      showDuration = 4;
-      showTime = false;
-    }
-  }
-  else
-    PrintCurrentTemperature();
+#endif
 }
 
 // ---------------------------------------------- File content reading function ---------------------------------------------- //
-String ReadPage(String filename) {
-  File f = LittleFS.open(filename.c_str(), "r");
+String readFileToString(const char *filename) {
+  File f = LittleFS.open(filename, "r");
   String page;
-  while (f.available()) {
+
+  while (f.available())
     page += char(f.read());
-  }
+
   f.close();
 
   return page;
 }
 
 // --------------------------------------------- Resets the Real-Time Clock module --------------------------------------------- //
-void Reset_RTC() {
+void resetRTC() {
   digitalWrite(LED_PIN, HIGH);
-  delay(250);  
-  
+  delay(250);
+
   pinMode(SDA, INPUT_PULLUP);
   pinMode(SCL, INPUT_PULLUP);
-  
+
   while (SDA_READ() == 0) {
     SDA_HIGH();
     SCL_HIGH();
+
     if (SDA_READ()) {
       SDA_LOW();
       SDA_HIGH();
     }
+
     SCL_LOW();
   }
-  
+
+#ifdef  RTC_INFO_MESSAGES
   Serial.println(F("RTC reset"));
+#endif
+
   digitalWrite(LED_PIN, LOW);
   delay(250);
 }
 
-// ----------------------------------------------- NTP packet sending function ----------------------------------------------- //
-void SendNTP_Packet(IPAddress& address) {
-  Serial.println(F("Preparing NTP packet"));
+// ----------------------------------------------- Save new network information ----------------------------------------------- //
+void saveNetworkInfo(const char *network_name, const char* network_pass) {
+  File f = LittleFS.open("creds.txt", "w+");
 
-  memset(packetBuffer, 0, NTP_PACKET_SIZE); // Set all bytes in the buffer to 0
+  f.write(network_name);
+  f.write("\n");
+  f.write(network_pass);
+  f.close();
+}
+
+// ----------------------------------------------- NTP packet sending function ----------------------------------------------- //
+void sendNTP_Packet(IPAddress& address) {
+#ifdef  RTC_INFO_MESSAGES
+  Serial.println(F("Preparing NTP packet"));
+#endif
+
+  memset(packet_buffer, 0, NTP_PACKET_SIZE); // Set all bytes in the buffer to 0
 
   // Initialize values needed to form NTP request (see URL above for details on the packets)
-  packetBuffer[0] = 0b11100011; // LI, Version, Mode
-  packetBuffer[1] = 0;     // Stratum, or type of clock
-  packetBuffer[2] = 6;     // Polling Interval
-  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  packet_buffer[0] = 0b11100011; // LI, Version, Mode
+  packet_buffer[1] = 0;     // Stratum, or type of clock
+  packet_buffer[2] = 6;     // Polling Interval
+  packet_buffer[3] = 0xEC;  // Peer Clock Precision
 
   // 8 bytes of zero for Root Delay & Root Dispersion
-  packetBuffer[12]  = 49;
-  packetBuffer[13]  = 0x4E;
-  packetBuffer[14]  = 49;
-  packetBuffer[15]  = 52;
+  packet_buffer[12]  = 49;
+  packet_buffer[13]  = 0x4E;
+  packet_buffer[14]  = 49;
+  packet_buffer[15]  = 52;
 
   // All NTP fields have values, send a packet requesting a timestamp
   udp.beginPacket(address, 123); // NTP requests are to port 123
-  udp.write(packetBuffer, NTP_PACKET_SIZE);
+  udp.write(packet_buffer, NTP_PACKET_SIZE);
   udp.endPacket();
+
+#ifdef  RTC_INFO_MESSAGES
   Serial.print(F("NTP packet sent. Waiting response"));
+#endif
 }
 
 // ------------------------------------------ Determine which update function to call --------------------------------------- //
-void UpdateTime(bool hasGPS) {
-  if ((rtc.now().hour() == updateHour && rtc.now().minute() == 0 && rtc.now().second() <= 5) || timeUpdatePending) {
-    if (hasGPS && setTimeWithGPS) {
-      if (GPS_connectionTriesLeft > 1) {
+void updateTime() { // Check if it's the right time to update the time or if time update is requested
+  if ((rtc.now().hour() == update_hour && rtc.now().minute() == 0 && rtc.now().second() < 3) || time_update_pending) {
+    bool time_updated = false;
+
+#ifdef  GPS_MODULE
+    if (set_time_with_gps) { // Check if time should be updated through GPS module
+      if (gps_connect_attempts_left > 0) {
         unsigned long startMillis = millis();
-        
+
         while (millis() - startMillis < 1000 && gps.satellites.value() == 0) {
           while (gpsSerial.available()) {
             gps.encode(gpsSerial.read());
             server.handleClient();
           }
-          
+
           server.handleClient();
         }
+
         if (gps.satellites.value() != 0)
-          UpdateTimeFromGPS(gps.date, gps.time); // Function in GPS_Addon
-        
+          time_updated = updateTimeFromGPS(gps.date, gps.time); // GPS module function
+
+#ifdef  RTC_INFO_MESSAGES
         Serial.print(F("Could not get time from GPS. Tries left: "));
-        Serial.println(--GPS_connectionTriesLeft);
+        Serial.println(--gps_connect_attempts_left);
+#endif
       }
-      else {
+      else { // In case of timeout detatchInterrupt and try updating the time from NTP
         detachInterrupt(digitalPinToInterrupt(GPS_RX));
-        UpdateTimeFromNTP();
+        time_updated = updateTimeFromNTP();
       }
     }
-    else {
+    else { // In case of time update from NTP
       detachInterrupt(digitalPinToInterrupt(GPS_RX));
-      
-      if (hasGPS) {
-        Serial.println(F("Time not updated from GPS"));
+      time_updated = updateTimeFromNTP();
+    }
+#else
+    time_updated = updateTimeFromNTP();
+#endif
+
+    if (time_updated && daylight_saving) {
+      uint8_t temp_hour = rtc.now().hour();
+      daylightSavingChange(temp_hour);
+
+      if (rtc.now().hour() != temp_hour) {
+        rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(),
+                            temp_hour, rtc.now().minute(), rtc.now().second()));
       }
-      else {
-        Serial.println(F("No GPS"));
-      }
-      UpdateTimeFromNTP();
     }
   }
 }
 
 // ----------------------------------------- Update time from Network Time Protocol server --------------------------------------- //
-void UpdateTimeFromNTP() {
-  WiFi.hostByName(EU_NTP_SERVER_1, timeServerIP); // Get a random server from the pool
-  //SendNTP_Packet(TIME_SERVER_IP); // Send an NTP packet to a time server
+bool updateTimeFromNTP() {
+  WiFi.hostByName(EU_NTP_SERVER_1, time_server_ip); // Get a random server from the pool
+  bool time_updated = false;
 
-  if (GetNTP_PacketLength(timeServerIP)) { // If packet is received from NTP server read it and update time
-    Serial.println(F("\nResponse received"));
-    udp.read(packetBuffer, NTP_PACKET_SIZE); // Read the packet into the buffers
+  if (getNTP_PacketLength(time_server_ip)) { // If packet is received from NTP server read it and update time
+#ifdef  RTC_INFO_MESSAGES
+    Serial.println(F("\nNTP response received"));
+#endif
+
+    udp.read(packet_buffer, NTP_PACKET_SIZE); // Read the packet into the buffers
 
     // The timestamp starts at byte 40 of the received packet and is four bytes, or two words, long. First, esxtract the two words:
-    unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
-    unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
-    unsigned long secsSince1900 = highWord << 16 | lowWord; // NTP time (seconds since Jan 1 1900)
-    unsigned long epoch = secsSince1900 - 2208988800UL + 2; // Unix time starts on Jan 1 1970. In seconds, 70 years is 2208988800
+    unsigned long high_word = word(packet_buffer[40], packet_buffer[41]);
+    unsigned long low_word = word(packet_buffer[42], packet_buffer[43]);
+    unsigned long secs_since_1900 = high_word << 16 | low_word; // NTP time (seconds since Jan 1 1900)
+    // Unix time starts on Jan 1 1970. In seconds, 70 years is 2208988800. Add two seconds to compencate the delay
+    time_t epoch = secs_since_1900 - 2208988800UL + 1;
 
-    int yearsSince1970 = epoch / 31556736;
+    struct tm *current_time = localtime(&epoch);
+    current_time->tm_year += 1900; // Year is calculated from 1900 to now, so set to current year
+    current_time->tm_hour += timezone;
 
-    // To find current month and day get current day in year
-    int dayOfYear = (int(epoch / 86400) % 365) - int(yearsSince1970 * 0.24);
-    int lengthOfMonths[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-    
-    if ((yearsSince1970 + 1970) % 4 == 0) {
-      dayOfYear += 1;
-      lengthOfMonths[2] += 1;
-    }
+    rtc.adjust(DateTime(current_time->tm_year, current_time->tm_mon + 1, current_time->tm_mday,
+                        current_time->tm_hour, current_time->tm_min, current_time->tm_sec));
 
-    // And subtract the length of each month
-    int monthNow;
-    
-    for (monthNow = 1; dayOfYear > lengthOfMonths[monthNow]; monthNow++) {
-      dayOfYear -= lengthOfMonths[monthNow];
-      if (dayOfYear == 0)
-        dayOfYear = lengthOfMonths[monthNow];
-    }
+    connected_to_ntp = true;
+    displayClockJustUpdated(false);
 
-    int dayNow = dayOfYear;               // Current day
-    int hourNow = (epoch % 86400) / 3600; // hour
-    int minuteNow = (epoch %  3600) / 60; // minutes
-    int secondNow = epoch % 60;           // and seconds
-
-    if (daylightSaving) {                  // If daylight saving time is ON
-      if (rtc.now().day() != dayNow)
-        rtc.adjust(DateTime(yearsSince1970 + 1970, monthNow, dayNow, hourNow, minuteNow, secondNow)); // Write new date to RTC to get proper dayOfTheWeek()
-      DaylightSavingChange(hourNow);   // change time accordingly
-    }
-    else
-      hourNow += timezone; // Otherwise use the respective timezone
-      
-    hourNow %= 24;
-    rtc.adjust(DateTime(yearsSince1970 + 1970, monthNow, dayNow, hourNow, minuteNow, secondNow)); // Write the new time to the RTC memory
-    DisplayClockJustUpdated(false);
-    connectedTo_NTP = true;
-    updateHour = 3;
-    timeUpdatePending = false;
+#ifdef  RTC_INFO_MESSAGES
     Serial.println(F("Time updated from NTP server\n"));
+#endif
+    time_updated = true;
   }
-  else { // If time update failed try after an hour up to twice
-    if (updateHour < 6)
-      updateHour++;
-    else {
-      updateHour = 3;
-      int hourNow = rtc.now().hour();
-      DaylightSavingChange(hourNow);
-      rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(), hourNow, rtc.now().minute(), rtc.now().second()));
-    }
-    
+  else {
+    if (update_hour <= LAST_UPDATE_HOUR)
+      update_hour++;
+    else
+      update_hour = 3;
+
+#ifdef  RTC_INFO_MESSAGES
     Serial.println(F("\nCould not update time from NTP server\n"));
-    timeUpdatePending = false;
-    dstHasChanged = false;
+#endif
   }
+
+  time_update_pending = false;
+  return time_updated;
 }
 
-// ------------------------------------- Displays hour and temperature or only time on the TM1637 ------------------------------------- //
-void VisualizeOnDisplay(bool hasTSensor) {
-  AutoBrightness(); // Light_Sensitivity_Addon
-  if (hasTSensor) // If the clock has temperature sensor
-    PrintCurrentTimeOrTemperature();
-  else
-    PrintCurrentTime();
+// ------------------------------------- Displays time and temperature or only time on the TM1637 ------------------------------------- //
+void visualizeOnDisplay() {
+#ifdef  LIGHT_SENSITIVITY_MODULE
+  autoSetBrightness(); // Light sensitivity module function
+#endif
+
+  flashDisplay(); // Additional function
+
+#ifdef  TEMPERATURE_MODULE
+  printCurrentTimeOrTemperature(); // If the clock has temperature sensor show temperature as well
+#else
+  printCurrentTime();
+#endif
 }
