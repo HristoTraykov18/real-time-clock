@@ -5,10 +5,10 @@
     --thumb-diameter: 25px;
     --password-field-button-size: 24px;
     --loader-size: 80px;
+    --settings-animation-duration: .4s;
 }
 .cursor-pointer { cursor: pointer; }
 .cursor-default { cursor: default; }
-
 body {
     margin: 0px auto;
     color: white;
@@ -17,58 +17,58 @@ body {
     font-family: Verdana, Arial, sans-serif, monospace;
 }
 header {
+    padding-top: 5px;
+    padding-bottom: 5px;
     font-size: 18px;
     font-weight: bold;
     text-shadow: 1px 1px 1px black;
     background-color: var(--pale-purple);
-    padding: 4% 0px;
 }
 header, .main-container {
-    width: 100%;
-    position: relative;
-    display: block;
+    min-width: 250px;
     margin: 0px auto;
+}
+.main-container {
+    display: flex;
+    flex-direction: column;
 }
 form {
     z-index: 1;
     width: 100%;
     font-size: 16px;
     font-weight: bold;
-    position: relative;
     background-color: var(--dark-blue);
     text-shadow: 1px 1px 1px black;
 }
 
 /* ---------------- Option buttons ---------------- */
-.option-buttons-bontainer { /* Contains the buttons above the form */
-    position: relative;
-    display: block;
+.option-buttons-container { /* Contains the buttons above the form */
     width: 100%;
-    height: 60px;
+    padding-top: 5px;
+    font-size: 18px;
+    display: flex;
+    justify-content: center;
 }
 .option-button {
-    width: 50%;
+    -webkit-transition: background-color var(--settings-animation-duration);
+    transition: background-color var(--settings-animation-duration);
     height: 100%;
-    position: relative;
-    float: left;
-    left: 0px;
-    font-size: 17px;
-    display: flex;
     border-radius: 5px;
-    -webkit-transition: background-color .4s;
-    transition: background-color .4s;
+    display: flex;
 }
 .option-button:active { color: var(--red); }
-.option-button div { margin: auto; }
-#js-auto-set-option { background-color: var(--dark-blue); }
-#js-manual-set-option { background-color: var(--pale-purple); }
+/*.option-button div { margin: auto; }*/
+#js-clock-set-option { background-color: var(--dark-blue); }
+/*#js-manual-set-option { background-color: var(--pale-purple); }*/
 /* ------------------------------------------------ */
 
-.form-container {
-    position: relative;
-    display: inline-block;
+.form-content {
     width: 100%;
     height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
 }
 
 /* ----- Styling and animation for loader ----- */
@@ -77,13 +77,13 @@ form {
     top: 50vh;
     width: var(--loader-size);
     height: var(--loader-size);
+    margin: calc(var(--loader-size) * -1) auto auto auto;
     border: 10px solid #fff;
     border-radius: 50%;
     border-top: 10px solid var(--red);
     -webkit-animation: spin 2s linear infinite; /* Safari */
     animation: spin 2s linear infinite;
     position: relative;
-    margin: calc(var(--loader-size) * -1) auto auto auto;
 }
 @-webkit-keyframes spin { /* Safari */
     0% { -webkit-transform: rotate(0deg); }
@@ -96,39 +96,38 @@ form {
 /* -------------------------------------------- */
 
 .logo-svg {
-    position: absolute;
     height: 95%;
     width: 100%;
     z-index: -100;
     left: 0px;
     top: 0px;
+    position: absolute;
 }
 fieldset {
     border-width: 0px;
     clear: both;
 }
 .message {
-    font-size: 18px;
-    margin: 5px;
+    font-size: 20px;
+    margin: 3px auto;
     cursor: default;
     font-weight: bold;
     word-break: break-word;
 }
 
 /* ------------------- Auto settings ------------------- */
-#js-auto-settings, #js-manual-settings {
-    height: 185px;
-    -webkit-transition: opacity .3s;
-    transition: opacity .3s;
-    font-size: 0px; /* Fixes white spaces */
-}
-#js-auto-settings div {
-    margin: 20px 0px;
-    display: block;
+#js-clock-settings {
+    -webkit-transition: opacity var(--settings-animation-duration);
+    transition: opacity var(--settings-animation-duration);
+    display: flex;
+    flex-direction: column;
 }
 .password-field {
     position: relative;
-    display: inline-block;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    align-self: center;
 }
 #js-password-button-container, .password-field-button {
     position: absolute;
@@ -136,84 +135,26 @@ fieldset {
     height: var(--password-field-button-size);
 }
 #js-password-button-container {
-    top: 25%;
     right: 10px;
+    border-radius: 4px;
     display: flex;
     cursor: pointer;
-    border-radius: 4px;
 }
 #js-password-button-container:active { background-color: gray; }
 .password-field-button {
     fill: #012341;
     pointer-events: none;
 }
-#hide-password-button { opacity: 0; }
+#js-hide-password-button { opacity: 0; }
 /* ----------------------------------------------------- */
 
-/* ------------------- Manual settings ------------------- */
-#js-manual-settings {
-    opacity: 0;
-    display: none;
-}
-#js-manual-settings > div { margin: 5px auto; }
-.increase-buttons-container, .decrease-buttons-container { height: 30px; }
-.divider {
-    width: 20px;
-    height: 30px;
-    display: inline-block;
-}
-.increase-button { border-bottom: 30px solid var(--red); }
-.decrease-button { border-top: 30px solid var(--red); }
-.increase-button, .decrease-button {
-    width: 0px;
-    height: 0px;
-    display: inline-block;
-    border-left: 30px solid transparent;
-    border-right: 30px solid transparent;
-    margin: 0px 5px;
-    -webkit-transition: border-color .15s;
-    transition: border-color .15s;
-    cursor: pointer;
-}
-.clock-digit {
-    width: 60px;
-    height: 80px;
-    background-color: white;
-    font-size: 80px;
-    text-align: center;
-    color: var(--dark-blue);
-    display: inline-block;
-    padding: 0px;
-    margin: 0px 5px;
-    border-width: 0px;
-    border-radius: 5px;
-    vertical-align: top;
-}
-.dots-container {
-    width: 20px;
-    height: 80px;
-    position: relative;
-    display: inline-block;
-}
-.clock-dot { /* Dots between the digits */
-    width: 20px;
-    height: 20px;
-    position: absolute;
-    background-color: var(--red);
-    border-radius: 50%;
-}
-.clock-dot.upper-dot { top: 20%; }
-.clock-dot.lower-dot { bottom: 20%; }
-/* ------------------------------------------------------- */
-
-/* -------- Radio buttons and checkboxes -------- */
+/* -------- Switch buttons and checkboxes -------- */
 .checkbox-container {
     margin: 10px auto;
     width: 60%;
-    font-size: 0px; /* Fixes white spaces */
 }
-.checkbox-label, .radio-button-label { /* Contains daylight saving text and checkbox */
-    display: inline-block;
+.checkbox-label, .checkbox-slider-label { /* Contains daylight saving text and checkbox */
+    display: flex;
     position: relative;
     cursor: pointer;
     -webkit-user-select: none;
@@ -221,19 +162,20 @@ fieldset {
     -ms-user-select: none;
     user-select: none;
     margin: auto;
-    font-size: 16px;
 }
-.checkbox-label { margin: 10px 0px; }
-.checkbox-label div {
-    float: right;
-    margin-left: 25px;
+.checkbox-label {
+    flex-direction: column;
+    justify-content: center;
+    margin: 10px 0px;
 }
-.checkbox-label:active, .radio-button-label:active {
+.checkbox-label div { margin-left: 25px; }
+.checkbox-label:active {
     color: var(--red);
     background-color: transparent;
 }
 .checkbox-box { /* Custom checkbox */
     display: block;
+    position: absolute;
     height: 25px;
     width: 25px;
     background-color: white;
@@ -254,60 +196,71 @@ fieldset {
     border-bottom-right-radius: 2px;
     border-top-right-radius: 2px;
 }
-#radio-buttons-container {
-    margin: 5px 0px;
-    font-size: 0px; /* Fixes white spaces */
-}
-.radio-button-label {
-    margin: 0px 5px;
-    font-size: 16px;
-}
-.radio-button-label div {
-    margin-left: 25px;
-    float: right;
-}
-.radio-button-circle { /* Custom radio button */
-    display: block;
-    height: 20px;
-    width: 20px;
-    background-color: white;
-    border-radius: 50%;
-}
-.radio-button-label .radio-button-circle:after { /* Style of the custom radio button circle */
-    top: 5px;
-    left: 5px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background-color: var(--red);
-}
-.checkbox-box::after, .radio-button-circle::after { /* checkbox indicator (hidden when not checked) */
+.checkbox-box::after { /* checkbox indicator (hidden when not checked) */
     content: "";
     position: absolute;
     display: none;
 }
-.checkbox-label input:checked ~ .checkbox-box:after, 
-.radio-button-label input:checked ~ .radio-button-circle:after { display: inline; } /* Show the checkbox-box when checked */
-/* ---------------------------------------------- */
+.checkbox-label input:checked ~ .checkbox-box::after { display: inline; } /* Show the checkbox-box when checked */
+#checkbox-slider-container {
+    margin: 5px 0px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.checkbox-slider-label {
+    justify-content: flex-start;
+    margin: 0px 5px;
+    width: 55px;
+    background-color: var(--red);
+    border-radius: 10px;
+}
+.checkbox-slider, .checkbox-slider::after {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+}
+.checkbox-slider { /* Custom radio button */
+    margin: 3px;
+    align-items: center;
+    justify-content: center;
+}
+.checkbox-slider::after {
+    -webkit-transition: var(--settings-animation-duration);
+    transition: var(--settings-animation-duration);
+    background-color: white;
+    position: absolute;
+    content: '';
+}
+.checkbox-slider-label input:checked ~ .checkbox-slider::after {
+    -webkit-transform: translateX(140%);
+    -ms-transform: translateX(140%);
+    transform: translateX(140%);
+}
+/* ----------------------------------------------- */
 
 /* CSS for range input */
-#js-slider-container {
+.js-slider-container {
     width: 80%;
     height: 15px;
-    opacity: 0;
     margin: auto;
     position: relative;
-    pointer-events: none;
     border-radius: 10px;
-    -webkit-transition: opacity .4s, pointer-events 0s;
-    transition: opacity .4s, pointer-events 0s;
+    -webkit-transition: opacity var(--settings-animation-duration), pointer-events 0s;
+    transition: opacity var(--settings-animation-duration), pointer-events 0s;
+}
+.js-sc-big { margin-top: 35px; } /* js-slider-container-big */
+#js-brightness-slider-container {
+    opacity: 0;
+    pointer-events: none;
 }
 .slider-track {
     height: 100%;
     border-radius: 10px;
     border-width: 0px;
 }
-#js-slider-input {
+.js-slider-input {
     top: 0px;
     left: 0px;
     opacity: 0;
@@ -318,9 +271,9 @@ fieldset {
     cursor: pointer;
     position: absolute;
 }
-#js-slider-container, #js-slider-thumb { border: 2px solid black; }
-.slider-track, #js-slider-thumb { background-color: var(--red); }
-#js-slider-thumb {
+.js-slider-container, .js-slider-thumb { border: 2px solid black; }
+.slider-track, .js-slider-thumb { background-color: var(--red); }
+.js-slider-thumb {
     top: -6.5px;
     width: var(--thumb-diameter);
     height: var(--thumb-diameter);
@@ -328,49 +281,60 @@ fieldset {
     position: absolute;
     pointer-events: none;
 }
+.js-slider-tooltip {
+    width: var(--thumb-diameter);
+    bottom: var(--thumb-diameter);
+    position: absolute;
+    color: var(--red);
+    font-size: 20px;
+}
 /* ------------------- */
 
-.auto-settings-input {
+.clock-settings-input {
     padding: 2px 10px;
+    margin: 5px auto;
     border: 1px solid #000;
 }
-.auto-settings-input, .button-red {
+.clock-settings-input, .button-red {
     font-size: 25px;
     border-radius: 10px;
 }
-.button-container {
-    padding: 10px 0px;
-    font-size: 0px; /* Fixes white spaces */
-}
+.button-container { padding: 8px 0px; }
+.bc-small { padding: 5px 0px; } /* button-container-small */
 .button-red {
     color: white;
     font-weight: bold;
-    padding: 10px 40px;
-    margin: 0px auto;
+    padding: 10px 20px;
     border-width: 0px;
     background-color: var(--red);
     box-shadow: 0px 0px 3px #000;
+    text-shadow: 1px 1px 1px #000;
     border: 2px solid #000;
+    display: inline-block;
 }
 .button-red:active {
     background-color: var(--pale-purple);
     box-shadow: 0px 0px 0px;
 }
-#js-popup-container { display: none; }
-#js-popup-container.show-popup { display: block; }
+.br-small { /* button-red-small */
+    padding: 5px 20px;
+    font-size: 17px;
+}
+.popup-container { display: none; }
+.popup-container.show-popup { display: block; }
 .popup-background {
     top: 0px;
     left: 0px;
-    position: absolute;
+    position: fixed;
     background-color: #333;
     opacity: 0.85;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     z-index: 10;
 }
 .popup {
     position: absolute;
-    top: 35%;
+    top: 30%;
     left: 10%;
     width: 80%;
     z-index: 100;
@@ -380,8 +344,13 @@ fieldset {
     border: 3px solid #000;
     box-shadow: 0px 0px 3px #000;
 }
+.popup-big { top: 0px; }
+.popup p {
+    width: 99%;
+    margin: 10px auto;
+}
 #js-popup-button { width: 30%; }
-.hidden-input {
+.hidden-element {
     opacity: 0;
     z-index: -100;
     display: none;
@@ -397,9 +366,13 @@ fieldset {
         border-bottom-left-radius: 10px;
         border-bottom-right-radius: 10px;
     }
-    .form-container { height: 500px; }
-
-    .auto-settings-input { padding: 5px 10px; }
+    .form-content { height: 500px; }
+    .option-buttons-container { padding-top: 10px; }
+    .message { margin: 5px auto; }
+    .clock-settings-input {
+        padding: 5px 10px;
+        margin: 10px auto;
+    }
     /* --------------------------------------------------------- */
     
     /* -------- Radio buttons and checkboxes -------- */
@@ -409,7 +382,8 @@ fieldset {
         width: 20px;
         height: 20px;
     }
-    .radio-button-circle { /* Custom radio button */
+    .checkbox-slider { /* Custom radio button */
+        margin: 3px;
         width: 18px;
         height: 18px;
     }
@@ -417,11 +391,13 @@ fieldset {
         width: 6px;
         height: 17px;
     }
-    .radio-button-label .radio-button-circle:after {
-        top: 1.1mm;
-        left: 1.1mm;
-        width: 2.5mm;
-        height: 2.5mm;
+    .checkbox-slider-label {
+        margin: 0px 10px;
+        width: 50px;
+    }
+    .checkbox-slider::after {
+        width: 18px;
+        height: 18px;
     }
     /* ---------------------------------------------- */
 
@@ -429,10 +405,12 @@ fieldset {
         top: 50%;
         margin: calc(var(--loader-size) / -2) auto auto auto;
     }
-    .button-red { padding: 10px 25px; }
+    .button-red { padding: 8px 15px; }
+    .br-small { padding: 5px 10px; }
     .popup {
-        width: 300px;
         left: 50%;
+        width: 300px;
         margin-left: -150px;
     }
 }
+/* END OF MAIN mainStyle.css FILE */

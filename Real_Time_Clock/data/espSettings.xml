@@ -1,11 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <espSettings>
-    <daylightSaving>Active</daylightSaving>
-    <timeSetup>WiFi</timeSetup>
-    <brightness>
-        <brightnessControl>Auto</brightnessControl>
-        <manualBrightnessLevel>0</manualBrightnessLevel>
-    </brightness>
-    <timezone>2</timezone>
+    <daylightSaving>true</daylightSaving>
+    <timeSyncMode>wifi</timeSyncMode>
+    <autoBrightnessControl>true</autoBrightnessControl>
+    <manualBrightnessLevel>0</manualBrightnessLevel>
+    <timezoneHoursOffset>0</timezoneHoursOffset>
     <IP>Unset</IP>
 </espSettings>

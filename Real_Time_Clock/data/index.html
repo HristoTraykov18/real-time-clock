@@ -10,15 +10,12 @@
     <header class="cursor-default">Добре дошли в настройките за часовник</header>
     <div class="main-container">
       <form method="POST">
-        <div class="option-buttons-bontainer">
-          <span id="js-auto-set-option" class="option-button cursor-default">
-            <div>Автоматична настройка на време</div>
-          </span>
-          <span id="js-manual-set-option" class="option-button cursor-default">
-            <div>Ръчна настройка на време</div>
+        <div class="option-buttons-container">
+          <span class="option-button cursor-pointer">
+            <div>Часови настройки</div>
           </span>
         </div>
-        <div class="form-container">
+        <div class="form-content">
           <svg class="logo-svg" viewBox="0 0 1195 1195" xmlns="https://www.w3.org/2000/svg">
               <g transform="translate(0, 1195) scale(0.1, -0.1)" fill="#384575" stroke="none">
                   <path d="M9772 11935 c-35 -8 -98 -31 -140 -52 -144 -70 -194 -131 -958 -1141
@@ -51,15 +48,15 @@
                   225 154 68 22 177 24 248 5z"/>
               </g>
           </svg>
-          <div id="js-auto-settings">
+          <div id="js-clock-settings">
             <p class="message">Моля въведете име и парола на мрежата за връзка</p>
             <div>
-              <input type="text" class="auto-settings-input" name="ssid" size="12" placeholder="Име на мрежа">
+              <input type="text" class="clock-settings-input" name="ssid" size="12" placeholder="Име на мрежа">
             </div>
-            <span class="password-field">
-              <input type="password" id="js-pass-input" class="auto-settings-input" name="pass" size="12" placeholder="Парола">
+            <div class="password-field">
+              <input type="password" id="js-pass-input" class="clock-settings-input" name="pass" size="12" placeholder="Парола">
               <span id="js-password-button-container">
-                <svg id="showPasswordButton" class="password-field-button" viewBox="0 0 24 24" 
+                <svg id="js-show-password-button" class="password-field-button" viewBox="0 0 24 24" 
                   xmlns="https://www.w3.org/2000/svg">
                   <path d="M12,7c-2.48,0-4.5,2.02-4.5,4.5S9.52,16,12,16s4.5-2.02,
                   4.5-4.5S14.48,7,12,7z M12,14.2c-1.49,0-2.7-1.21-2.7-2.7 c0-1.49,
@@ -69,7 +66,7 @@
                   0-7.17-2.13-8.82-5.5C4.83,8.13,8.21,6,12,6s7.17,2.13,8.82,
                   5.5C19.17,14.87,15.79,17,12,17z"/>
                 </svg>
-                <svg id="hide-password-button" class="password-field-button" viewBox="0 0 24 24" 
+                <svg id="js-hide-password-button" class="password-field-button" viewBox="0 0 24 24" 
                   xmlns="https://www.w3.org/2000/svg">
                   <path d="M10.58,7.25l1.56,1.56c1.38,0.07,2.47,1.17,2.54,
                   2.54l1.56,1.56C16.4,12.47,16.5,12,16.5,11.5C16.5,9.02,
@@ -87,79 +84,55 @@
                   1.42-0.25l0.95,0.95C13.6,16.88,12.81,17,12,17z"/>
                 </svg>
               </span>
-            </span>
-          </div>
-          <div id="js-manual-settings">
-            <p class="message">Моля ръчно задайте час</p>
-            <div class="increase-buttons-container">
-              <div class="increase-button"></div>
-              <div class="increase-button"></div>
-              <div class="divider"></div>
-              <div class="increase-button"></div>
-              <div class="increase-button"></div>
+            </div>
+            <div class="button-container">
+              <input type="submit" class="button-red cursor-pointer submit-button" value="Свързване">
             </div>
             <div>
-              <input type="text" class="clock-digit" name="digitOne" value="0" disabled>
-              <input type="text" class="clock-digit" name="digitTwo" value="0" disabled>
-              <div class="dots-container">
-                <div class="clock-dot upper-dot"></div>
-                <div class="clock-dot lower-dot"></div>
-              </div>
-              <input type="text" class="clock-digit" name="digitThree" value="0" disabled>
-              <input type="text" class="clock-digit" name="digitFour" value="0" disabled>
-            </div>
-            <div class="decrease-buttons-container">
-              <div class="decrease-button"></div>
-              <div class="decrease-button"></div>
-              <div class="divider"></div>
-              <div class="decrease-button"></div>
-              <div class="decrease-button"></div>
-            </div>
-            </span>
-          </div>
-          <div class="checkbox-container">
-            <label class="checkbox-label">
-              <div>Страна с лятна времева зона</div>
-              <input type="checkbox" id="js-daylight-saving" class="hidden-input" name="daylightSaving">
-              <span class="checkbox-box"></span>
-            </label>
-            <label id="js-brightness-control-label" class="checkbox-label">
-              <div>Автоматична настройка на яркост</div>
-              <input type="checkbox" id="js-brightness-control" class="hidden-input" name="brightnessControl" checked>
-              <span class="checkbox-box"></span>
-            </label>
-            <div id="js-slider-container">
-              <div class="slider-track">
-                <input type="range" id="js-slider-input" name="brightnessValue" value="3" min="0" max="6">
-              </div>
-              <div id="js-slider-thumb"></div>
-            </div>
-          </div>
-          <div>
-            <div>Метод за сверяване:</div>
-            <div id="radio-buttons-container">
-              <label class="radio-button-label">
+              <div>Метод за сверяване:</div>
+              <div id="checkbox-slider-container">
+                <!-- PLACEHOLDER FOR gpsAddon.html -->
+                <label class="checkbox-slider-label" style="background-color: #444;">
+                  <input type="checkbox" id="js-time-sync-mode" class="hidden-element" name="radioInput" checked disabled>
+                  <span class="checkbox-slider"></span>
+                </label>
                 <div>Wi-Fi</div>
-                <input type="radio" id="js-wifi-input" class="js-time-sync-type hidden-input" name="radioInput">
-                <span class="radio-button-circle"></span>
-              </label>
+                <!-- END OF PLACEHOLDER FOR gpsAddon.html -->
+              </div>
             </div>
           </div>
-          <div class="button-container">
-            <input type="submit" class="button-red cursor-pointer" value="Промени">
+          <div id="js-default-settings">
+            <div class="checkbox-container">
+              <label class="checkbox-label">
+                <div>Страна с лятна времева зона</div>
+                <input type="checkbox" id="js-daylight-saving" class="hidden-element" name="daylightSaving">
+                <span class="checkbox-box"></span>
+              </label>
+              <label id="js-brightness-control-label" class="checkbox-label">
+                <div>Автоматична настройка на яркост</div>
+                <input type="checkbox" id="js-brightness-control" class="hidden-element" name="brightnessControl" checked>
+                <span class="checkbox-box"></span>
+              </label>
+              <div id="js-brightness-slider-container" class="js-slider-container">
+                <div class="slider-track">
+                  <input type="range" id="js-brightness-slider-input" class="js-slider-input" 
+                    name="brightnessValue" value="3" min="0" max="6">
+                </div>
+                <div id="js-brightness-slider-thumb" class="js-slider-thumb"></div>
+              </div>
+            </div>
           </div>
-          <input type="text" id="js-time-sync-mode" class="hidden-input" name="timeSyncMode" value="auto">
         </div>
-        <div class="form-container loader-container">
+        <div class="form-content loader-container">
           <div class="loader"></div>
         </div>
       </form>
     </div>
-    <div id="js-popup-container">
+    <div id="js-popup-container" class="popup-container">
       <div class="popup">
         <p id="js-popup-message" class="message"></p>
         <div class="button-container">
-          <div id="js-popup-button" class="button-red cursor-pointer">OK</div>
+          <div class="js-cancel-popup-button button-red cursor-pointer">OK</div>
         </div>
       </div>
       <div class="popup-background"></div>
