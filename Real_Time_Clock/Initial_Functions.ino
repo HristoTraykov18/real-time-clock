@@ -1,69 +1,142 @@
 
 // ____________________________________________________ Initial functions _____________________________________________________ //
 
-// -------------------------- Check if the RTC is connected and if it is unsynchronised - reset it ----------------------------- //
-void InitialRTC_Check() {
-  tm1637.setBrightness(DEFAULT_BRIGHTNESS); // Set default brightness
-  uint8_t rtcError[] = {(SEG_A | SEG_D | SEG_E | SEG_F), 
-                        (SEG_A | SEG_D), 
-                        (SEG_A | SEG_D), 
-                        (SEG_A | SEG_B | SEG_C | SEG_D)};
-  tm1637.setSegments(rtcError); // Show 'Err' message by default in case the RTC does not work
-  
-  while (!rtc.begin()) { // If the RTC is not found do not boot
-    Serial.println(F("\nCouldn't find RTC"));
-    Reset_RTC(); // Sometimes the RTC becomes unsynchronised while switching power source - reset it
-  }
-  
-  while ((rtc.now().hour() == 165 && rtc.now().minute() == 165 && (rtc.now().second() == 85 || rtc.now().second() == 65)) ||
-         (rtc.now().hour() == 0 && rtc.now().minute() == 0 && rtc.now().second() == 0)  || (rtc.now().hour() == 6 && rtc.now().minute() == 65)) {
-    delay(250);
-    Reset_RTC();
-    delay(250);
-  }
-}
+// -------------------------------------- Get infomation from the xml file in the ESP ------------------------------------- //
+void getInitialClockSettings() {
+  String settings_file = readFileToString("/espSettings.xml");
+  String elValue = "";
+  uint8_t tagsCount = sizeof(START_TAGS) / 4;
 
-// ---------------------------------------------------- Initialize server --------------------------------------------------- //
-void ServersInitialization() {
-  udp.begin(2390); // UDP
-  
-  server.on("/", HandleWebInterface); // 192.168.4.1
-  server.on("/neonLogoIcon.ico", SendLogoIcon);
-  server.on("/mainStyle.css", SendStyling);
-  server.on("/Lock.png", SendLockImage);
-  server.on("/mainScript.js", SendScript);
-  server.on("/espSettings.xml", SendSettings);
-  server.on("/ip", SendIP);
-  // server.onNotFound(HandleNotFoundWebRequests); // If path is not found we can handle by URI
-  server.begin(); // Local web server
+  for (int i = 0; i < tagsCount; i++) {
+    elValue = settings_file.substring(settings_file.indexOf(START_TAGS[i]) + strlen(START_TAGS[i]), settings_file.indexOf(END_TAGS[i]));
 
-  httpUpdater.setup(&updateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS); // Set software update server
-  updateServer.begin(); // and start it
+    switch (i) {
+      case 0:
+        daylight_saving = elValue == "true";
+        break;
+
+      case 1:
+#ifdef  GPS_MODULE
+        set_time_with_gps = elValue == "gps";
+#endif
+        break;
+
+      case 2:
+        auto_brightness = elValue == "true";
+        break;
+
+      case 3:
+        display_brightness = elValue.toInt();
+
+        if (!auto_brightness)
+          last_display_brightness = display_brightness;
+
+        break;
+
+      case 4:
+        timezone = elValue.toInt();
+        break;
+    }
+  }
 }
 
 // ------------------------------------------- Initialize and setup ESP file system ------------------------------------------ //
-void FileSystemInitialization() {
+void initializeFileSystem() {
   LittleFS.begin();
+  initializeNetworkReconnect();
+  getInitialClockSettings();
+}
 
-  if (hasGPS && LittleFS.exists("/indexGPS.html")) {
-    LittleFS.remove("/indexNoGPS.html");
-    LittleFS.rename("/indexGPS.html", "/networkSetup.html");
-    Serial.println(F("\nUsing GPS file"));
-  }
-  else if (!hasGPS && LittleFS.exists("/indexNoGPS.html")) {
-    LittleFS.remove("/indexGPS.html");
-    LittleFS.rename("/indexNoGPS.html", "/networkSetup.html");
-    Serial.println(F("\nUsing NoGPS file"));
-  }
-  else if (LittleFS.exists("/networkSetup.html")) {
-    Serial.println(F("\nWebpage files are set"));
-  }
-  else {
-    Serial.println(F("\nError loading webpage files"));
+// ---------------------------------------------- Initialize the RTC module ------------------------------------------------- //
+void initializeModuleRTC() {
+  tm1637.setBrightness(DEFAULT_BRIGHTNESS); // Set default brightness
+  uint8_t rectangle[] = {(SEG_A | SEG_D | SEG_E | SEG_F), 
+                         (SEG_A | SEG_D), 
+                         (SEG_A | SEG_D), 
+                         (SEG_A | SEG_B | SEG_C | SEG_D)};
+
+  tm1637.setSegments(rectangle); // Show rectangle by default in case the RTC does not work
+
+  while (!rtc.begin()) { // If the RTC is not found do not boot
+#ifdef  RTC_INFO_MESSAGES
+    Serial.println(F("\nCouldn't find RTC"));
+#endif
+
+    resetRTC(); // Sometimes the RTC becomes unsynchronised while switching power source - reset it
   }
 
-  webpageSetup = ReadPage("/networkSetup.html");
-  mainStyling = ReadPage("/mainStyle.css");
-  mainScript = ReadPage("/mainScript.js");
-  GetClockSettings();
+  while (rtc.now().hour() > 23 || rtc.now().minute() > 59 || rtc.now().second() > 59) {
+    resetRTC();
+  }
+}
+
+// ---------------------------------------------- File content reading function ---------------------------------------------- //
+void initializeNetworkReconnect() {
+  if (LittleFS.exists("creds.txt")) {
+    String network_name = ""; // Global variable
+    String network_pass = ""; // Global variable
+    File f = LittleFS.open("creds.txt", "r");
+    bool is_pass = false;
+
+    while (f.available()) {
+      char current_char = char(f.read());
+
+      if (current_char == '\n') {
+        if (is_pass)
+          break;
+
+        is_pass = true;
+
+        continue;
+      }
+
+      if (is_pass)
+        network_pass += current_char;
+      else
+        network_name += current_char;
+    }
+
+    f.close();
+    connectClockToNetwork(network_name.c_str(), network_pass.c_str());
+  }
+#ifdef  RTC_INFO_MESSAGES
+  else
+    Serial.println(F("No creds.txt file"));
+#endif
+}
+
+// ---------------------------------------------------- Initialize server --------------------------------------------------- //
+void initializeServers() {
+  udp.begin(2390);
+  server.on("/", handleWebInterface); // 192.168.4.1
+  server.on("/neonLogoIcon.ico", [] () { streamFileToServer("/neonLogoIcon.ico", "image/x-icon"); });
+  server.on("/mainStyle.css", [] () { streamFileToServer("/mainStyle.css", "text/css"); });
+  server.on("/mainScript.js", [] () { streamFileToServer("/mainScript.js", "text/javascript"); });
+  server.on("/settings", [] () { streamFileToServer("/espSettings.xml", "text/xml"); });
+  server.on("/getAudioVolume", [] () { streamFileToServer("/audioVolume.txt", "text/plain"); });
+  server.on("/fileUpload", [] () {
+    //HTTPUpload& serverUpload = server.upload();
+
+    Serial.print(F("Filename: "));
+    Serial.println(server.upload().filename);
+    server.send(200);
+  });
+  server.on("/ip", sendIP);
+  server.on("/reset", [] () {
+#ifdef  AUDIO_MODULE
+    sendWebpageWithDropdowns(); // Show main page with audio addon dropdowns
+#else
+    streamFileToServer("/index.html", "text/html"); // Show main page
+#endif
+    initializeModuleRTC();
+  });
+
+  const char *UPDATE_PATH = "/sourceControl";
+  const char *UPDATE_UNAME = "ghost";
+  const char *UPDATE_PASS = "m%O0gsLKOkDl";
+
+  // server.onNotFound(HandleNotFoundWebRequests); // If path is not found we can handle by URI
+  server.begin(); // Local web server
+  httpUpdater.setup(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS); // Set software update server
+  softwareUpdateServer.begin(); // and start it
 }
