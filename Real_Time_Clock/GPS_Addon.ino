@@ -1,10 +1,21 @@
 
+// _____________________________________________________ GPS addon functions ___________________________________________________ //
+
+#ifdef  GPS_MODULE
+// ------------------------------------- Activate the GPS module if such exists in the clock ------------------------------------- //
+void activateGPS() {
+  gps_connect_attempts_left = 180;
+  gpsSerial.begin(GPS_BAUD_RATE);
+}
+
 // ---------------------------------------------------- Update time from GPS --------------------------------------------------- //
-void UpdateTimeFromGPS(TinyGPSDate &d, TinyGPSTime &t) {
-  altitudeInMeters = gps.altitude.meters();
+bool updateTimeFromGPS(TinyGPSDate &d, TinyGPSTime &t) {
+  altitude_meters = gps.altitude.meters();
   longtitude = gps.location.lng();
   latitude = gps.location.lat();
+
   if (longtitude != 0.000000 || latitude != 0.000000) {
+#ifdef  RTC_INFO_MESSAGES
     Serial.print(F("Satellite Count: "));
     Serial.println(gps.satellites.value());
     Serial.print(F("Latitude: "));
@@ -12,28 +23,29 @@ void UpdateTimeFromGPS(TinyGPSDate &d, TinyGPSTime &t) {
     Serial.print(F("Longitude: "));
     Serial.println(longtitude);
     Serial.print(F("Altitude Meters: "));
-    Serial.println(altitudeInMeters);
-    
-    int yearNow = d.year();
-    int monthNow = d.month();
-    int dayNow = d.day();
-    int hourNow = t.hour();
-    int minuteNow = t.minute();
-    int secondNow = t.second();
+    Serial.println(altitude_meters);
+#endif
 
-    if (daylightSaving) {                  // If daylight saving time is ON
-      if (rtc.now().day() != dayNow)
-        rtc.adjust(DateTime(yearNow, monthNow, dayNow, hourNow, minuteNow, secondNow)); // Write new date to RTC to get proper dayOfTheWeek()
-      DaylightSavingChange(hourNow);   // Change time accordingly
-    }
-    else
-      hourNow += timezone; // Otherwise use the respective timezone
-    
-    hourNow %= 24;
-    rtc.adjust(DateTime(yearNow, monthNow, dayNow, hourNow, minuteNow, secondNow)); // Write the new time to the RTC memory
+    int current_year = d.year();
+    int current_month = d.month();
+    int current_day = d.day();
+    int current_hour = t.hour();
+    int current_minute = t.minute();
+    int current_second = t.second();
+
+    current_hour += timezone;
+    time_update_pending = false;
+    gps_connect_attempts_left = 0;
+
+    rtc.adjust(DateTime(current_year, current_month, current_day, current_hour, current_minute, current_second));
+    displayClockJustUpdated(true);
+
+#ifdef  RTC_INFO_MESSAGES
     Serial.println(F("Time updated from GPS\n"));
-    DisplayClockJustUpdated(true);
-    GPS_connectionTriesLeft = 0;
-    timeUpdatePending = false;
+#endif
+    return true;
   }
+
+  return false;
 }
+#endif

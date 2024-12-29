@@ -49,10 +49,6 @@ void setup() {
 #endif
 
   tm1637.setBrightness(display_brightness); // Set brightness of the 7-digit display (TM1637)
-
-#ifdef  AUDIO_MODULE
-  initializeAudioModule(); // Audio module function
-#endif
 }
 
 void loop() {
@@ -63,10 +59,6 @@ void loop() {
   if (second_now != last_second) {
     updateTime(); // Additional function
     visualizeOnDisplay(); // Additional function
-
-#ifdef  AUDIO_MODULE
-    checkTimeForNotification(); // Audio module function
-#endif
 
 #ifdef  RTC_INFO_MESSAGES
     Serial.print(F("WiFi status: "));

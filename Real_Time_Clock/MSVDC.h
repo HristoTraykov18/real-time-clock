@@ -95,20 +95,6 @@ ESP8266HTTPUpdateServer httpUpdater;
 /* ----------------------------------------------------------------------------------------------- */
 
 
-#ifdef  AUDIO_MODULE
-/* ------------------------------------ AUDIO MODULE SPECIFIC ------------------------------------ */
-const PROGMEM char *FILENAMES_STR = "filenames";
-const PROGMEM char *NOTIFICATIONS_STR = "notifications";
-const PROGMEM char *POPUP_FILENAMES_STR = "popup_filenames";
-const int AUDIO_BAUD_RATE = 9600;
-
-int8_t audio_volume = 15;
-
-bool notification_played_this_minute = false; // Used to prevent playing notifications more than once in a minute
-/* ----------------------------------------------------------------------------------------------- */
-#endif
-
-
 #ifdef  GPS_MODULE
 /* ------------------------------------- GPS MODULE SPECIFIC ------------------------------------- */
 #include <TinyGPS++.h>

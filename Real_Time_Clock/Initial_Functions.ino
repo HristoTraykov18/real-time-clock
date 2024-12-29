@@ -114,20 +114,9 @@ void initializeServers() {
   server.on("/mainScript.js", [] () { streamFileToServer("/mainScript.js", "text/javascript"); });
   server.on("/settings", [] () { streamFileToServer("/espSettings.xml", "text/xml"); });
   server.on("/getAudioVolume", [] () { streamFileToServer("/audioVolume.txt", "text/plain"); });
-  server.on("/fileUpload", [] () {
-    //HTTPUpload& serverUpload = server.upload();
-
-    Serial.print(F("Filename: "));
-    Serial.println(server.upload().filename);
-    server.send(200);
-  });
   server.on("/ip", sendIP);
   server.on("/reset", [] () {
-#ifdef  AUDIO_MODULE
-    sendWebpageWithDropdowns(); // Show main page with audio addon dropdowns
-#else
-    streamFileToServer("/index.html", "text/html"); // Show main page
-#endif
+  streamFileToServer("/index.html", "text/html"); // Show main page
     initializeModuleRTC();
   });
 
