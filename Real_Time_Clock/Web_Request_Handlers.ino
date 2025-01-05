@@ -40,13 +40,13 @@ void handleWebInterface() { // Handler for the main interface
 #ifdef  GPS_MODULE
     gps_connect_attempts_left = 0;
 #endif
-    editClockSettings("wifi", 1);
+    editClockSettings("wifi", 2);
   }
 #ifdef  GPS_MODULE
   else if (server.arg("timeSyncMode") == "gps") {
     activateGPS(); // GPS module function
     sendWebpageResponse("Часовникът ще се свери чрез GPS");
-    editClockSettings("gps", 1);
+    editClockSettings("gps", 2);
     time_update_pending = true;
   }
 #endif
@@ -60,19 +60,19 @@ void handleWebInterface() { // Handler for the main interface
       time_update_pending = true;
     }
   }
-  else if (server.hasArg("daylightSaving")) {
-    editClockSettings(server.arg("daylightSaving").c_str(), 0);
+  else if (server.hasArg("daylightSavingEnabled")) {
+    editClockSettings(server.arg("daylightSavingEnabled").c_str(), 0);
     sendWebpageResponse("Промените са запазени");
   }
   else if (server.hasArg("autoBrightnessControl")) {
     if (server.arg("autoBrightnessControl") == "false") {
-      editClockSettings(server.arg("manualBrightnessLevel").c_str(), 3);
+      editClockSettings(server.arg("manualBrightnessLevel").c_str(), 4);
       display_brightness = server.arg("manualBrightnessLevel").toInt();
     }
     else
       display_brightness = DEFAULT_BRIGHTNESS;
 
-    editClockSettings(server.arg("autoBrightnessControl").c_str(), 2);
+    editClockSettings(server.arg("autoBrightnessControl").c_str(), 3);
     sendWebpageResponse("Промените са запазени");
   }
   else {
@@ -80,7 +80,7 @@ void handleWebInterface() { // Handler for the main interface
   }
 
   if (server.hasArg("timezoneHoursOffset"))
-    editClockSettings(server.arg("timezoneHoursOffset").c_str(), 4);
+    editClockSettings(server.arg("timezoneHoursOffset").c_str(), 5);
 
 #ifdef  RTC_INFO_MESSAGES
   uint8_t argCount = server.args();

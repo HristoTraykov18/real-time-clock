@@ -12,20 +12,24 @@ void getInitialClockSettings() {
 
     switch (i) {
       case 0:
-        daylight_saving = elValue == "true";
+        daylight_saving_enabled = elValue == "true";
         break;
 
       case 1:
+        daylight_saving_applied = elValue == "true";
+        break;
+
+      case 2:
 #ifdef  GPS_MODULE
         set_time_with_gps = elValue == "gps";
 #endif
         break;
 
-      case 2:
+      case 3:
         auto_brightness = elValue == "true";
         break;
 
-      case 3:
+      case 4:
         display_brightness = elValue.toInt();
 
         if (!auto_brightness)
@@ -33,7 +37,7 @@ void getInitialClockSettings() {
 
         break;
 
-      case 4:
+      case 5:
         timezone = elValue.toInt();
         break;
     }

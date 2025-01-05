@@ -1,14 +1,14 @@
 // Real time clock software
 // Developed by Hristo Traykov, NEON.BG (Sofia)
-// Current version 1.2.x-b2
+// Current version 1.3.x-b2
 // DO NOT FORGET TO SETUP PROPERLY IN TOOLS
 // USE FLOAT FIRMWARE
 // 
 // ESP8266 core version 3.1.2
-// ESP file system plugin version 2.6.0
+// LittleFS version 1.5.2
 // TM1637 library is edited
-// RTClib version 2.1.1
-// DallasTemperature version 3.8.0
+// RTClib version 2.1.4
+// DallasTemperature version 3.9.0
 
 #include "MSVDC.h" // Modules' Specific Variables, Definitions and Constants
 
@@ -66,7 +66,6 @@ void loop() {
     Serial.print(F(", "));
     Serial.print(F("Connected devices: "));
     Serial.println(WiFi.softAPgetStationNum());
-    Serial.println(display_brightness);
 #endif
 
     checkForUserConnection(); // Additional function

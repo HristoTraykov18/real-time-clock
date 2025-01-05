@@ -57,7 +57,7 @@ function RequestConfig() {
             // Daylight saving checkbox
             let daylightSavingCheckbox = document.getElementById("js-daylight-saving");
 
-            if (xmlDoc.getElementsByTagName("daylightSaving")[0].childNodes[0].nodeValue == "true")
+            if (xmlDoc.getElementsByTagName("daylightSavingEnabled")[0].childNodes[0].nodeValue == "true")
                 daylightSavingCheckbox.checked = true;
 
             // Slider (for brightness) input and checkbox
@@ -184,13 +184,13 @@ function ToggleBrightnessSliderInput() {
         sliderContainer.style.pointerEvents = "none";
     }
 
-    let submitData = "autoBrightnessControl=false&manualBrightnessLevel=";
+    let submitData = `autoBrightnessControl=${!isChecked}&manualBrightnessLevel=`;
     submitData += document.getElementById("js-brightness-slider-input").value;
     SendServerRequest(submitData);
 }
 
 function ToggleDaylightSaving() {
-    let submitData = "daylightSaving=";
+    let submitData = "daylightSavingEnabled=";
     let daylightSavingCheckbox = document.getElementById("js-daylight-saving");
     submitData += daylightSavingCheckbox.checked;
 

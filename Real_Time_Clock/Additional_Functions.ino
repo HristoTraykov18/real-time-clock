@@ -69,21 +69,18 @@ bool connectClockToNetwork(const String& ssid, const String& pass) {
   return is_connected;
 }
 
-// ------------------------------------------- Daylight saving time check function -------------------------------------------- //
+// ----------------------------------- Change time if needed depending on daylight saving time ----------------------------------- //
 // Daylight saving time change is on last Sunday in March/October
 void daylightSavingChange(uint8_t &hour_now) {
-  if (rtc.now().month() > 3 && rtc.now().month() < 10) {
-    hour_now += 1;
-  }
-  else {
-    uint8_t days_until_sunday = 7 - rtc.now().dayOfTheWeek();
-    uint8_t next_sunday_date = rtc.now().day() + days_until_sunday;
-    uint8_t last_sunday_date = 31 - ((31 - next_sunday_date) % 7);
+  bool is_daylight_saving_period = isDaylightSavingPeriod();
 
-    if ((rtc.now().month() == 3 && rtc.now().day() > last_sunday_date) ||
-        (rtc.now().month() == 10 && rtc.now().day() < last_sunday_date)) {
-      hour_now += 1;
-    }
+  if (!daylight_saving_applied && is_daylight_saving_period) {
+    hour_now += 1;
+    daylight_saving_applied = true;
+  }
+  else if (daylight_saving_applied && !is_daylight_saving_period) {
+    hour_now -= 1;
+    daylight_saving_applied = false;
   }
 }
 
@@ -115,14 +112,22 @@ void displayClockJustUpdated(bool updated_from_gps) {
 void editClockSettings(const char new_value[], uint8_t tags_id) {
   switch (tags_id) {
     case 0:
-      if (daylight_saving != (strcmp(new_value, "true") == 0)) {
+      if (daylight_saving_enabled != (strcmp(new_value, "true") == 0)) {
         editSettingsFile(new_value, tags_id);
-        daylight_saving = !daylight_saving;
+        daylight_saving_enabled = !daylight_saving_enabled;
       }
 
       break;
 
     case 1:
+      if (daylight_saving_applied != (strcmp(new_value, "true") == 0)) {
+        editSettingsFile(new_value, tags_id);
+        daylight_saving_applied = !daylight_saving_applied;
+      }
+
+      break;
+
+    case 2:
 #ifdef  GPS_MODULE
       if (set_time_with_gps != (strcmp(new_value, "gps") == 0)) {
         editSettingsFile(new_value, tags_id);
@@ -132,7 +137,7 @@ void editClockSettings(const char new_value[], uint8_t tags_id) {
 
       break;
 
-    case 2:
+    case 3:
       if (auto_brightness != (strcmp(new_value, "true") == 0)) {
         editSettingsFile(new_value, tags_id);
         auto_brightness = !auto_brightness;
@@ -140,7 +145,7 @@ void editClockSettings(const char new_value[], uint8_t tags_id) {
 
       break;
 
-    case 3:
+    case 4:
       editSettingsFile(new_value, tags_id); // Manual brightness level (set by user)
 
       if (!auto_brightness)
@@ -148,8 +153,8 @@ void editClockSettings(const char new_value[], uint8_t tags_id) {
 
       break;
 
-    case 4:
-      editSettingsFile(new_value, tags_id); // Manual brightness level (set by user)
+    case 5:
+      editSettingsFile(new_value, tags_id); // Timezone
       break;
   }
 }
@@ -203,6 +208,15 @@ void flashDisplay() {
   tm1637.setBrightness(display_brightness);
 }
 
+// ----------------------------------------- Get the last Sunday date of the month ----------------------------------------- //
+uint8_t getLastSundayDate() {
+  uint8_t day_of_the_week = rtc.now().dayOfTheWeek();
+  uint8_t days_until_sunday = 7 - (day_of_the_week == 0 ? 7 : day_of_the_week);
+  uint8_t next_sunday_date = rtc.now().day() + days_until_sunday;
+
+  return 31 - ((31 - next_sunday_date) % 7);
+}
+
 // ---------------------------------- Get length of the packet received from the NTP server ---------------------------------- //
 int getNTP_PacketLength(IPAddress& address) {
   sendNTP_Packet(address);
@@ -226,6 +240,25 @@ int getNTP_PacketLength(IPAddress& address) {
   return packet_length;
 }
 
+// --------------------------------------------- Check if it's daylight saving period ---------------------------------------------- //
+bool isDaylightSavingPeriod() {
+  bool is_period = false;
+
+  if (rtc.now().month() > 3 && rtc.now().month() < 10) {
+    is_period = true;
+  }
+  else {
+    uint8_t last_sunday_date = getLastSundayDate();
+
+    if ((rtc.now().month() == 3 && rtc.now().day() > last_sunday_date) ||
+        (rtc.now().month() == 10 && rtc.now().day() < last_sunday_date)) {
+      is_period = true;
+    }
+  }
+
+  return is_period;
+}
+
 // --------------------------------------- Update the time manually from the user's device ---------------------------------------- //
 void manualTimeUpdate() {
   String current_time_str = server.arg("currentTime");
@@ -243,6 +276,7 @@ void manualTimeUpdate() {
 
   rtc.adjust(DateTime(current_time[0], current_time[1] + 1, current_time[2],
                       current_time[3], current_time[4], current_time[5]));
+  editClockSettings(isDaylightSavingPeriod() ? "true" : "false", 1);
 }
 
 // --------------------------------------------- Print the current time to the TM1637 --------------------------------------------- //
@@ -398,13 +432,26 @@ void updateTime() { // Check if it's the right time to update the time or if tim
     time_updated = updateTimeFromNTP();
 #endif
 
-    if (time_updated && daylight_saving) {
+#ifdef  RTC_INFO_MESSAGES
+    if (time_updated) {
+      daylight_saving_applied = false;
+      Serial.println(F("Time updated from NTP server\n"));
+    }
+    else
+      Serial.println(F("\nCould not update time from NTP server\n"));
+#else
+    if (time_updated)
+      daylight_saving_applied = false;
+#endif
+
+    if (daylight_saving_enabled) {
       uint8_t temp_hour = rtc.now().hour();
       daylightSavingChange(temp_hour);
 
       if (rtc.now().hour() != temp_hour) {
         rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(),
                             temp_hour, rtc.now().minute(), rtc.now().second()));
+        editClockSettings(daylight_saving_applied ? "true" : "false", 1);
       }
     }
   }
@@ -438,21 +485,13 @@ bool updateTimeFromNTP() {
 
     connected_to_ntp = true;
     displayClockJustUpdated(false);
-
-#ifdef  RTC_INFO_MESSAGES
-    Serial.println(F("Time updated from NTP server\n"));
-#endif
     time_updated = true;
   }
-  else {
-    if (update_hour <= LAST_UPDATE_HOUR)
+  else if (!time_update_pending) {
+    if (update_hour < LAST_UPDATE_HOUR)
       update_hour++;
     else
       update_hour = 3;
-
-#ifdef  RTC_INFO_MESSAGES
-    Serial.println(F("\nCould not update time from NTP server\n"));
-#endif
   }
 
   time_update_pending = false;
