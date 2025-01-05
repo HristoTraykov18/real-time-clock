@@ -74,13 +74,13 @@ bool connectClockToNetwork(const String& ssid, const String& pass) {
 void daylightSavingChange(uint8_t &hour_now) {
   bool is_daylight_saving_period = isDaylightSavingPeriod();
 
-  if (!daylight_saving_applied && is_daylight_saving_period) {
+  if (!daylight_saving_active && is_daylight_saving_period) {
     hour_now += 1;
-    daylight_saving_applied = true;
+    daylight_saving_active = true;
   }
-  else if (daylight_saving_applied && !is_daylight_saving_period) {
+  else if (daylight_saving_active && !is_daylight_saving_period) {
     hour_now -= 1;
-    daylight_saving_applied = false;
+    daylight_saving_active = false;
   }
 }
 
@@ -109,54 +109,32 @@ void displayClockJustUpdated(bool updated_from_gps) {
 }
 
 // --------------------------------------------- Edit settings file with user input --------------------------------------------- //
-void editClockSettings(const char new_value[], uint8_t tags_id) {
-  switch (tags_id) {
-    case 0:
-      if (daylight_saving_enabled != (strcmp(new_value, "true") == 0)) {
-        editSettingsFile(new_value, tags_id);
-        daylight_saving_enabled = !daylight_saving_enabled;
-      }
-
-      break;
-
-    case 1:
-      if (daylight_saving_applied != (strcmp(new_value, "true") == 0)) {
-        editSettingsFile(new_value, tags_id);
-        daylight_saving_applied = !daylight_saving_applied;
-      }
-
-      break;
-
-    case 2:
-#ifdef  GPS_MODULE
-      if (set_time_with_gps != (strcmp(new_value, "gps") == 0)) {
-        editSettingsFile(new_value, tags_id);
-        set_time_with_gps = !set_time_with_gps;
-      }
-#endif
-
-      break;
-
-    case 3:
-      if (auto_brightness != (strcmp(new_value, "true") == 0)) {
-        editSettingsFile(new_value, tags_id);
-        auto_brightness = !auto_brightness;
-      }
-
-      break;
-
-    case 4:
-      editSettingsFile(new_value, tags_id); // Manual brightness level (set by user)
-
-      if (!auto_brightness)
-        last_display_brightness = display_brightness;
-
-      break;
-
-    case 5:
-      editSettingsFile(new_value, tags_id); // Timezone
-      break;
+void editAutoBrightness(const char new_value[]) {
+  if (auto_brightness != (strcmp(new_value, "true") == 0)) {
+    editSettingsFile(new_value, 3);
+    auto_brightness = !auto_brightness;
   }
+}
+
+void editDaylightSavingActive(const char new_value[]) {
+  if (daylight_saving_active != (strcmp(new_value, "true") == 0)) {
+    editSettingsFile(new_value, 1);
+    daylight_saving_active = !daylight_saving_active;
+  }
+}
+
+void editDaylightSavingEnabled(const char new_value[]) {
+  if (daylight_saving_enabled != (strcmp(new_value, "true") == 0)) {
+    editSettingsFile(new_value, 0);
+    daylight_saving_enabled = !daylight_saving_enabled;
+  }
+}
+
+void editManualBrightness(const char new_value[]) {
+  editSettingsFile(new_value, 4);
+
+  if (!auto_brightness)
+    last_display_brightness = display_brightness;
 }
 
 void editSettingsFile(const char new_value[], uint8_t tags_id) {
@@ -170,6 +148,20 @@ void editSettingsFile(const char new_value[], uint8_t tags_id) {
   // Rewrite everything after the closing tag
   f.write((settings_file.substring(settings_file.indexOf(END_TAGS[tags_id]), settings_file.length())).c_str());
   f.close();
+}
+
+void editTimeSyncMode(const char new_value[]) {
+#ifdef  GPS_MODULE
+  if (set_time_with_gps != (strcmp(new_value, "gps") == 0)) {
+    editSettingsFile(new_value, 2);
+    set_time_with_gps = !set_time_with_gps;
+  }
+#endif
+}
+
+void editTimezoneOffset(const char new_value[]) {
+  editSettingsFile(new_value, 5);
+  timezone = atoi(new_value);
 }
 
 // --------------------- Flash the display if someone connects to the ESP or if it connects to NTP server --------------------- //
@@ -276,7 +268,7 @@ void manualTimeUpdate() {
 
   rtc.adjust(DateTime(current_time[0], current_time[1] + 1, current_time[2],
                       current_time[3], current_time[4], current_time[5]));
-  editClockSettings(isDaylightSavingPeriod() ? "true" : "false", 1);
+  editDaylightSavingActive(isDaylightSavingPeriod() ? "true" : "false");
 }
 
 // --------------------------------------------- Print the current time to the TM1637 --------------------------------------------- //
@@ -434,14 +426,14 @@ void updateTime() { // Check if it's the right time to update the time or if tim
 
 #ifdef  RTC_INFO_MESSAGES
     if (time_updated) {
-      daylight_saving_applied = false;
+      daylight_saving_active = false;
       Serial.println(F("Time updated from NTP server\n"));
     }
     else
       Serial.println(F("\nCould not update time from NTP server\n"));
 #else
     if (time_updated)
-      daylight_saving_applied = false;
+      daylight_saving_active = false;
 #endif
 
     if (daylight_saving_enabled) {
@@ -451,7 +443,7 @@ void updateTime() { // Check if it's the right time to update the time or if tim
       if (rtc.now().hour() != temp_hour) {
         rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(),
                             temp_hour, rtc.now().minute(), rtc.now().second()));
-        editClockSettings(daylight_saving_applied ? "true" : "false", 1);
+        editDaylightSavingActive(daylight_saving_active ? "true" : "false");
       }
     }
   }

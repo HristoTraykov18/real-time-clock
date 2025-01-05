@@ -16,7 +16,7 @@ void getInitialClockSettings() {
         break;
 
       case 1:
-        daylight_saving_applied = elValue == "true";
+        daylight_saving_active = elValue == "true";
         break;
 
       case 2:

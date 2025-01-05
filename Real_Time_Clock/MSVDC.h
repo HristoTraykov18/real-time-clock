@@ -48,10 +48,10 @@
 const PROGMEM char *ESP_SSID = "Test"; // ESP soft access point name | CHANGE NUMBER FOR EACH DEVICE!
 const PROGMEM char *ESP_PASS = "Test1234"; // ESP soft access point password
 const PROGMEM char *EU_NTP_SERVER_1 = "0.europe.pool.ntp.org"; // NTP pool for IP addresses
-const PROGMEM char *START_TAGS[] = { "<daylightSavingEnabled>", "<daylightSavingApplied>",
+const PROGMEM char *START_TAGS[] = { "<daylightSavingEnabled>", "<daylightSavingActive>",
                                      "<timeSyncMode>", "<autoBrightnessControl>",
                                      "<manualBrightnessLevel>", "<timezoneHoursOffset>", "<IP>" };
-const PROGMEM char *END_TAGS[] = { "</daylightSavingEnabled>", "</daylightSavingApplied>",
+const PROGMEM char *END_TAGS[] = { "</daylightSavingEnabled>", "</daylightSavingActive>",
                                    "</timeSyncMode>", "</autoBrightnessControl>", 
                                    "</manualBrightnessLevel>", "</timezoneHoursOffset>", "</IP>" };
 
@@ -78,7 +78,7 @@ bool connected_to_ntp = false;
 bool active_connection = false; // Active connection to the ESP network
 bool someone_just_connected = false; // Someone just connected to the ESP network
 bool daylight_saving_enabled; // Daylight saving mode - ON/OFF
-bool daylight_saving_applied;
+bool daylight_saving_active;
 bool override_settings = false; // Triggers 'espSettings.xml' override
 bool time_update_pending = true; // Triggers time update at start if connected to NTP server
 bool awaiting_confirmation = false; // Send response to the server a few times or until confirmation is received
