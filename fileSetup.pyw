@@ -7,15 +7,14 @@ class FileSetupApp:
     info_label_text = ""
 
     # Constants
-    MODULES = {"aud": "Audio", "gps": "GPS",
-               "ls": "Light_Sensitivity", "temp": "Temperature"}
+    MODULES = {"gps": "GPS", "ls": "Light_Sensitivity", "temp": "Temperature"}
     WEBPAGE_MAIN_FILES = ["index.html", "mainScript.js", "mainStyle.css"]
     TEXT_FONT = "Verdana 8 bold"
     COMPILE_READY_FOLDER = "./Real_Time_Clock_Compile/Real_Time_Clock/"
     MAIN_RTC_INO_FILE = "Real_Time_Clock.ino"
     SELECTED_MODULES_HEADER = "SelectedModules.h"
     PLATFORM_HEADER = "Platform.h"
-    TEXT_SHOW_DURATION = 3000
+    TEXT_SHOW_DURATION = 3500
 
     def __init__(self):
         os.chdir("./Real_Time_Clock")
@@ -54,8 +53,7 @@ class FileSetupApp:
         """ Add the addon files to the main webpage files """
         # Addon files appended in the markers.
         # If thefile doesn't exist in the compilation folder, only it's marker is removed
-        webpage_addon_filenames = ["audioAddonButton.html", "audioAddonView.html",
-                                   "audioAddonScript.js", "audioAddonStyle.css", "gpsAddon.html"]
+        webpage_addon_filenames = ["gpsAddon.html"]
         # Placeholder in the main HTML file
         html_placeholder_start_marker = "<!-- PLACEHOLDER FOR "
         html_placeholder_end_marker = "<!-- END OF PLACEHOLDER FOR "
@@ -236,7 +234,7 @@ class FileSetupApp:
                                 src_dir = "./" + dir_entity_name + "/" + sub_entity_name
                                 is_module_file = False
 
-                                for module in modules_list:  # GPS, Temperature, LightSensitivity, Audio
+                                for module in modules_list:  # GPS, Temperature, LightSensitivity
                                     if (module + "Addon").lower() in sub_entity_name.lower():
                                         is_module_file = True
 
