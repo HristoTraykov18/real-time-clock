@@ -423,8 +423,8 @@ class FileSetupApp:
 
     def set_app_widgets(self):
         """ Create widgets in the application """
-        self.cb = tk.Checkbutton(self.root, text="Production setup", font=self.TEXT_FONT,
-                                 variable=self.is_production_setup, onvalue=1, offvalue=0)
+        self.cb = tk.Checkbutton(self.root, text="RTC info messages", font=self.TEXT_FONT,
+                                 variable=self.is_production_setup, onvalue=0, offvalue=1)
         main_label_text = "Modules to use (options are "
         modules_keys = list(self.MODULES.keys())
 
