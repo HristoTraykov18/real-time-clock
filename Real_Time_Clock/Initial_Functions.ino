@@ -117,7 +117,6 @@ void initializeServers() {
   server.on("/mainStyle.css", [] () { streamFileToServer("/mainStyle.css", "text/css"); });
   server.on("/mainScript.js", [] () { streamFileToServer("/mainScript.js", "text/javascript"); });
   server.on("/settings", [] () { streamFileToServer("/espSettings.xml", "text/xml"); });
-  server.on("/getAudioVolume", [] () { streamFileToServer("/audioVolume.txt", "text/plain"); });
   server.on("/ip", sendIP);
   server.on("/reset", [] () {
   streamFileToServer("/index.html", "text/html"); // Show main page
