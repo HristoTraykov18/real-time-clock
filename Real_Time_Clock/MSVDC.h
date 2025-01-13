@@ -85,8 +85,6 @@ bool awaiting_confirmation = false; // Send response to the server a few times o
 
 byte packet_buffer[NTP_PACKET_SIZE]; // Buffer holding incoming and outgoing packets
 
-String response_message; // Keeps the response message while awaiting confirmation from the server
-
 // ---------------- Objects ---------------- //
 IPAddress time_server_ip; // NTP server ip container
 WiFiUDP udp;

@@ -1,20 +1,7 @@
 
 // _____________________________________________ Web interface handling functions _____________________________________________ //
 void handleWebInterface() { // Handler for the main interface
-  if (server.hasArg("confirmResponse")) {
-    awaiting_confirmation = false;
-    response_message = ""; // Global variable
-#ifdef  RTC_INFO_MESSAGES
-    Serial.println(F("Response confirmed"));
-#endif
-  }
-  else if (server.hasArg("resentRequest")) {
-#ifdef  RTC_INFO_MESSAGES
-    Serial.println(F("Message resend requested"));
-#endif
-    sendWebpageResponse(response_message.c_str());
-  }
-  else if (server.arg("timeSyncMode") == "wifi") {
+  if (server.arg("timeSyncMode") == "wifi") {
     String ssid = server.arg("ssid");
 
     if (WiFi.status() == WL_CONNECTED) {
@@ -23,7 +10,7 @@ void handleWebInterface() { // Handler for the main interface
         time_update_pending = true;
       }
       else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
-        validateNetworkInput(server.arg("pass"), ssid);
+        validateNetworkInput(ssid, server.arg("pass"));
       }
       else {
         sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
@@ -31,7 +18,7 @@ void handleWebInterface() { // Handler for the main interface
       }
     }
     else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
-      validateNetworkInput(server.arg("pass"), ssid);
+      validateNetworkInput(ssid, server.arg("pass"));
     }
 #ifdef  GPS_MODULE
     else if (set_time_with_gps)
@@ -120,11 +107,6 @@ void sendWebpageResponse(const char *webpage_response) { // Send info to the ser
 #ifdef  RTC_INFO_MESSAGES
   Serial.println(webpage_response);
 #endif
-
-  if (!awaiting_confirmation) {
-    awaiting_confirmation = true;
-    response_message = webpage_response;
-  }
 }
 
 void streamFileToServer(const char *filename, const char *filestream_format) {
@@ -134,30 +116,13 @@ void streamFileToServer(const char *filename, const char *filestream_format) {
   data_file.close();
 }
 
-void validateNetworkInput(const String& pass, const String& ssid) {
-  uint8_t number_of_networks = WiFi.scanNetworks(); // Scan networks in area
-  bool is_network_in_range = false;
-
-  for (uint8_t i = 0; i < number_of_networks; i++) {
-#ifdef  RTC_INFO_MESSAGES
-    Serial.print(F("Network request: "));
-    Serial.print(ssid);
-    Serial.print(F(" | Network in range: "));
-    Serial.println(WiFi.SSID(i));
-#endif
-
-    if (ssid == WiFi.SSID(i)) {
-      is_network_in_range = true;
-
-      if (connectClockToNetwork(ssid, pass)) {
-        sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + ".\nIP: " + WiFi.localIP().toString()).c_str());
-        break;
-      }
-      else
-        sendWebpageResponse("Времето за опит за свързване изтече. Проверете името и паролата.");
-    }
+void validateNetworkInput(const String& ssid, const String& pass) {
+  if (networkIsInRange(ssid)) {
+    if (connectClockToNetwork(ssid, pass))
+      sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + ".\nIP: " + WiFi.localIP().toString()).c_str());
+    else
+      sendWebpageResponse("Времето за опит за свързване изтече. Проверете името и паролата.");
   }
-
-  if (!is_network_in_range)
+  else
     sendWebpageResponse(("Мрежата " + ssid + " не е в обхват").c_str());
 }

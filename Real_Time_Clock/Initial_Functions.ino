@@ -46,24 +46,28 @@ void getInitialClockSettings() {
 
 // ------------------------------------------- Initialize and setup ESP file system ------------------------------------------ //
 void initializeFileSystem() {
-  LittleFS.begin();
+  while (!LittleFS.begin()) {
+#ifdef  RTC_INFO_MESSAGES
+    Serial.println(F("Failed to initialize file system"));
+#endif
+  }
   networkReconnect();
   getInitialClockSettings();
 }
 
 // ---------------------------------------------- Initialize the RTC module ------------------------------------------------- //
 void initializeModuleRTC() {
-  tm1637.setBrightness(DEFAULT_BRIGHTNESS); // Set default brightness
   uint8_t rectangle[] = {(SEG_A | SEG_D | SEG_E | SEG_F), 
                          (SEG_A | SEG_D), 
                          (SEG_A | SEG_D), 
                          (SEG_A | SEG_B | SEG_C | SEG_D)};
 
+  tm1637.setBrightness(DEFAULT_BRIGHTNESS); // Set default brightness
   tm1637.setSegments(rectangle); // Show rectangle by default in case the RTC does not work
 
   while (!rtc.begin()) { // If the RTC is not found do not boot
 #ifdef  RTC_INFO_MESSAGES
-    Serial.println(F("\nCouldn't find RTC"));
+    Serial.println(F("\nInitializing RTC"));
 #endif
 
     resetRTC(); // Sometimes the RTC becomes unsynchronised while switching power source - reset it
@@ -76,7 +80,11 @@ void initializeModuleRTC() {
 
 // ---------------------------------------------- Initialize server --------------------------------------------- //
 void initializeServers() {
-  udp.begin(2390);
+  while (!udp.begin(2390)) {
+#ifdef  RTC_INFO_MESSAGES
+    Serial.println(F("Initializing UDP for NTP"));
+#endif
+  }
   server.on("/", handleWebInterface); // 192.168.4.1
   server.on("/neonLogoIcon.ico", [] () { streamFileToServer("/neonLogoIcon.ico", "image/x-icon"); });
   server.on("/mainStyle.css", [] () { streamFileToServer("/mainStyle.css", "text/css"); });
@@ -92,8 +100,13 @@ void initializeServers() {
   const char *UPDATE_UNAME = "ghost";
   const char *UPDATE_PASS = "m%O0gsLKOkDl";
 
-  // server.onNotFound(HandleNotFoundWebRequests); // If path is not found we can handle by URI
-  server.begin(); // Local web server
-  httpUpdater.setup(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS); // Set software update server
-  softwareUpdateServer.begin(); // and start it
+  server.begin();
+#ifdef  RTC_INFO_MESSAGES
+    Serial.println(F("Web server started"));
+#endif
+  httpUpdater.setup(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS);
+  softwareUpdateServer.begin();
+#ifdef  RTC_INFO_MESSAGES
+    Serial.println(F("Software update server started"));
+#endif
 }

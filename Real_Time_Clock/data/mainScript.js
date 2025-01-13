@@ -92,48 +92,40 @@ function RequestConfig() {
 function SendServerRequest(requestParams) {
     ToggleLoader(); // Show the loading screen
 
+    let retries = 2;
     let xhttp = new XMLHttpRequest();
     xhttp.timeout = 15000;
     xhttp.onreadystatechange = function() {
         // The request finished and response is ready
         if (this.readyState === 4) {
-            let statusText = "";
+            let response = "Възникна грешка\nМоля проверете дали сте свързани с мрежата на часовника и опитайте отново";
 
             if (this.status === 200) {
-                statusText = this.responseText;
-
-                let statusConfirmation = new XMLHttpRequest();
-                statusConfirmation.timeout = 15000;
-                statusConfirmation.ontimeout = function() {
-                    this.abort();
-                    ToggleLoader();
-                    ShowStatusPopup("Времето за свързване изтече.\nМоля проверете дали сте свързани с мрежата на часовника и опитайте отново");
-                };
-                statusConfirmation.open("POST", "/", true);
-                statusConfirmation.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-                statusConfirmation.send("confirmResponse=yes");
-
                 ToggleLoader();
-                ShowStatusPopup(statusText);
+                response = this.responseText;
             }
-            else if (this.status === 0) {
+            else if (retries > 0) {
                 this.abort();
                 xhttp.open("POST", "/", true);
-                xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-                xhttp.send("resentRequest=yes");
+                xhttp.send(requestParams);
+
+                if (retries === 3)
+                    response = "Заявката до часовника беше неуспешна. Опитвам отново...";
+
+                retries -= 1;
             }
             else {
                 ToggleLoader();
-                ShowStatusPopup("Възникна грешка");
+                response = "Връзката с мрежата, към която се опитвате да се свържете не е стабилна\nМоля свържете часовника с друга мрежа";
             }
+
+            ShowStatusPopup(response);
         }
     };
     xhttp.ontimeout = function() {
         this.abort();
-        ToggleLoader();
-        ShowStatusPopup("Времето за свързване изтече.\nМоля проверете дали сте свързани с мрежата на часовника и опитайте отново");
+        ShowStatusPopup("Времето за свързване с часовника изтече.\nМоля проверете дали сте свързани с мрежата на часовника и опитайте отново");
     };
-
     xhttp.open("POST", "/", true);
     xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
     xhttp.send(requestParams);

@@ -271,6 +271,25 @@ void manualTimeUpdate() {
   editDaylightSavingActive(isDaylightSavingPeriod() ? "true" : "false");
 }
 
+// ------------------------------------------- Check a requested network is in range ------------------------------------------- //
+bool networkIsInRange(const String& ssid) {
+  uint8_t number_of_networks = WiFi.scanNetworks(); // Scan networks in area
+
+  for (uint8_t i = 0; i < number_of_networks; i++) {
+#ifdef  RTC_INFO_MESSAGES
+    Serial.print(F("Network request: "));
+    Serial.print(ssid);
+    Serial.print(F(" | Network in range: "));
+    Serial.println(WiFi.SSID(i));
+#endif
+
+    if (ssid == WiFi.SSID(i))
+      return true;
+  }
+
+  return false;
+}
+
 // ---------------------------------------- Attempt reconnecting to saved network ---------------------------------------- //
 bool networkReconnect() {
   bool reconnected = false;
@@ -300,7 +319,9 @@ bool networkReconnect() {
     }
 
     f.close();
-    reconnected = connectClockToNetwork(network_name.c_str(), network_pass.c_str());
+
+    if (networkIsInRange(network_name))
+      reconnected = connectClockToNetwork(network_name, network_pass);
   }
 #ifdef  RTC_INFO_MESSAGES
   else
