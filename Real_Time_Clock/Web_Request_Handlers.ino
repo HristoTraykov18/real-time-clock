@@ -52,8 +52,14 @@ void handleWebInterface() { // Handler for the main interface
 #endif
   else if (server.arg("timeSyncMode") == "js") { // If the user opened the Web UI, update the time if needed
     if (WiFi.status() != WL_CONNECTED) {
-      manualTimeUpdate();
-      sendWebpageResponse("Часовникът се свери автоматично от устройството Ви");
+      if (networkReconnect()) {
+        sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
+        time_update_pending = true;
+      }
+      else {
+        manualTimeUpdate();
+        sendWebpageResponse("Часовникът се свери автоматично от устройството Ви");
+      }
     }
     else {
       sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());

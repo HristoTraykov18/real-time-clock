@@ -271,6 +271,45 @@ void manualTimeUpdate() {
   editDaylightSavingActive(isDaylightSavingPeriod() ? "true" : "false");
 }
 
+// ---------------------------------------- Attempt reconnecting to saved network ---------------------------------------- //
+bool networkReconnect() {
+  bool reconnected = false;
+
+  if (LittleFS.exists("creds.txt")) {
+    String network_name = ""; // Global variable
+    String network_pass = ""; // Global variable
+    File f = LittleFS.open("creds.txt", "r");
+    bool is_pass = false;
+
+    while (f.available()) {
+      char current_char = char(f.read());
+
+      if (current_char == '\n') {
+        if (is_pass)
+          break;
+
+        is_pass = true;
+
+        continue;
+      }
+
+      if (is_pass)
+        network_pass += current_char;
+      else
+        network_name += current_char;
+    }
+
+    f.close();
+    reconnected = connectClockToNetwork(network_name.c_str(), network_pass.c_str());
+  }
+#ifdef  RTC_INFO_MESSAGES
+  else
+    Serial.println(F("No creds.txt file"));
+#endif
+
+  return reconnected;
+}
+
 // --------------------------------------------- Print the current time to the TM1637 --------------------------------------------- //
 void printCurrentTime() {
   int h = rtc.now().hour(); // Current hour

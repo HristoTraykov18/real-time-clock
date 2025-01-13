@@ -47,7 +47,7 @@ void getInitialClockSettings() {
 // ------------------------------------------- Initialize and setup ESP file system ------------------------------------------ //
 void initializeFileSystem() {
   LittleFS.begin();
-  initializeNetworkReconnect();
+  networkReconnect();
   getInitialClockSettings();
 }
 
@@ -74,42 +74,7 @@ void initializeModuleRTC() {
   }
 }
 
-// ---------------------------------------------- File content reading function ---------------------------------------------- //
-void initializeNetworkReconnect() {
-  if (LittleFS.exists("creds.txt")) {
-    String network_name = ""; // Global variable
-    String network_pass = ""; // Global variable
-    File f = LittleFS.open("creds.txt", "r");
-    bool is_pass = false;
-
-    while (f.available()) {
-      char current_char = char(f.read());
-
-      if (current_char == '\n') {
-        if (is_pass)
-          break;
-
-        is_pass = true;
-
-        continue;
-      }
-
-      if (is_pass)
-        network_pass += current_char;
-      else
-        network_name += current_char;
-    }
-
-    f.close();
-    connectClockToNetwork(network_name.c_str(), network_pass.c_str());
-  }
-#ifdef  RTC_INFO_MESSAGES
-  else
-    Serial.println(F("No creds.txt file"));
-#endif
-}
-
-// ---------------------------------------------------- Initialize server --------------------------------------------------- //
+// ---------------------------------------------- Initialize server --------------------------------------------- //
 void initializeServers() {
   udp.begin(2390);
   server.on("/", handleWebInterface); // 192.168.4.1
@@ -119,7 +84,7 @@ void initializeServers() {
   server.on("/settings", [] () { streamFileToServer("/espSettings.xml", "text/xml"); });
   server.on("/ip", sendIP);
   server.on("/reset", [] () {
-  streamFileToServer("/index.html", "text/html"); // Show main page
+    streamFileToServer("/index.html", "text/html"); // Show main page
     initializeModuleRTC();
   });
 
