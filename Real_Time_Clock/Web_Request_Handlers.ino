@@ -22,6 +22,9 @@ void handleWebInterface() { // Handler for the main interface
         sendWebpageResponse(("Часовникът вече е свързан с мрежа " + ssid + " и се свери през Интернет").c_str());
         time_update_pending = true;
       }
+      else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
+        validateNetworkInput(server.arg("pass"), ssid);
+      }
       else {
         sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
         time_update_pending = true;
