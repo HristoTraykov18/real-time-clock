@@ -75,6 +75,9 @@ void handleWebInterface() { // Handler for the main interface
     editAutoBrightness(server.arg("autoBrightnessControl").c_str());
     sendWebpageResponse("Промените са запазени");
   }
+  else if (server.arg("timeSyncMode") == "gps") {
+    sendWebpageResponse("Часовникът няма инсталиран GPS модул");
+  }
   else {
     streamFileToServer("/index.html", "text/html"); // Show main page at the begining
   }
