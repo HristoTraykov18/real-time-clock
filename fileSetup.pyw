@@ -74,7 +74,6 @@ class FileSetupApp:
             # Open each main webpage file
             with open(webpage_main_file, "r+", encoding="utf8") as current_file:
                 lines = current_file.readlines()
-
                 current_file.seek(0)
                 current_file.truncate()
 
@@ -83,6 +82,7 @@ class FileSetupApp:
 
                     for line in lines:
                         is_end_marker = False
+                        not_saved = True
 
                         for filename in webpage_addon_filenames:  # For each addon file check for it's markers
                             if (html_placeholder_start_marker + filename + end_of_placeholder_marker) in line:
@@ -105,12 +105,16 @@ class FileSetupApp:
                                     webpage_addon_filenames.remove(filename)
 
                                 break
+                            elif filename not in requested_addons_filenames and not_saved:
+                                current_file.write(line)
+                                not_saved = False
 
                         if is_end_marker:  # Don't write the end markers
                             continue
 
-                        if not is_between_markers:  # Write the main file content
-                            current_file.write(line)
+                        # if not is_between_markers and not_saved:  # Write the main file content
+                        #     current_file.write(line)
+
 
                 else:  # JS and CSS files
                     passed_file_marker = False
