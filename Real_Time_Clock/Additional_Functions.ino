@@ -289,43 +289,45 @@ bool networkIsInRange(const String& ssid) {
 
 // ---------------------------------------- Attempt reconnecting to saved network ---------------------------------------- //
 bool networkReconnect() {
-  bool reconnected = false;
+  bool connected = WiFi.status() == WL_CONNECTED;
 
-  if (LittleFS.exists("creds.txt")) {
-    String network_name = ""; // Global variable
-    String network_pass = ""; // Global variable
-    File f = LittleFS.open("creds.txt", "r");
-    bool is_pass = false;
+  if (!connected) {
+    if (LittleFS.exists("creds.txt")) {
+      String network_name = ""; // Global variable
+      String network_pass = ""; // Global variable
+      File f = LittleFS.open("creds.txt", "r");
+      bool is_pass = false;
 
-    while (f.available()) {
-      char current_char = char(f.read());
+      while (f.available()) {
+        char current_char = char(f.read());
 
-      if (current_char == '\n') {
+        if (current_char == '\n') {
+          if (is_pass)
+            break;
+
+          is_pass = true;
+
+          continue;
+        }
+
         if (is_pass)
-          break;
-
-        is_pass = true;
-
-        continue;
+          network_pass += current_char;
+        else
+          network_name += current_char;
       }
 
-      if (is_pass)
-        network_pass += current_char;
-      else
-        network_name += current_char;
+      f.close();
+
+      if (networkIsInRange(network_name))
+        connected = connectClockToNetwork(network_name, network_pass);
     }
-
-    f.close();
-
-    if (networkIsInRange(network_name))
-      reconnected = connectClockToNetwork(network_name, network_pass);
-  }
 #ifdef  RTC_INFO_MESSAGES
-  else
-    Serial.println(F("No creds.txt file"));
+    else
+      Serial.println(F("No creds.txt file"));
 #endif
+  }
 
-  return reconnected;
+  return connected;
 }
 
 // --------------------------------------------- Print the current time to the TM1637 --------------------------------------------- //
@@ -470,14 +472,17 @@ void updateTime() { // Check if it's the right time to update the time or if tim
       }
       else { // In case of timeout detatchInterrupt and try updating the time from NTP
         detachInterrupt(digitalPinToInterrupt(GPS_RX));
+        networkReconnect();
         time_updated = updateTimeFromNTP();
       }
     }
     else { // In case of time update from NTP
       detachInterrupt(digitalPinToInterrupt(GPS_RX));
+      networkReconnect();
       time_updated = updateTimeFromNTP();
     }
 #else
+    networkReconnect();
     time_updated = updateTimeFromNTP();
 #endif
 
