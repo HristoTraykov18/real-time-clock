@@ -70,7 +70,6 @@ int8_t second_now = 0;
 int8_t last_second = -1; // Used to check if the current second is different than the last
 int8_t blink_count = 0; // Amount of flashes when someone connects to the ESP / ESP connects to NTP server
 
-/* REMOVE THIS LINE */ bool has_audio_module = false; // THIS IS THE FEATURES LINE!!!!!
 bool display_time = true; // If false, show temperature
 bool auto_brightness = true; // Used for brightness module
 bool last_auto_brightness = auto_brightness; // Used for brightness module
@@ -81,14 +80,13 @@ bool daylight_saving_enabled; // Daylight saving mode - ON/OFF
 bool daylight_saving_active;
 bool override_settings = false; // Triggers 'espSettings.xml' override
 bool time_update_pending = true; // Triggers time update at start if connected to NTP server
-bool awaiting_confirmation = false; // Send response to the server a few times or until confirmation is received
 
 byte packet_buffer[NTP_PACKET_SIZE]; // Buffer holding incoming and outgoing packets
 
 // ---------------- Objects ---------------- //
 IPAddress time_server_ip; // NTP server ip container
 WiFiUDP udp;
-RTC_DS3231 rtc; // !!!
+RTC_DS3231 rtc;
 ESP8266WebServer server(80);
 TM1637Display tm1637(CLK, DIO);
 ESP8266WebServer softwareUpdateServer(1394);

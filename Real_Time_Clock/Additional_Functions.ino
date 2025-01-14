@@ -526,11 +526,10 @@ bool updateTimeFromNTP() {
     unsigned long low_word = word(packet_buffer[42], packet_buffer[43]);
     unsigned long secs_since_1900 = high_word << 16 | low_word; // NTP time (seconds since Jan 1 1900)
     // Unix time starts on Jan 1 1970. In seconds, 70 years is 2208988800. Add two seconds to compencate the delay
-    time_t epoch = secs_since_1900 - 2208988800UL + 1;
+    time_t epoch = secs_since_1900 - 2208988800UL + (timezone * 3600) + 1;
 
     struct tm *current_time = localtime(&epoch);
     current_time->tm_year += 1900; // Year is calculated from 1900 to now, so set to current year
-    current_time->tm_hour += timezone;
 
     rtc.adjust(DateTime(current_time->tm_year, current_time->tm_mon + 1, current_time->tm_mday,
                         current_time->tm_hour, current_time->tm_min, current_time->tm_sec));
