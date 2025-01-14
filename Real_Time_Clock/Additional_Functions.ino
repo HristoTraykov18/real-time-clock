@@ -111,15 +111,8 @@ void displayClockJustUpdated(bool updated_from_gps) {
 // --------------------------------------------- Edit settings file with user input --------------------------------------------- //
 void editAutoBrightness(const char new_value[]) {
   if (auto_brightness != (strcmp(new_value, "true") == 0)) {
-    editSettingsFile(new_value, 3);
+    editSettingsFile(new_value, 2);
     auto_brightness = !auto_brightness;
-  }
-}
-
-void editDaylightSavingActive(const char new_value[]) {
-  if (daylight_saving_active != (strcmp(new_value, "true") == 0)) {
-    editSettingsFile(new_value, 1);
-    daylight_saving_active = !daylight_saving_active;
   }
 }
 
@@ -131,7 +124,7 @@ void editDaylightSavingEnabled(const char new_value[]) {
 }
 
 void editManualBrightness(const char new_value[]) {
-  editSettingsFile(new_value, 4);
+  editSettingsFile(new_value, 3);
 
   if (!auto_brightness)
     last_display_brightness = display_brightness;
@@ -153,14 +146,14 @@ void editSettingsFile(const char new_value[], uint8_t tags_id) {
 void editTimeSyncMode(const char new_value[]) {
 #ifdef  GPS_MODULE
   if (set_time_with_gps != (strcmp(new_value, "gps") == 0)) {
-    editSettingsFile(new_value, 2);
+    editSettingsFile(new_value, 1);
     set_time_with_gps = !set_time_with_gps;
   }
 #endif
 }
 
 void editTimezoneOffset(const char new_value[]) {
-  editSettingsFile(new_value, 5);
+  editSettingsFile(new_value, 4);
   timezone = atoi(new_value);
 }
 
@@ -235,15 +228,19 @@ int getNTP_PacketLength(IPAddress& address) {
 // --------------------------------------------- Check if it's daylight saving period ---------------------------------------------- //
 bool isDaylightSavingPeriod() {
   bool is_period = false;
+  uint8_t month_now = rtc.now().month();
 
-  if (rtc.now().month() > 3 && rtc.now().month() < 10) {
+  if (month_now > 3 && month_now < 10)
     is_period = true;
-  }
   else {
     uint8_t last_sunday_date = getLastSundayDate();
+    uint8_t day_now = rtc.now().day();
+    uint8_t hour_now = rtc.now().hour();
 
-    if ((rtc.now().month() == 3 && rtc.now().day() > last_sunday_date) ||
-        (rtc.now().month() == 10 && rtc.now().day() < last_sunday_date)) {
+    if ((month_now == 3 && day_now > last_sunday_date) ||
+        (month_now == 3 && day_now == last_sunday_date && hour_now >= FIRST_UPDATE_HOUR) ||
+        (month_now == 10 && day_now < last_sunday_date) ||
+        (month_now == 10 && day_now == last_sunday_date && hour_now < FIRST_UPDATE_HOUR)) {
       is_period = true;
     }
   }
@@ -268,7 +265,7 @@ void manualTimeUpdate() {
 
   rtc.adjust(DateTime(current_time[0], current_time[1] + 1, current_time[2],
                       current_time[3], current_time[4], current_time[5]));
-  editDaylightSavingActive(isDaylightSavingPeriod() ? "true" : "false");
+  daylight_saving_active = isDaylightSavingPeriod();
 }
 
 // ------------------------------------------- Check a requested network is in range ------------------------------------------- //
@@ -446,7 +443,7 @@ void sendNTP_Packet(IPAddress& address) {
 
 // ------------------------------------------ Determine which update function to call --------------------------------------- //
 void updateTime() { // Check if it's the right time to update the time or if time update is requested
-  if ((rtc.now().hour() == update_hour && rtc.now().minute() == 0 && rtc.now().second() < 3) || time_update_pending) {
+  if ((rtc.now().hour() == update_hour && rtc.now().minute() == 0 && rtc.now().second() == 0) || time_update_pending) {
     bool time_updated = false;
 
 #ifdef  GPS_MODULE
@@ -500,11 +497,9 @@ void updateTime() { // Check if it's the right time to update the time or if tim
       uint8_t temp_hour = rtc.now().hour();
       daylightSavingChange(temp_hour);
 
-      if (rtc.now().hour() != temp_hour) {
+      if (rtc.now().hour() != temp_hour)
         rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(),
                             temp_hour, rtc.now().minute(), rtc.now().second()));
-        editDaylightSavingActive(daylight_saving_active ? "true" : "false");
-      }
     }
   }
 }
@@ -537,12 +532,13 @@ bool updateTimeFromNTP() {
     connected_to_ntp = true;
     displayClockJustUpdated(false);
     time_updated = true;
+    update_hour = FIRST_UPDATE_HOUR;
   }
   else if (!time_update_pending) {
     if (update_hour < LAST_UPDATE_HOUR)
       update_hour++;
     else
-      update_hour = 3;
+      update_hour = FIRST_UPDATE_HOUR;
   }
 
   time_update_pending = false;

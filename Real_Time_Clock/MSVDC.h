@@ -48,23 +48,22 @@
 const PROGMEM char *ESP_SSID = "Test"; // ESP soft access point name | CHANGE NUMBER FOR EACH DEVICE!
 const PROGMEM char *ESP_PASS = "Test1234"; // ESP soft access point password
 const PROGMEM char *EU_NTP_SERVER_1 = "0.europe.pool.ntp.org"; // NTP pool for IP addresses
-const PROGMEM char *START_TAGS[] = { "<daylightSavingEnabled>", "<daylightSavingActive>",
-                                     "<timeSyncMode>", "<autoBrightnessControl>",
-                                     "<manualBrightnessLevel>", "<timezoneHoursOffset>", "<IP>" };
-const PROGMEM char *END_TAGS[] = { "</daylightSavingEnabled>", "</daylightSavingActive>",
-                                   "</timeSyncMode>", "</autoBrightnessControl>", 
-                                   "</manualBrightnessLevel>", "</timezoneHoursOffset>", "</IP>" };
+const PROGMEM char *START_TAGS[] = { "<daylightSavingEnabled>", "<timeSyncMode>", "<autoBrightnessControl>",
+                                     "<manualBrightnessLevel>", "<timezoneHoursOffset>" };
+const PROGMEM char *END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>", "</autoBrightnessControl>", 
+                                   "</manualBrightnessLevel>", "</timezoneHoursOffset>" };
 
 const PROGMEM uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
 const PROGMEM uint8_t NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
+const PROGMEM uint8_t LAST_UPDATE_HOUR = 5; // Last hour in which the clock will try to update
+const PROGMEM uint8_t FIRST_UPDATE_HOUR = 3; // First hour in which the clock will try to update
 
 const PROGMEM int CONNECT_TO_NETWORK_LOOP_COUNT = 32; // Used in connectClockToNetwork() and HandleWebInterface()
 const PROGMEM int CONNECT_TO_NETWORK_LOOP_DELAY = 250; // Used in connectClockToNetwork() and HandleWebInterface()
-const PROGMEM int LAST_UPDATE_HOUR = 5; // If the clock has not updated it will try on the next day
 
 uint8_t display_brightness = DEFAULT_BRIGHTNESS;
 uint8_t last_display_brightness = DEFAULT_BRIGHTNESS;
-uint8_t update_hour = 3; // Request time from NTP server at 3:00 in the morning
+uint8_t update_hour = FIRST_UPDATE_HOUR; // Request time from NTP server at 3:00 in the morning
 int8_t timezone;
 int8_t second_now = 0;
 int8_t last_second = -1; // Used to check if the current second is different than the last
