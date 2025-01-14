@@ -112,9 +112,8 @@ class FileSetupApp:
                         if is_end_marker:  # Don't write the end markers
                             continue
 
-                        # if not is_between_markers and not_saved:  # Write the main file content
-                        #     current_file.write(line)
-
+                        if not is_between_markers and not_saved:  # Write the main file content
+                            current_file.write(line)
 
                 else:  # JS and CSS files
                     passed_file_marker = False
