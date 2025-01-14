@@ -31,8 +31,8 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   initializeModuleRTC(); // Initial function
   initializeFileSystem(); // Initial function
-  WiFi.softAP(ESP_SSID, ESP_PASS, 1, 0, 1); // Set ESP access point
   initializeServers(); // Initial function
+  daylight_saving_active = isDaylightSavingPeriod();
 
 #ifdef  GPS_MODULE
   gpsSerial.begin(GPS_BAUD_RATE); // Start the GPS connection through SoftwareSerial library
@@ -49,6 +49,7 @@ void setup() {
 #endif
 
   tm1637.setBrightness(display_brightness); // Set brightness of the 7-digit display (TM1637)
+  WiFi.softAP(ESP_SSID, ESP_PASS, 1, 0, 1); // Set ESP access point
 }
 
 void loop() {
