@@ -1,6 +1,5 @@
 // Modules' Specific Variables, Definitions and Constants for the Real time clock software
 // Developed by Hristo Traykov, NEON.BG (Sofia)
-// File version 1.0
 
 /* AVAILABLE PLATFORMS */
 // #define  PLATFORM_ESP32
@@ -9,7 +8,6 @@
 
 
 /* AVAILABLE MODULES */
-// #define  AUDIO_MODULE
 // #define  GPS_MODULE
 // #define  LIGHT_SENSITIVITY_MODULE
 // #define  TEMPERATURE_MODULE
@@ -45,21 +43,20 @@
 #define LED_PIN       16 // Integrated LED
 
 /* ----------------------------------- Constants and variables ----------------------------------- */
-const PROGMEM char *ESP_SSID = "Test"; // ESP soft access point name | CHANGE NUMBER FOR EACH DEVICE!
-const PROGMEM char *ESP_PASS = "Test1234"; // ESP soft access point password
-const PROGMEM char *EU_NTP_SERVER_1 = "0.europe.pool.ntp.org"; // NTP pool for IP addresses
-const PROGMEM char *START_TAGS[] = { "<daylightSavingEnabled>", "<timeSyncMode>", "<autoBrightnessControl>",
+const PROGMEM char* ESP_SSID = "Test"; // ESP soft access point name | CHANGE NUMBER FOR EACH DEVICE!
+const PROGMEM char* ESP_PASS = "Test1234"; // ESP soft access point password
+const PROGMEM char* EU_NTP_SERVER_1 = "0.europe.pool.ntp.org"; // NTP pool for IP addresses
+const PROGMEM char* START_TAGS[] = { "<daylightSavingEnabled>", "<timeSyncMode>", "<autoBrightnessControl>",
                                      "<manualBrightnessLevel>", "<timezoneHoursOffset>" };
-const PROGMEM char *END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>", "</autoBrightnessControl>", 
+const PROGMEM char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>", "</autoBrightnessControl>", 
                                    "</manualBrightnessLevel>", "</timezoneHoursOffset>" };
 
-const PROGMEM uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
-const PROGMEM uint8_t NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
-const PROGMEM uint8_t LAST_UPDATE_HOUR = 5; // Last hour in which the clock will try to update
-const PROGMEM uint8_t FIRST_UPDATE_HOUR = 3; // First hour in which the clock will try to update
+const uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
+const uint8_t LAST_UPDATE_HOUR = 5; // Last hour in which the clock will try to update
+const uint8_t FIRST_UPDATE_HOUR = 3; // First hour in which the clock will try to update
 
-const PROGMEM int CONNECT_TO_NETWORK_LOOP_COUNT = 32; // Used in connectClockToNetwork() and HandleWebInterface()
-const PROGMEM int CONNECT_TO_NETWORK_LOOP_DELAY = 250; // Used in connectClockToNetwork() and HandleWebInterface()
+const int CONNECT_TO_NETWORK_LOOP_COUNT = 32; // Used in connectClockToNetwork() and HandleWebInterface()
+const int CONNECT_TO_NETWORK_LOOP_DELAY = 250; // Used in connectClockToNetwork() and HandleWebInterface()
 
 uint8_t display_brightness = DEFAULT_BRIGHTNESS;
 uint8_t last_display_brightness = DEFAULT_BRIGHTNESS;
@@ -79,8 +76,6 @@ bool daylight_saving_enabled; // Daylight saving mode - ON/OFF
 bool daylight_saving_active;
 bool override_settings = false; // Triggers 'espSettings.xml' override
 bool time_update_pending = true; // Triggers time update at start if connected to NTP server
-
-byte packet_buffer[NTP_PACKET_SIZE]; // Buffer holding incoming and outgoing packets
 
 // ---------------- Objects ---------------- //
 IPAddress time_server_ip; // NTP server ip container

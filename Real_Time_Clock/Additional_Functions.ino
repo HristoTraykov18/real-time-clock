@@ -356,9 +356,8 @@ void printCurrentTime() {
   Serial.print(rtc.now().month());
   Serial.print(F("."));
   Serial.print(rtc.now().year());
-  Serial.print(F(", Day of the week: "));
+  Serial.print(F(", Weekday: "));
   Serial.print(rtc.now().dayOfTheWeek());
-  Serial.print(F(", "));
 #endif
 }
 
@@ -419,7 +418,8 @@ void sendNTP_Packet(IPAddress& address) {
   Serial.println(F("Preparing NTP packet"));
 #endif
 
-  memset(packet_buffer, 0, NTP_PACKET_SIZE); // Set all bytes in the buffer to 0
+  const uint8_t NTP_PACKET_SIZE = 48;
+  byte packet_buffer[NTP_PACKET_SIZE];
 
   // Initialize values needed to form NTP request (see URL above for details on the packets)
   packet_buffer[0] = 0b11100011; // LI, Version, Mode
@@ -519,6 +519,8 @@ bool updateTimeFromNTP() {
     Serial.println(F("\nNTP response received"));
 #endif
 
+    const uint8_t NTP_PACKET_SIZE = 48;
+    byte packet_buffer[NTP_PACKET_SIZE];
     udp.read(packet_buffer, NTP_PACKET_SIZE); // Read the packet into the buffers
 
     // The timestamp starts at byte 40 of the received packet and is four bytes, or two words, long. First, esxtract the two words:
