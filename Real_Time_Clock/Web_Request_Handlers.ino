@@ -1,37 +1,8 @@
 
 // _____________________________________________ Web interface handling functions _____________________________________________ //
-void handleWebInterface() { // Handler for the main interface
-  if (server.arg("timeSyncMode") == "wifi") {
-    String ssid = server.arg("ssid");
-
-    if (WiFi.status() == WL_CONNECTED) {
-      if (ssid == WiFi.SSID()) {
-        sendWebpageResponse(("Часовникът вече е свързан с мрежа " + ssid + " и се свери през Интернет").c_str());
-        time_update_pending = true;
-      }
-      else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
-        validateNetworkInput(ssid, server.arg("pass"));
-      }
-      else {
-        sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
-        time_update_pending = true;
-      }
-    }
-    else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
-      validateNetworkInput(ssid, server.arg("pass"));
-    }
-#ifdef  GPS_MODULE
-    else if (set_time_with_gps)
-      sendWebpageResponse("Промените са запазени!");
-#endif
-    else
-      sendWebpageResponse("Моля въведете име и парола на мрежата!");
-
-#ifdef  GPS_MODULE
-    gps_connect_attempts_left = 0;
-#endif
-    editTimeSyncMode("wifi");
-  }
+void handleWebInterface() {
+  if (server.arg("timeSyncMode") == "wifi")
+    handleWifiTimeSync(server.arg("ssid"));
 #ifdef  GPS_MODULE
   else if (server.arg("timeSyncMode") == "gps") {
     activateGPS(); // GPS module function
@@ -40,43 +11,18 @@ void handleWebInterface() { // Handler for the main interface
     time_update_pending = true;
   }
 #endif
-  else if (server.arg("timeSyncMode") == "js") { // If the user opened the Web UI, update the time if needed
-    if (WiFi.status() != WL_CONNECTED) {
-      if (networkReconnect()) {
-        sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
-        time_update_pending = true;
-      }
-      else {
-        manualTimeUpdate();
-        sendWebpageResponse("Часовникът се свери автоматично от устройството Ви");
-      }
-    }
-    else {
-      sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
-      time_update_pending = true;
-    }
-  }
+  else if (server.arg("timeSyncMode") == "js")
+    handleManualTimeSync();
   else if (server.hasArg("daylightSavingEnabled")) {
     editDaylightSavingEnabled(server.arg("daylightSavingEnabled").c_str());
     sendWebpageResponse("Промените са запазени");
   }
-  else if (server.hasArg("autoBrightnessControl")) {
-    if (server.arg("autoBrightnessControl") == "false") {
-      editManualBrightness(server.arg("manualBrightnessLevel").c_str());
-      display_brightness = server.arg("manualBrightnessLevel").toInt();
-    }
-    else
-      display_brightness = DEFAULT_BRIGHTNESS;
-
-    editAutoBrightness(server.arg("autoBrightnessControl").c_str());
-    sendWebpageResponse("Промените са запазени");
-  }
-  else if (server.arg("timeSyncMode") == "gps") {
+  else if (server.hasArg("autoBrightnessControl"))
+    handleBrightnessControl();
+  else if (server.arg("timeSyncMode") == "gps")
     sendWebpageResponse("Часовникът няма инсталиран GPS модул");
-  }
-  else {
+  else
     streamFileToServer("/index.html", "text/html"); // Show main page at the begining
-  }
 
   if (server.hasArg("timezoneHoursOffset"))
     editTimezoneOffset(server.arg("timezoneHoursOffset").c_str());
@@ -92,7 +38,60 @@ void handleWebInterface() { // Handler for the main interface
 #endif
 }
 
-void sendIP() { // Handler for IP address page
+void handleBrightnessControl() {
+  if (server.arg("autoBrightnessControl") == "false") {
+    editManualBrightness(server.arg("manualBrightnessLevel").c_str());
+    display_brightness = server.arg("manualBrightnessLevel").toInt();
+  }
+  else
+    display_brightness = DEFAULT_BRIGHTNESS;
+
+  editAutoBrightness(server.arg("autoBrightnessControl").c_str());
+  sendWebpageResponse("Промените са запазени");
+}
+
+void handleManualTimeSync() {
+  if (networkReconnect()) {
+    sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
+    time_update_pending = true;
+  }
+  else {
+    manualTimeUpdate();
+    sendWebpageResponse("Часовникът се свери автоматично от устройството Ви");
+  }
+}
+
+void handleWifiTimeSync(const String& ssid) {
+  if (WiFi.status() == WL_CONNECTED) {
+    if (ssid == WiFi.SSID()) {
+      sendWebpageResponse(("Часовникът вече е свързан с мрежа " + ssid + " и се свери през Интернет").c_str());
+      time_update_pending = true;
+    }
+    else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
+      validateNetworkInput(ssid, server.arg("pass"));
+    }
+    else {
+      sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
+      time_update_pending = true;
+    }
+  }
+  else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
+    validateNetworkInput(ssid, server.arg("pass"));
+  }
+#ifdef  GPS_MODULE
+  else if (set_time_with_gps)
+    sendWebpageResponse("Промените са запазени!");
+#endif
+  else
+    sendWebpageResponse("Моля въведете име и парола на мрежата!");
+
+#ifdef  GPS_MODULE
+  gps_connect_attempts_left = 0;
+#endif
+  editTimeSyncMode("wifi");
+}
+
+void sendIP() {
   server.send(200, "text/plain", WiFi.localIP().toString().c_str());
 #ifdef  RTC_INFO_MESSAGES
   Serial.print(F("IP: "));
@@ -100,7 +99,7 @@ void sendIP() { // Handler for IP address page
 #endif
 }
 
-void sendWebpageResponse(const char *webpage_response) { // Send info to the server
+void sendWebpageResponse(const char *webpage_response) {
   server.send(200, "text/plain", webpage_response);
   server.handleClient();
 
