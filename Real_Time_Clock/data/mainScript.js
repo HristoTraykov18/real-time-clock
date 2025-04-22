@@ -156,6 +156,9 @@ function SubmitNetworkRequest(event) {
     submitData += "&pass=" + networkInputs[1].value;
     submitData += "&timeSyncMode=wifi";
 
+    submitData += "&isHiddenNetwork=";
+    submitData += document.getElementsByName("hiddenNetwork")[0].checked;
+
     let currentDate = new Date();
     submitData += "&timezoneHoursOffset=" + (currentDate.getTimezoneOffset() / -60);
 

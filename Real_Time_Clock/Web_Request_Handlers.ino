@@ -68,7 +68,7 @@ void handleWifiTimeSync(const String& ssid) {
       time_update_pending = true;
     }
     else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
-      validateNetworkInput(ssid, server.arg("pass"));
+      validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
     }
     else {
       sendWebpageResponse(("Часовникът беше сверен през Интернет. Настоящата мрежа е " + WiFi.SSID()).c_str());
@@ -76,7 +76,7 @@ void handleWifiTimeSync(const String& ssid) {
     }
   }
   else if (ssid != "" && (server.arg("pass")).length() + 1 > 7) {
-    validateNetworkInput(ssid, server.arg("pass"));
+    validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
   }
 #ifdef  GPS_MODULE
   else if (set_time_with_gps)
@@ -115,8 +115,8 @@ void streamFileToServer(const char *filename, const char *filestream_format) {
   data_file.close();
 }
 
-void validateNetworkInput(const String& ssid, const String& pass) {
-  if (networkIsInRange(ssid)) {
+void validateNetworkInput(const String& ssid, const String& pass, const String& is_hidden) {
+  if (networkIsInRange(ssid) || is_hidden == "true") {
     if (connectClockToNetwork(ssid, pass))
       sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + ".\nIP: " + WiFi.localIP().toString()).c_str());
     else
