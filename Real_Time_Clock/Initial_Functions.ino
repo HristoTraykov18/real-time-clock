@@ -53,13 +53,8 @@ void initializeFileSystem() {
 
 // ---------------------------------------------- Initialize the RTC module ------------------------------------------------- //
 void initializeModuleRTC() {
-  uint8_t rectangle[] = {(SEG_A | SEG_D | SEG_E | SEG_F), 
-                         (SEG_A | SEG_D), 
-                         (SEG_A | SEG_D), 
-                         (SEG_A | SEG_B | SEG_C | SEG_D)};
-
   tm1637.setBrightness(DEFAULT_BRIGHTNESS); // Set default brightness
-  tm1637.setSegments(rectangle); // Show rectangle by default in case the RTC does not work
+  tm1637.showNumber(8888); // Show 8888 by default in case the RTC does not work and also test all segments
 
   while (!rtc.begin()) { // If the RTC is not found do not boot
 #ifdef  RTC_INFO_MESSAGES
