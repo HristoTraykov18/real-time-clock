@@ -358,6 +358,7 @@ void printCurrentTime() {
   Serial.print(rtc.now().year());
   Serial.print(F(", Weekday: "));
   Serial.print(rtc.now().dayOfTheWeek());
+  Serial.print(F(", "));
 #endif
 }
 
