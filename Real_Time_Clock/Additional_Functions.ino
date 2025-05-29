@@ -75,11 +75,15 @@ void daylightSavingChange(uint8_t &hour_now) {
   bool is_daylight_saving_period = isDaylightSavingPeriod();
 
   if (!daylight_saving_active && is_daylight_saving_period) {
-    hour_now += 1;
+    if (WiFi.status() != WL_CONNECTED)
+      hour_now += 1;
+
     daylight_saving_active = true;
   }
   else if (daylight_saving_active && !is_daylight_saving_period) {
-    hour_now -= 1;
+    if (WiFi.status() != WL_CONNECTED)
+      hour_now -= 1;
+
     daylight_saving_active = false;
   }
 }
