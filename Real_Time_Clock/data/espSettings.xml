@@ -4,6 +4,6 @@
     <daylightSavingActive>false</daylightSavingActive>
     <timeSyncMode>wifi</timeSyncMode>
     <autoBrightnessControl>true</autoBrightnessControl>
-    <manualBrightnessLevel>0</manualBrightnessLevel>
+    <manualBrightnessLevel>6</manualBrightnessLevel>
     <timezoneHoursOffset>0</timezoneHoursOffset>
 </espSettings>
