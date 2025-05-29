@@ -55,7 +55,7 @@ const uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
 const uint8_t LAST_UPDATE_HOUR = 5; // Last hour in which the clock will try to update
 const uint8_t FIRST_UPDATE_HOUR = 3; // First hour in which the clock will try to update
 
-const int CONNECT_TO_NETWORK_LOOP_COUNT = 32; // Used in connectClockToNetwork() and HandleWebInterface()
+const int CONNECT_TO_NETWORK_LOOP_COUNT = 60; // Used in connectClockToNetwork() and HandleWebInterface()
 const int CONNECT_TO_NETWORK_LOOP_DELAY = 250; // Used in connectClockToNetwork() and HandleWebInterface()
 
 uint8_t display_brightness = DEFAULT_BRIGHTNESS;
