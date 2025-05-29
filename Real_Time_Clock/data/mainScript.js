@@ -94,7 +94,7 @@ function SendServerRequest(requestParams) {
 
     let retries = 2;
     let xhttp = new XMLHttpRequest();
-    xhttp.timeout = 15000;
+    xhttp.timeout = 20000;
     xhttp.onreadystatechange = function() {
         // The request finished and response is ready
         if (this.readyState === 4) {

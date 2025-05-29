@@ -54,7 +54,7 @@ void initializeFileSystem() {
 // ---------------------------------------------- Initialize the RTC module ------------------------------------------------- //
 void initializeModuleRTC() {
   tm1637.setBrightness(DEFAULT_BRIGHTNESS); // Set default brightness
-  tm1637.showNumber(8888); // Show 8888 by default in case the RTC does not work and also test all segments
+  tm1637.showNumber(8888, 32); // Test all segments
 
   while (!rtc.begin()) { // If the RTC is not found do not boot
 #ifdef  RTC_INFO_MESSAGES
