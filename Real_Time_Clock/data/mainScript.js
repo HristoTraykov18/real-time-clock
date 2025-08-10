@@ -1,4 +1,4 @@
-const ANIMATION_TIMEOUT = 400;
+const ANIMATION_TIMEOUT = 500;
 const SLIDERS_THUMB_DIAMETER = 25;
 
 const AUDIO_MENU_URL = "/audio"; // New endpoint for fetching audio files
@@ -16,7 +16,6 @@ const minutePickerContainer = document.getElementById("js-minute-picker-containe
 const hourSelector = document.getElementById("js-hour-selector");
 const minuteSelector = document.getElementById("js-minute-selector");
 
-let istimePickging = false;
 let activePicker = 'hour';
 
 window.addEventListener("load", function() { // Add event listeners for the javascript functionalities
@@ -181,7 +180,7 @@ function submitManualTime() {
 // Write the changes to their hidden inputs so the server can read them
 function submitNetworkRequest(event) {
     event.preventDefault();
-    let networkInputs = document.getElementsByClassName("clock-settings-input");
+    let networkInputs = document.getElementsByClassName("main-settings-input");
     let submitData = "ssid=" + networkInputs[0].value;
 
     submitData += "&pass=" + networkInputs[1].value;
@@ -291,20 +290,20 @@ function updateSlider(slider, thumb, hasTooltip) {
 
 // Functions for the audio menu
 function switchMenu(menuId) {
-    const mainMenu = document.getElementById("js-clock-settings");
-    const audioMenu = document.getElementById("js-audio-menu-content");
+    const mainMenu = document.getElementById("js-main-settings");
+    const audioMenu = document.getElementById("js-audio-settings");
     const mainMenuButton = document.getElementById("js-main-menu-button");
     const audioMenuButton = document.getElementById("js-audio-menu-button");
 
     if (menuId === "main") {
-        mainMenu.style.display = "flex";
-        audioMenu.style.display = "none";
+        mainMenu.classList.add("active-content");
+        audioMenu.classList.remove("active-content");
         mainMenuButton.style.backgroundColor = "var(--dark-blue)";
         audioMenuButton.style.backgroundColor = "var(--pale-purple)";
     }
     else if (menuId === "audio") {
-        mainMenu.style.display = "none";
-        audioMenu.style.display = "flex";
+        audioMenu.classList.add("active-content");
+        mainMenu.classList.remove("active-content");
         mainMenuButton.style.backgroundColor = "var(--pale-purple)";
         audioMenuButton.style.backgroundColor = "var(--dark-blue)";
     }
@@ -439,10 +438,10 @@ function timePick(e) {
         const minute = Math.round(normalizedAngle / 6);
         selectedValue = minute === 60 ? 0 : minute;
         
-        minuteDisplay.innerText = (Math.round(selectedValue / 5) * 5).toString().padStart(2, '0');
+        minuteDisplay.innerText = selectedValue.toString().padStart(2, '0');
         
         // Update selector position
-        const newAngle = (Math.round(selectedValue / 5) * 5 * 6);
+        const newAngle = selectedValue * 6;
         const newRadians = ((newAngle - 90) * Math.PI) / 180;
         const newX = MINUTE_NUM_RADIUS * Math.cos(newRadians);
         const newY = MINUTE_NUM_RADIUS * Math.sin(newRadians);

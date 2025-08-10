@@ -51,69 +51,13 @@
                   225 154 68 22 177 24 248 5z"/>
               </g>
           </svg>
-          <div id="js-audio-menu-content" class="form-content">
-            <div class="audio-list-container">
-              <div class="audio-list">
-                <div class="audio-list-item">
-                  <span class="audio-list-item-name">0001_demo_alarm.mp3</span>
-                  <div class="audio-list-item-buttons">
-                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
-                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
-                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
-                      <path d="M7,10l5,5l5-5H7z"/>
-                    </svg>
-                  </div>
-                </div>
-                <div class="audio-list-item">
-                  <span class="audio-list-item-name">0002_another_test.mp3</span>
-                  <div class="audio-list-item-buttons">
-                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
-                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
-                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
-                      <path d="M7,10l5,5l5-5H7z"/>
-                    </svg>
-                  </div>
-                </div>
-                <div class="audio-list-item">
-                  <span class="audio-list-item-name">0002_another_test.mp3</span>
-                  <div class="audio-list-item-buttons">
-                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
-                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
-                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
-                      <path d="M7,10l5,5l5-5H7z"/>
-                    </svg>
-                  </div>
-                </div>
-                <div class="audio-list-item">
-                  <span class="audio-list-item-name">0002_another_test.mp3</span>
-                  <div class="audio-list-item-buttons">
-                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
-                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
-                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
-                      <path d="M7,10l5,5l5-5H7z"/>
-                    </svg>
-                  </div>
-                </div>
-                <div class="audio-list-item">
-                  <span class="audio-list-item-name">0002_another_test.mp3</span>
-                  <div class="audio-list-item-buttons">
-                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
-                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
-                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
-                      <path d="M7,10l5,5l5-5H7z"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div id="js-clock-settings">
+          <div id="js-main-settings" class="content active-content">
             <p class="message">Моля въведете име и парола на мрежата за връзка</p>
             <div>
-              <input type="text" class="clock-settings-input" name="ssid" size="12" placeholder="Име на мрежа">
+              <input type="text" class="main-settings-input" name="ssid" size="12" placeholder="Име на мрежа">
             </div>
             <div class="password-field">
-              <input type="password" id="js-pass-input" class="clock-settings-input" name="pass" size="12" placeholder="Парола">
+              <input type="password" id="js-pass-input" class="main-settings-input" name="pass" size="12" placeholder="Парола">
               <span id="js-password-button-container">
                 <svg id="js-show-password-button" class="password-field-button" viewBox="0 0 24 24" 
                   xmlns="https://www.w3.org/2000/svg">
@@ -184,8 +128,74 @@
               </div>
             </div>
           </div>
+          <div id="js-audio-settings" class="content">
+            <div class="audio-list-container">
+              <div class="audio-list">
+                <div class="audio-list-item">
+                  <span class="audio-list-item-name">0001_demo_alarm.mp3</span>
+                  <div class="audio-list-item-buttons">
+                      <div class="audio-list-button" onclick="toggleSublist(this)">
+                        <svg class="arrow-icon" viewBox="0 0 24 24">
+                          <path d="M7,10l5,5l5-5H7z"/>
+                        </svg>
+                      </div>
+                    <div class="audio-list-button" onclick="playAudio('demo_alarm_01.mp3')">
+                      <svg class="play-icon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                    <div class="audio-list-button" onclick="showNotificationPopup('demo_alarm_01.mp3')">
+                      <svg class="add-icon" viewBox="0 0 24 24">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <div class="audio-list-item">
+                  <span class="audio-list-item-name">0002_test.mp3</span>
+                  <div class="audio-list-item-buttons">
+                    <div class="audio-list-button" onclick="toggleSublist(this)">
+                      <svg class="arrow-icon" viewBox="0 0 24 24">
+                        <path d="M7,10l5,5l5-5H7z"/>
+                      </svg>
+                    </div>
+                    <div class="audio-list-button" onclick="playAudio('0002_test.mp3')">
+                      <svg class="play-icon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                    <div class="audio-list-button" onclick="showNotificationPopup('0002_test.mp3')">
+                      <svg class="add-icon" viewBox="0 0 24 24">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <div class="audio-list-item">
+                  <span class="audio-list-item-name">0003_another_test.mp3</span>
+                  <div class="audio-list-item-buttons">
+                    <div class="audio-list-button" onclick="toggleSublist(this)">
+                      <svg class="arrow-icon" viewBox="0 0 24 24">
+                        <path d="M7,10l5,5l5-5H7z"/>
+                      </svg>
+                    </div>
+                    <div class="audio-list-button" onclick="playAudio('0003_another_test.mp3')">
+                      <svg class="play-icon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                    <div class="audio-list-button" onclick="showNotificationPopup('0003_another_test.mp3')">
+                      <svg class="add-icon" viewBox="0 0 24 24">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="form-content loader-container">
+        <div class="content loader-container">
           <div class="loader"></div>
         </div>
       </form>

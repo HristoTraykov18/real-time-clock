@@ -5,7 +5,7 @@
     --thumb-diameter: 25px;
     --password-field-button-size: 24px;
     --loader-size: 80px;
-    --settings-animation-duration: .4s;
+    --animation-speed: .5s;
 }
 .cursor-pointer { cursor: pointer; }
 .cursor-default { cursor: default; }
@@ -44,22 +44,22 @@ form {
 /* ---------------- Option buttons ---------------- */
 .option-buttons-container { /* Contains the buttons above the form */
     width: 100%;
-    padding-top: 5px;
     font-size: 18px;
     display: flex;
-    justify-content: center;
+    justify-content: space-evenly;
 }
 .option-button {
-    -webkit-transition: background-color var(--settings-animation-duration);
-    transition: background-color var(--settings-animation-duration);
+    -webkit-transition: background-color var(--animation-speed);
+    transition: background-color var(--animation-speed);
     height: 100%;
-    border-radius: 5px;
-    display: flex;
+    width: 100%;
+    padding: 10px 0px;
 }
 .option-button:active { color: var(--red); }
-/*.option-button div { margin: auto; }*/
-#js-clock-set-option { background-color: var(--dark-blue); }
-/*#js-manual-set-option { background-color: var(--pale-purple); }*/
+#js-main-menu-button {
+    background-color: var(--dark-blue);
+    border-bottom-right-radius: 30px;
+}
 /* ------------------------------------------------ */
 
 .form-content {
@@ -67,8 +67,30 @@ form {
     height: 100%;
     position: relative;
     display: flex;
+    /* flex-direction: column;
+    justify-content: space-evenly; */
+}
+.content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transition: opacity var(--animation-speed) ease, 
+                transform var(--animation-speed) ease;
+    display: flex;
     flex-direction: column;
-    justify-content: space-evenly;
+    justify-content: center;
+}
+.active-content {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+}
+.content:not(.active-content) {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--screen-slide-distance)));
+    pointer-events: none;
 }
 
 /* ----- Styling and animation for loader ----- */
@@ -116,12 +138,6 @@ fieldset {
 }
 
 /* ------------------- Auto settings ------------------- */
-#js-clock-settings {
-    -webkit-transition: opacity var(--settings-animation-duration);
-    transition: opacity var(--settings-animation-duration);
-    display: flex;
-    flex-direction: column;
-}
 .password-field {
     position: relative;
     display: flex;
@@ -227,8 +243,8 @@ fieldset {
     justify-content: center;
 }
 .checkbox-slider::after {
-    -webkit-transition: var(--settings-animation-duration);
-    transition: var(--settings-animation-duration);
+    -webkit-transition: var(--animation-speed);
+    transition: var(--animation-speed);
     background-color: white;
     position: absolute;
     content: '';
@@ -247,8 +263,8 @@ fieldset {
     margin: auto;
     position: relative;
     border-radius: 10px;
-    -webkit-transition: opacity var(--settings-animation-duration), pointer-events 0s;
-    transition: opacity var(--settings-animation-duration), pointer-events 0s;
+    -webkit-transition: opacity var(--animation-speed), pointer-events 0s;
+    transition: opacity var(--animation-speed), pointer-events 0s;
 }
 .js-sc-big { margin-top: 35px; } /* js-slider-container-big */
 #js-brightness-slider-container {
@@ -290,17 +306,16 @@ fieldset {
 }
 /* ------------------- */
 
-.clock-settings-input {
+.main-settings-input {
     padding: 2px 10px;
     margin: 5px auto;
     border: 1px solid #000;
 }
-.clock-settings-input, .button-red {
+.main-settings-input, .button-red {
     font-size: 25px;
     border-radius: 10px;
 }
 .button-container { padding: 8px 0px; }
-.bc-small { padding: 5px 0px; } /* button-container-small */
 .button-red {
     color: white;
     font-weight: bold;
@@ -315,10 +330,6 @@ fieldset {
 .button-red:active {
     background-color: var(--pale-purple);
     box-shadow: 0px 0px 0px;
-}
-.br-small { /* button-red-small */
-    padding: 5px 20px;
-    font-size: 17px;
 }
 .popup-container { display: none; }
 .popup-container.show-popup { display: block; }
@@ -372,9 +383,8 @@ fieldset {
         border-bottom-right-radius: 10px;
     }
     .form-content { height: 500px; }
-    .option-buttons-container { padding-top: 10px; }
     .message { margin: 5px auto; }
-    .clock-settings-input {
+    .main-settings-input {
         padding: 5px 10px;
         margin: 10px auto;
     }
@@ -411,7 +421,6 @@ fieldset {
         margin: calc(var(--loader-size) / -2) auto auto auto;
     }
     .button-red { padding: 8px 15px; }
-    .br-small { padding: 5px 10px; }
     .popup {
         left: 50%;
         width: 300px;
@@ -435,7 +444,8 @@ fieldset {
     padding: 5px 10px;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    -webkit-transition: background-color var(--animation-speed);
+    transition: background-color var(--animation-speed);
 }
 .time-picker-display .active-display { background-color: var(--red); }
 #js-picker-content-container {
@@ -455,7 +465,8 @@ fieldset {
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: opacity 0.3s ease-in-out;
+    -webkit-transition: opacity var(--animation-speed);
+    transition: opacity var(--animation-speed) ease-in-out;
 }
 
 #js-minute-picker-container.visible {
@@ -506,33 +517,35 @@ fieldset {
     z-index: 10;
     cursor: pointer;
     border: 2px solid black;
-    transition: transform 0.2s ease-in-out;
+    -webkit-transition: transform var(--animation-speed) ease-in-out;
+    transition: transform var(--animation-speed) ease-in-out;
     background-color: var(--red);
 }
 /* ------------------- */
 /* Styling for the tab buttons */
-#js-main-menu-button { background-color: var(--pale-purple); }
-#js-audio-menu-button { background-color: var(--dark-blue); }
+#js-audio-menu-button {
+    background-color: var(--pale-purple);
+    border-bottom-left-radius: 30px;
+}
 
 /* Audio Menu */
-#js-audio-menu-content {
-    display: none; /* Hidden by default */
-    flex-direction: column;
+#js-audio-settings {
     overflow-y: auto; /* Enable vertical scroll */
     max-height: 400px;
 }
 .audio-list-container {
-    width: 90%;
+    width: 99%;
     margin: 10px auto;
-    border: 3px solid #000;
+    border: 2px solid #000;
+    box-shadow: 0px 0px 3px #000;
 }
 .audio-list-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 5px;
-    border-radius: 5px;
-    border: 2px solid var(--dark-blue);
+    border-radius: 10px;
+    border: 1px solid var(--dark-blue);
     background-color: var(--pale-purple);
 }
 .audio-list-item-name {
@@ -543,10 +556,26 @@ fieldset {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.audio-list-item-buttons .button-red {
-    padding: 5px 8px;
-    font-size: 14px;
-    margin-left: 5px;
+.audio-list-item-buttons {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.audio-list-button {
+    width: 30px; /* Adjust size as needed */
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 35%; /* Makes buttons circular */
+    background-color: var(--red);
+    border: 2px solid black;
+    cursor: pointer;
+    box-shadow: 0px 0px 1px #000;
+}
+.audio-list-button:active {
+    background-color: var(--pale-purple);
+    box-shadow: none;
 }
 .sublist {
     display: none; /* Hidden by default */
@@ -561,14 +590,12 @@ fieldset {
     font-size: 14px;
     text-align: left;
 }
-.arrow-icon {
-    width: 20px;
-    height: 20px;
+.arrow-icon, .play-icon, .add-icon {
+    width: 40px;
+    height: 40px;
     fill: white;
-    cursor: pointer;
-    transition: transform 0.2s;
+    -webkit-transition: transform var(--animation-speed);
+    transition: transform var(--animation-speed);
 }
-.arrow-icon.up {
-    transform: rotate(180deg);
-}
+.arrow-icon.up { transform: rotate(180deg); }
 #js-notification-popup .popup { padding: 10px; }
