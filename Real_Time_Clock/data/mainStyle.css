@@ -343,11 +343,16 @@ fieldset {
     border-radius: 3px;
     border: 3px solid #000;
     box-shadow: 0px 0px 3px #000;
+    translate: 0 -30%;
 }
 .popup-big { top: 0px; }
 .popup p {
     width: 99%;
     margin: 10px auto;
+}
+.popup .message {
+    font-size: 18px;
+    margin-bottom: 20px;
 }
 #js-popup-button { width: 30%; }
 .hidden-element {
@@ -414,3 +419,156 @@ fieldset {
     }
 }
 /* END OF MAIN mainStyle.css FILE */
+
+/* CSS for time picker */
+.time-picker-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 40px;
+    font-weight: bold;
+    color: white;
+    margin-bottom: 20px;
+}
+.time-picker-display span {
+    background-color: var(--dark-blue);
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.time-picker-display .active-display { background-color: var(--red); }
+#js-picker-content-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 20px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+#js-hour-picker-container,
+#js-minute-picker-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.3s ease-in-out;
+}
+
+#js-minute-picker-container.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.picker-face {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: var(--dark-blue);
+    border-radius: 50%;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.circle-layer {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+}
+#js-inner-hour-circle {
+    width: 50%;
+    height: 50%;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+.picker-number {
+    position: absolute;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    line-height: 1;
+    z-index: 100;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(0deg - var(--angle)));
+}
+.selector {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    z-index: 10;
+    cursor: pointer;
+    border: 2px solid black;
+    transition: transform 0.2s ease-in-out;
+    background-color: var(--red);
+}
+/* ------------------- */
+/* Styling for the tab buttons */
+#js-main-menu-button { background-color: var(--pale-purple); }
+#js-audio-menu-button { background-color: var(--dark-blue); }
+
+/* Audio Menu */
+#js-audio-menu-content {
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    overflow-y: auto; /* Enable vertical scroll */
+    max-height: 400px;
+}
+.audio-list-container {
+    width: 90%;
+    margin: 10px auto;
+    border: 3px solid #000;
+}
+.audio-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+    border-radius: 5px;
+    border: 2px solid var(--dark-blue);
+    background-color: var(--pale-purple);
+}
+.audio-list-item-name {
+    flex-grow: 1;
+    text-align: left;
+    margin-right: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.audio-list-item-buttons .button-red {
+    padding: 5px 8px;
+    font-size: 14px;
+    margin-left: 5px;
+}
+.sublist {
+    display: none; /* Hidden by default */
+    background-color: #556688;
+    padding: 5px 15px;
+    margin-top: -5px;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+.sublist p {
+    margin: 3px 0;
+    font-size: 14px;
+    text-align: left;
+}
+.arrow-icon {
+    width: 20px;
+    height: 20px;
+    fill: white;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.arrow-icon.up {
+    transform: rotate(180deg);
+}
+#js-notification-popup .popup { padding: 10px; }

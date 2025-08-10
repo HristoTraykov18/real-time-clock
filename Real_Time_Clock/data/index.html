@@ -11,8 +11,11 @@
     <div class="main-container">
       <form method="POST">
         <div class="option-buttons-container">
-          <span class="option-button cursor-pointer">
-            <div>Часови настройки</div>
+          <span id="js-main-menu-button" class="option-button cursor-pointer">
+            <div>Основно меню</div>
+          </span>
+          <span id="js-audio-menu-button" class="option-button cursor-pointer">
+            <div>Аудио меню</div>
           </span>
         </div>
         <div class="form-content">
@@ -48,6 +51,62 @@
                   225 154 68 22 177 24 248 5z"/>
               </g>
           </svg>
+          <div id="js-audio-menu-content" class="form-content">
+            <div class="audio-list-container">
+              <div class="audio-list">
+                <div class="audio-list-item">
+                  <span class="audio-list-item-name">0001_demo_alarm.mp3</span>
+                  <div class="audio-list-item-buttons">
+                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
+                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
+                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
+                      <path d="M7,10l5,5l5-5H7z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div class="audio-list-item">
+                  <span class="audio-list-item-name">0002_another_test.mp3</span>
+                  <div class="audio-list-item-buttons">
+                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
+                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
+                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
+                      <path d="M7,10l5,5l5-5H7z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div class="audio-list-item">
+                  <span class="audio-list-item-name">0002_another_test.mp3</span>
+                  <div class="audio-list-item-buttons">
+                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
+                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
+                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
+                      <path d="M7,10l5,5l5-5H7z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div class="audio-list-item">
+                  <span class="audio-list-item-name">0002_another_test.mp3</span>
+                  <div class="audio-list-item-buttons">
+                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
+                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
+                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
+                      <path d="M7,10l5,5l5-5H7z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div class="audio-list-item">
+                  <span class="audio-list-item-name">0002_another_test.mp3</span>
+                  <div class="audio-list-item-buttons">
+                    <div class="button-red cursor-pointer" onclick="playAudio('demo_alarm_01.mp3')">Play</div>
+                    <div class="button-red cursor-pointer" onclick="showNotificationPopup('demo_alarm_01.mp3')">+</div>
+                    <svg class="arrow-icon" viewBox="0 0 24 24" onclick="toggleSublist(this)">
+                      <path d="M7,10l5,5l5-5H7z"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div id="js-clock-settings">
             <p class="message">Моля въведете име и парола на мрежата за връзка</p>
             <div>
@@ -100,8 +159,6 @@
                 <!-- END OF PLACEHOLDER FOR gpsAddon.html -->
               </div>
             </div>
-          </div>
-          <div id="js-default-settings">
             <div class="checkbox-container">
               <label class="checkbox-label">
                 <div>Скрита мрежа</div>
@@ -141,6 +198,75 @@
         </div>
       </div>
       <div class="popup-background"></div>
+    </div>
+    <div id="js-notification-popup" class="popup-container">
+        <div class="popup">
+            <p class="message">Adding notification for <span id="js-notification-filename"></span></p>
+            <div class="time-picker-display">
+                <span id="js-hour-display" class="active-display">08</span>
+                <span>:</span>
+                <span id="js-minute-display">00</span>
+            </div>
+            <div id="js-picker-content-container">
+                <div id="js-hour-picker-container">
+                    <div id="js-hour-face" class="picker-face">
+                        <div id="js-outer-hour-circle" class="circle-layer cursor-pointer">
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 270deg; --radius: 120px;">00</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 300deg; --radius: 120px;">01</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 330deg; --radius: 120px;">02</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 0deg; --radius: 120px;">03</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 30deg; --radius: 120px;">04</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 60deg; --radius: 120px;">05</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 90deg; --radius: 120px;">06</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 120deg; --radius: 120px;">07</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 150deg; --radius: 120px;">08</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 180deg; --radius: 120px;">09</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 210deg; --radius: 120px;">10</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 240deg; --radius: 120px;">11</span>
+                        </div>
+                        <div id="js-inner-hour-circle" class="circle-layer cursor-pointer">
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 270deg; --radius: 60px;">12</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 300deg; --radius: 60px;">13</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 330deg; --radius: 60px;">14</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 0deg; --radius: 60px;">15</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 30deg; --radius: 60px;">16</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 60deg; --radius: 60px;">17</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 90deg; --radius: 60px;">18</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 120deg; --radius: 60px;">19</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 150deg; --radius: 60px;">20</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 180deg; --radius: 60px;">21</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 210deg; --radius: 60px;">22</span>
+                            <span class="picker-number hour-number cursor-pointer" style="--angle: 240deg; --radius: 60px;">23</span>
+                        </div>
+                        <div id="js-hour-selector" class="selector hour-selector"></div>
+                    </div>
+                </div>
+                <div id="js-minute-picker-container" class="hidden-element">
+                    <div id="js-minute-face" class="picker-face">
+                        <div id="js-minute-circle" class="circle-layer">
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 270deg; --radius: 120px;">00</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 300deg; --radius: 120px;">05</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 330deg; --radius: 120px;">10</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 0deg; --radius: 120px;">15</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 30deg; --radius: 120px;">20</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 60deg; --radius: 120px;">25</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 90deg; --radius: 120px;">30</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 120deg; --radius: 120px;">35</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 150deg; --radius: 120px;">40</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 180deg; --radius: 120px;">45</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 210deg; --radius: 120px;">50</span>
+                            <span class="picker-number minute-number cursor-pointer" style="--angle: 240deg; --radius: 120px;">55</span>
+                        </div>
+                        <div id="js-minute-selector" class="selector minute-selector"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="button-container">
+                <div id="js-add-notification-ok" class="button-red cursor-pointer">Потвърди</div>
+                <div id="js-add-notification-cancel" class="js-cancel-popup-button button-red cursor-pointer">Отказ</div>
+            </div>
+        </div>
+        <div class="popup-background"></div>
     </div>
     <script type="text/javascript" src="mainScript.js"></script>
   </body>
