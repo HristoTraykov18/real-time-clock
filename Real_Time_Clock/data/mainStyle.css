@@ -10,7 +10,7 @@
 .cursor-pointer { cursor: pointer; }
 .cursor-default { cursor: default; }
 body {
-    margin: 0px auto;
+    margin: 0 auto;
     color: white;
     background-color: var(--dark-blue);
     text-align: center;
@@ -26,7 +26,7 @@ header {
 }
 header, .main-container {
     min-width: 250px;
-    margin: 0px auto;
+    margin: 0 auto;
 }
 .main-container {
     display: flex;
@@ -212,6 +212,16 @@ fieldset {
     border-bottom-right-radius: 2px;
     border-top-right-radius: 2px;
 }
+.checkbox-label:hover {
+    .checkbox-box {
+        border: 2px solid white;
+        box-shadow: 0px 0px 3px #000;
+        translate: -7.5%;
+    }
+    .checkbox-label div {
+        font-size: 30px;
+    }
+}
 .checkbox-box::after { /* checkbox indicator (hidden when not checked) */
     content: "";
     position: absolute;
@@ -226,7 +236,7 @@ fieldset {
 }
 .checkbox-slider-label {
     justify-content: flex-start;
-    margin: 0px 5px;
+    margin: 0 5px;
     width: 55px;
     background-color: var(--red);
     border-radius: 10px;
@@ -327,6 +337,21 @@ fieldset {
     border: 2px solid #000;
     display: inline-block;
 }
+.button-red-square {
+    width: 30px;
+    height: 30px;
+    padding: 0px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 35%;
+    box-shadow: 0px 0px 1px #000;
+}
+.button-red:hover {
+    color: #ccc;
+    border: 2px solid var(--red);
+    box-shadow: none;
+}
 .button-red:active {
     background-color: var(--pale-purple);
     box-shadow: 0px 0px 0px;
@@ -407,7 +432,7 @@ fieldset {
         height: 17px;
     }
     .checkbox-slider-label {
-        margin: 0px 10px;
+        margin: 0 10px;
         width: 50px;
     }
     .checkbox-slider::after {
@@ -420,7 +445,6 @@ fieldset {
         top: 50%;
         margin: calc(var(--loader-size) / -2) auto auto auto;
     }
-    .button-red { padding: 8px 15px; }
     .popup {
         left: 50%;
         width: 300px;
@@ -560,22 +584,6 @@ fieldset {
     display: flex;
     align-items: center;
     gap: 5px;
-}
-.audio-list-button {
-    width: 30px; /* Adjust size as needed */
-    height: 30px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 35%; /* Makes buttons circular */
-    background-color: var(--red);
-    border: 2px solid black;
-    cursor: pointer;
-    box-shadow: 0px 0px 1px #000;
-}
-.audio-list-button:active {
-    background-color: var(--pale-purple);
-    box-shadow: none;
 }
 .sublist {
     display: none; /* Hidden by default */
