@@ -5,7 +5,7 @@
     --thumb-diameter: 25px;
     --password-field-button-size: 24px;
     --loader-size: 80px;
-    --animation-speed: .5s;
+    --animation-speed: .4s;
 }
 .cursor-pointer { cursor: pointer; }
 .cursor-default { cursor: default; }
@@ -41,34 +41,11 @@ form {
     text-shadow: 1px 1px 1px black;
 }
 
-/* ---------------- Option buttons ---------------- */
-.option-buttons-container { /* Contains the buttons above the form */
-    width: 100%;
-    font-size: 18px;
-    display: flex;
-    justify-content: space-evenly;
-}
-.option-button {
-    -webkit-transition: background-color var(--animation-speed);
-    transition: background-color var(--animation-speed);
-    height: 100%;
-    width: 100%;
-    padding: 10px 0px;
-}
-.option-button:active { color: var(--red); }
-#js-main-menu-button {
-    background-color: var(--dark-blue);
-    border-bottom-right-radius: 30px;
-}
-/* ------------------------------------------------ */
-
 .form-content {
     width: 100%;
-    height: 100%;
+    height: 500px;
     position: relative;
     display: flex;
-    /* flex-direction: column;
-    justify-content: space-evenly; */
 }
 .content {
     position: absolute;
@@ -76,8 +53,8 @@ form {
     left: 0;
     width: 100%;
     height: 100%;
-    transition: opacity var(--animation-speed) ease, 
-                transform var(--animation-speed) ease;
+    transition: opacity var(--animation-speed) ease-in-out, 
+                transform var(--animation-speed) ease-in-out;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -122,7 +99,7 @@ form {
     width: 100%;
     z-index: -100;
     left: 0px;
-    top: 0px;
+    top: 10px;
     position: absolute;
 }
 fieldset {
@@ -346,6 +323,7 @@ fieldset {
     align-items: center;
     border-radius: 35%;
     box-shadow: 0px 0px 1px #000;
+    cursor: pointer;
 }
 .button-red:hover {
     color: #ccc;
@@ -407,7 +385,6 @@ fieldset {
         border-bottom-left-radius: 10px;
         border-bottom-right-radius: 10px;
     }
-    .form-content { height: 500px; }
     .message { margin: 5px auto; }
     .main-settings-input {
         padding: 5px 10px;
@@ -452,158 +429,3 @@ fieldset {
     }
 }
 /* END OF MAIN mainStyle.css FILE */
-
-/* CSS for time picker */
-.time-picker-display {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 40px;
-    font-weight: bold;
-    color: white;
-    margin-bottom: 20px;
-}
-.time-picker-display span {
-    background-color: var(--dark-blue);
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    -webkit-transition: background-color var(--animation-speed);
-    transition: background-color var(--animation-speed);
-}
-.time-picker-display .active-display { background-color: var(--red); }
-#js-picker-content-container {
-    position: relative;
-    width: 300px;
-    height: 300px;
-    margin: 20px auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-#js-hour-picker-container,
-#js-minute-picker-container {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    -webkit-transition: opacity var(--animation-speed);
-    transition: opacity var(--animation-speed) ease-in-out;
-}
-
-#js-minute-picker-container.visible {
-    opacity: 1;
-    pointer-events: auto;
-}
-.picker-face {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background-color: var(--dark-blue);
-    border-radius: 50%;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-.circle-layer {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-}
-#js-inner-hour-circle {
-    width: 50%;
-    height: 50%;
-    background-color: rgba(0, 0, 0, 0.2);
-}
-.picker-number {
-    position: absolute;
-    font-size: 16px;
-    font-weight: bold;
-    color: white;
-    line-height: 1;
-    z-index: 100;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(0deg - var(--angle)));
-}
-.selector {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    z-index: 10;
-    cursor: pointer;
-    border: 2px solid black;
-    -webkit-transition: transform var(--animation-speed) ease-in-out;
-    transition: transform var(--animation-speed) ease-in-out;
-    background-color: var(--red);
-}
-/* ------------------- */
-/* Styling for the tab buttons */
-#js-audio-menu-button {
-    background-color: var(--pale-purple);
-    border-bottom-left-radius: 30px;
-}
-
-/* Audio Menu */
-#js-audio-settings {
-    overflow-y: auto; /* Enable vertical scroll */
-    max-height: 400px;
-}
-.audio-list-container {
-    width: 99%;
-    margin: 10px auto;
-    border: 2px solid #000;
-    box-shadow: 0px 0px 3px #000;
-}
-.audio-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px;
-    border-radius: 10px;
-    border: 1px solid var(--dark-blue);
-    background-color: var(--pale-purple);
-}
-.audio-list-item-name {
-    flex-grow: 1;
-    text-align: left;
-    margin-right: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.audio-list-item-buttons {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-.sublist {
-    display: none; /* Hidden by default */
-    background-color: #556688;
-    padding: 5px 15px;
-    margin-top: -5px;
-    border-bottom-left-radius: 5px;
-    border-bottom-right-radius: 5px;
-}
-.sublist p {
-    margin: 3px 0;
-    font-size: 14px;
-    text-align: left;
-}
-.arrow-icon, .play-icon, .add-icon {
-    width: 40px;
-    height: 40px;
-    fill: white;
-    -webkit-transition: transform var(--animation-speed);
-    transition: transform var(--animation-speed);
-}
-.arrow-icon.up { transform: rotate(180deg); }
-#js-notification-popup .popup { padding: 10px; }
