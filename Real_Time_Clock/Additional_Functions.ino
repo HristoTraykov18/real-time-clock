@@ -1,6 +1,18 @@
 
 // ___________________________________________________ Additional functions ___________________________________________________ //
 
+// -------------------------------------- Try to update the time from NTP/GPS up to 5 times -------------------------------------- //
+bool autoUpdateTime(bool force_update) {
+  if ((rtc.now().hour() == update_hour && rtc.now().minute() == 0 && rtc.now().second() == 0) || force_update) {
+    for (uint8_t i = 0; i < 5; i++) {
+      if (updateTime())
+        return true;
+    }
+  }
+
+  return false;
+}
+
 // ----------------------------------- Check if someone has connected to the ESP's network ----------------------------------- //
 void checkForUserConnection() {
   if (WiFi.softAPgetStationNum() == 1 && !active_connection) {
@@ -24,11 +36,14 @@ void checkForUserConnection() {
 }
 
 // ---------------------------------- Try to establish network connection with specific network ---------------------------------- //
-bool connectClockToNetwork(const String& ssid, const String& pass) {
+bool connectClockToNetwork(const String& ssid, const String& pass, bool is_hidden) {
+  const int CONNECT_TO_NETWORK_LOOP_COUNT = 200;
+  const int CONNECT_TO_NETWORK_LOOP_DELAY = 100;
   bool is_connected = false;
 
-  if ((WiFi.status() != WL_CONNECTED || WiFi.softAPgetStationNum() > 0) && ssid != WiFi.SSID()) {
+  if ((WiFi.status() != WL_CONNECTED || WiFi.softAPgetStationNum() > 0 || is_hidden) && ssid != WiFi.SSID()) {
     WiFi.begin(ssid, pass);
+    yield();
 
 #ifdef  RTC_INFO_MESSAGES
     Serial.print(F("Trying to connect to "));
@@ -39,17 +54,14 @@ bool connectClockToNetwork(const String& ssid, const String& pass) {
       if (WiFi.status() != WL_CONNECTED) {
 #ifdef  RTC_INFO_MESSAGES
         Serial.print(F("."));
-#endif
 
         if (i == CONNECT_TO_NETWORK_LOOP_COUNT - 1) {
-#ifdef  RTC_INFO_MESSAGES
           Serial.println();
-#endif
         }
+#endif
       }
-      else { // Save the network information and set time update variable
-        time_update_pending = true;
-        saveNetworkInfo(ssid.c_str(), pass.c_str());
+      else { // Save the network information
+        saveNetworkInfo(ssid.c_str(), pass.c_str(), is_hidden ? "true" : "false");
 
 #ifdef  RTC_INFO_MESSAGES
         Serial.println();
@@ -62,7 +74,7 @@ bool connectClockToNetwork(const String& ssid, const String& pass) {
     }
   }
 #ifdef  RTC_INFO_MESSAGES
-  else
+  else if (WiFi.status() == WL_CONNECTED)
     Serial.println(("Connected to " + WiFi.SSID()).c_str());
 #endif
 
@@ -73,6 +85,8 @@ bool connectClockToNetwork(const String& ssid, const String& pass) {
 // Daylight saving time change is on last Sunday in March/October
 void daylightSavingChange(uint8_t &hour_now) {
   bool is_daylight_saving_period = isDaylightSavingPeriod();
+  Serial.print(F("is_daylight_saving_period: "));
+  Serial.println(is_daylight_saving_period);
 
   if (!daylight_saving_active && is_daylight_saving_period) {
     if (WiFi.status() != WL_CONNECTED)
@@ -91,21 +105,23 @@ void daylightSavingChange(uint8_t &hour_now) {
 // ----------------------------------- Display on the TM1637 that the clock just updated time ----------------------------------- //
 void displayClockJustUpdated(bool updated_from_gps) {
   // Effect when the clock time is set
-  const uint8_t TIME_SET_ANIMATION[8][4] = {{(SEG_E | SEG_F), 0, 0, 0 }, {(SEG_A | SEG_B | SEG_C | SEG_D), 0, 0, 0},
+  const uint8_t ANIMATION_LENGTH = 9;
+  const uint8_t TIME_SET_ANIMATION[ANIMATION_LENGTH][4] = {{(SEG_E | SEG_F), 0, 0, 0 }, {(SEG_A | SEG_B | SEG_C | SEG_D), 0, 0, 0},
     {(SEG_A | SEG_D), (SEG_E | SEG_F), 0, 0}, {(SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D), 0, 0},
     {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_E | SEG_F), 0}, {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D), 0},
-    {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_E | SEG_F)}, {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D)}
+    {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_E | SEG_F)}, {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D)},
+    {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D)}
   };
 
   // Animate effect
   if (updated_from_gps) {
-    for (int j = 7; j > -1; j--) {
+    for (int j = ANIMATION_LENGTH - 1; j > -1; j--) {
       tm1637.setSegments(TIME_SET_ANIMATION[j]);
       delay(75);
     }
   }
   else {
-    for (int j = 0; j < 8; j++) {
+    for (int j = 0; j < ANIMATION_LENGTH; j++) {
       tm1637.setSegments(TIME_SET_ANIMATION[j]);
       delay(75);
     }
@@ -156,9 +172,25 @@ void editTimeSyncMode(const char new_value[]) {
 #endif
 }
 
+void editTimerDuration(const char new_value[]) {
+  editSettingsFile(new_value, 6); // timerDuration is at index 6 in START_TAGS / END_TAGS
+
+#ifdef  RTC_INFO_MESSAGES
+  Serial.print(F("Timer duration saved (seconds): "));
+  Serial.println(new_value);
+#endif
+}
+
 void editTimezoneOffset(const char new_value[]) {
   editSettingsFile(new_value, 4);
   timezone = atoi(new_value);
+}
+
+void editWorkMode(const char new_value[]) {
+  if (work_mode_is_timer != (strcmp(new_value, "timer") == 0)) {
+    editSettingsFile(new_value, 5);
+    work_mode_is_timer = !work_mode_is_timer;
+  }
 }
 
 // --------------------- Flash the display if someone connects to the ESP or if it connects to NTP server --------------------- //
@@ -239,14 +271,10 @@ bool isDaylightSavingPeriod() {
   else {
     uint8_t last_sunday_date = getLastSundayDate();
     uint8_t day_now = rtc.now().day();
-    uint8_t hour_now = rtc.now().hour();
 
-    if ((month_now == 3 && day_now > last_sunday_date) ||
-        (month_now == 3 && day_now == last_sunday_date && hour_now >= FIRST_UPDATE_HOUR) ||
-        (month_now == 10 && day_now < last_sunday_date) ||
-        (month_now == 10 && day_now == last_sunday_date && hour_now < FIRST_UPDATE_HOUR)) {
+    if ((month_now == 3 && day_now >= last_sunday_date) ||
+        (month_now == 10 && day_now < last_sunday_date))
       is_period = true;
-    }
   }
 
   return is_period;
@@ -270,18 +298,22 @@ void manualTimeUpdate() {
   rtc.adjust(DateTime(current_time[0], current_time[1] + 1, current_time[2],
                       current_time[3], current_time[4], current_time[5]));
   daylight_saving_active = isDaylightSavingPeriod();
+  Serial.print(F("daylight_saving_active: "));
+  Serial.println(daylight_saving_active);
 }
 
-// ------------------------------------------- Check a requested network is in range ------------------------------------------- //
+// --------------------------------------- Check if a requested network is in range --------------------------------------- //
 bool networkIsInRange(const String& ssid) {
-  uint8_t number_of_networks = WiFi.scanNetworks(); // Scan networks in area
+  uint8_t number_of_networks = WiFi.scanNetworks(false, true);
 
   for (uint8_t i = 0; i < number_of_networks; i++) {
 #ifdef  RTC_INFO_MESSAGES
     Serial.print(F("Network request: "));
     Serial.print(ssid);
     Serial.print(F(" | Network in range: "));
-    Serial.println(WiFi.SSID(i));
+    Serial.print(WiFi.SSID(i));
+    Serial.print(F(" | Channel: "));
+    Serial.println(WiFi.channel(i));
 #endif
 
     if (ssid == WiFi.SSID(i))
@@ -294,36 +326,33 @@ bool networkIsInRange(const String& ssid) {
 // ---------------------------------------- Attempt reconnecting to saved network ---------------------------------------- //
 bool networkReconnect() {
   bool connected = WiFi.status() == WL_CONNECTED;
+  const uint8_t LINES = 3;
 
   if (!connected) {
     if (LittleFS.exists("creds.txt")) {
-      String network_name = ""; // Global variable
-      String network_pass = ""; // Global variable
+      String network_data[LINES] = {};
       File f = LittleFS.open("creds.txt", "r");
-      bool is_pass = false;
+      uint8_t i = 0;
 
       while (f.available()) {
         char current_char = char(f.read());
 
         if (current_char == '\n') {
-          if (is_pass)
-            break;
-
-          is_pass = true;
-
+          i += 1;
           continue;
         }
-
-        if (is_pass)
-          network_pass += current_char;
-        else
-          network_name += current_char;
+        else {
+          network_data[i] += current_char;
+        }
       }
 
       f.close();
 
-      if (networkIsInRange(network_name))
-        connected = connectClockToNetwork(network_name, network_pass);
+      if (networkIsInRange(network_data[0]) || network_data[2] == "true")
+        connected = connectClockToNetwork(network_data[0], network_data[1], network_data[2] == "true");
+
+      if (connected)
+        autoUpdateTime(true);
     }
 #ifdef  RTC_INFO_MESSAGES
     else
@@ -345,8 +374,6 @@ void printCurrentTime() {
   else
     tm1637.showNumber(digits_to_print, 0); // tm1637.showNumber(digits_to_print, 0, true); // OSRAM NBG_CLOCK_00001 & NBG_CLOCK_00002 ONLY
 
-  last_second = second_now;
-
 #ifdef  RTC_INFO_MESSAGES
   Serial.print(F("Time: "));
   Serial.print(h);
@@ -362,6 +389,40 @@ void printCurrentTime() {
   Serial.print(rtc.now().year());
   Serial.print(F(", Weekday: "));
   Serial.print(rtc.now().dayOfTheWeek());
+  Serial.print(F(", "));
+#endif
+}
+
+// ------------------------------------------ Print the remaining timer time to the TM1637 ------------------------------------------ //
+void printRemainingTime() {
+  int h = timer_duration / 3600; // Remaining hours
+  int m = (timer_duration / 60) % 60; // Remaining minutes
+  int s = timer_duration % 60; // Remaining seconds
+  int digits_to_print = ((h / 10) * 1000) + ((h % 10) * 100) + ((m / 10) * 10) + (m % 10);
+
+  if (h < 1)
+    digits_to_print = ((m / 10) * 1000) + ((m % 10) * 100) + ((s / 10) * 10) + (s % 10);
+
+  if (timer_status == 1) {
+    // Colon blinks when timer is running
+    if (second_now % 2 == 1)
+      tm1637.showNumber(digits_to_print, 32);
+    else
+      tm1637.showNumber(digits_to_print, 0);
+  }
+  else {
+    tm1637.showNumber(digits_to_print, 32); // Colon stays solid when paused
+  }
+
+#ifdef  RTC_INFO_MESSAGES
+  Serial.print(F("Timer: "));
+  Serial.print(h);
+  Serial.print(F(":"));
+  Serial.print(m);
+  Serial.print(F(":"));
+  Serial.print(s);
+  Serial.print(F(" | Status: "));
+  Serial.print(timer_status);
   Serial.print(F(", "));
 #endif
 }
@@ -408,12 +469,14 @@ void resetRTC() {
 }
 
 // ----------------------------------------------- Save new network information ----------------------------------------------- //
-void saveNetworkInfo(const char *network_name, const char* network_pass) {
+void saveNetworkInfo(const char *network_name, const char* network_pass, const char* is_hidden) {
   File f = LittleFS.open("creds.txt", "w+");
 
   f.write(network_name);
   f.write("\n");
   f.write(network_pass);
+  f.write("\n");
+  f.write(is_hidden);
   f.close();
 }
 
@@ -448,70 +511,82 @@ void sendNTP_Packet(IPAddress& address) {
 #endif
 }
 
-// ------------------------------------------ Determine which update function to call --------------------------------------- //
-void updateTime() { // Check if it's the right time to update the time or if time update is requested
-  if ((rtc.now().hour() == update_hour && rtc.now().minute() == 0 && rtc.now().second() == 0) || time_update_pending) {
-    bool time_updated = false;
-
-#ifdef  GPS_MODULE
-    if (set_time_with_gps) { // Check if time should be updated through GPS module
-      if (gps_connect_attempts_left > 0) {
-        unsigned long startMillis = millis();
-
-        while (millis() - startMillis < 1000 && gps.satellites.value() == 0) {
-          while (gpsSerial.available()) {
-            gps.encode(gpsSerial.read());
-            server.handleClient();
-          }
-
-          server.handleClient();
-        }
-
-        if (gps.satellites.value() != 0)
-          time_updated = updateTimeFromGPS(gps.date, gps.time); // GPS module function
+// ---------------------------------- Countdown one second and handle timer expiry ---------------------------------- //
+void timerCountdown() {
+  if (timer_status == 1) {
+    if (timer_duration > 0)
+      timer_duration--;
+    else {
+      timer_status = 0; // Stop the timer when it reaches zero
 
 #ifdef  RTC_INFO_MESSAGES
-        Serial.print(F("Could not get time from GPS. Tries left: "));
-        Serial.println(--gps_connect_attempts_left);
+      Serial.println(F("Timer finished"));
 #endif
-      }
-      else { // In case of timeout detatchInterrupt and try updating the time from NTP
-        detachInterrupt(digitalPinToInterrupt(GPS_RX));
-        networkReconnect();
-        time_updated = updateTimeFromNTP();
-      }
     }
-    else { // In case of time update from NTP
+  }
+}
+
+// ------------------------------------------ Determine which update function to call --------------------------------------- //
+bool updateTime() { // Check if it's the right time to update the time or if time update is requested
+  bool time_updated = false;
+
+#ifdef  GPS_MODULE
+  if (set_time_with_gps) { // Check if time should be updated through GPS module
+    if (gps_connect_attempts_left > 0) {
+      unsigned long startMillis = millis();
+
+      while (millis() - startMillis < 1000 && gps.satellites.value() == 0) {
+        while (gpsSerial.available()) {
+          gps.encode(gpsSerial.read());
+        }
+      }
+
+      if (gps.satellites.value() != 0)
+        time_updated = updateTimeFromGPS(gps.date, gps.time); // GPS module function
+
+#ifdef  RTC_INFO_MESSAGES
+      Serial.print(F("Could not get time from GPS. Tries left: "));
+      Serial.println(--gps_connect_attempts_left);
+#endif
+    }
+    else { // In case of timeout detatchInterrupt and try updating the time from NTP
       detachInterrupt(digitalPinToInterrupt(GPS_RX));
       networkReconnect();
       time_updated = updateTimeFromNTP();
     }
-#else
+  }
+  else { // In case of time update from NTP
+    detachInterrupt(digitalPinToInterrupt(GPS_RX));
     networkReconnect();
     time_updated = updateTimeFromNTP();
+  }
+#else
+  networkReconnect();
+  time_updated = updateTimeFromNTP();
 #endif
 
 #ifdef  RTC_INFO_MESSAGES
-    if (time_updated) {
-      daylight_saving_active = false;
-      Serial.println(F("Time updated from NTP server\n"));
-    }
-    else
-      Serial.println(F("\nCould not update time from NTP server\n"));
+  if (time_updated) {
+    daylight_saving_active = false;
+    Serial.println(F("Time updated from NTP server\n"));
+  }
+  else
+    Serial.println(F("\nCould not update time from NTP server\n"));
 #else
-    if (time_updated)
-      daylight_saving_active = false;
+  if (time_updated)
+    daylight_saving_active = false;
 #endif
 
-    if (daylight_saving_enabled) {
-      uint8_t temp_hour = rtc.now().hour();
-      daylightSavingChange(temp_hour);
+  if (daylight_saving_enabled) {
+    uint8_t temp_hour = rtc.now().hour();
+    daylightSavingChange(temp_hour);
 
-      if (rtc.now().hour() != temp_hour)
-        rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(),
-                            temp_hour, rtc.now().minute(), rtc.now().second()));
-    }
+    if (rtc.now().hour() != temp_hour)
+      rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(),
+                          temp_hour, rtc.now().minute(), rtc.now().second()));
   }
+
+  return time_updated;
 }
 
 // ----------------------------------------- Update time from Network Time Protocol server --------------------------------------- //
@@ -546,14 +621,7 @@ bool updateTimeFromNTP() {
     time_updated = true;
     update_hour = FIRST_UPDATE_HOUR;
   }
-  else if (!time_update_pending) {
-    if (update_hour < LAST_UPDATE_HOUR)
-      update_hour++;
-    else
-      update_hour = FIRST_UPDATE_HOUR;
-  }
 
-  time_update_pending = false;
   return time_updated;
 }
 
@@ -565,9 +633,16 @@ void visualizeOnDisplay() {
 
   flashDisplay(); // Additional function
 
+  if (work_mode_is_timer) {
+    printRemainingTime(); // Timer mode
+  }
+  else {
 #ifdef  TEMPERATURE_MODULE
-  printCurrentTimeOrTemperature(); // If the clock has temperature sensor show temperature as well
+    printCurrentTimeOrTemperature(); // If the clock has temperature sensor show temperature as well
 #else
-  printCurrentTime();
+    printCurrentTime();
 #endif
+  }
+
+  last_second = second_now;
 }

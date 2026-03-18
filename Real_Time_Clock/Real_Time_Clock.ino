@@ -22,17 +22,21 @@
 #define SCL_HIGH()  (GPEC = (1 << SCL))
 #define SDA_READ()  ((GPI & (1 << SDA)) != 0)
 
+bool autoUpdateTime(bool force_update=false);
 
 void setup() {
 #ifdef  RTC_INFO_MESSAGES
   Serial.begin(115200); // Serial monitor
 #endif
+  wifi_country_t country_settings = { "EU", 1, 13, WIFI_COUNTRY_POLICY_MANUAL };
+  wifi_set_country(&country_settings);
 
   pinMode(LED_PIN, OUTPUT);
   initializeModuleRTC(); // Initial function
   initializeFileSystem(); // Initial function
   initializeServers(); // Initial function
   daylight_saving_active = isDaylightSavingPeriod();
+  networkReconnect(); // Additional function
 
 #ifdef  GPS_MODULE
   gpsSerial.begin(GPS_BAUD_RATE); // Start the GPS connection through SoftwareSerial library
@@ -55,20 +59,27 @@ void setup() {
 void loop() {
   server.handleClient();
   softwareUpdateServer.handleClient();
+  yield();
   second_now = rtc.now().second();
 
   if (second_now != last_second) {
-    updateTime(); // Additional function
     visualizeOnDisplay(); // Additional function
+    checkForUserConnection(); // Additional function
+
+    // ---- Timer mode ---- //
+    if (work_mode_is_timer) {
+      timerCountdown(); // Additional function
+    }
+    // ---- RTC mode ---- //
+    else
+      autoUpdateTime(); // Additional function
 
 #ifdef  RTC_INFO_MESSAGES
-    Serial.print(F("WiFi status: "));
-    Serial.print(WiFi.status());
-    Serial.print(F(", "));
-    Serial.print(F("Connected devices: "));
-    Serial.println(WiFi.softAPgetStationNum());
+      Serial.print(F("WiFi status: "));
+      Serial.print(WiFi.status());
+      Serial.print(F(", "));
+      Serial.print(F("Connected devices: "));
+      Serial.println(WiFi.softAPgetStationNum());
 #endif
-
-    checkForUserConnection(); // Additional function
   }
 }

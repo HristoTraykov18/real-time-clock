@@ -1,15 +1,32 @@
 const ANIMATION_TIMEOUT = 500;
 const SLIDERS_THUMB_DIAMETER = 25;
 
-let activePicker = 'hour';
 
 window.addEventListener("load", function() { // Add event listeners for the javascript functionalities
     requestConfig();
-    submitManualTime();
+
+    if (getActiveWorkMode() === "rtc")
+        submitManualTime();
+
     document.getElementsByTagName("form")[0].addEventListener("submit", submitNetworkRequest);
     document.getElementById("js-time-sync-mode").addEventListener("click", toggleTimeSyncMode);
     document.getElementById("js-daylight-saving").addEventListener("click", toggleDaylightSaving);
     document.getElementById("js-password-button-container").addEventListener("click", togglePasswordVisibility);
+
+    // Tab switching
+    document.getElementById("js-rtc-menu-button").addEventListener("click", function() { switchTab("rtc"); submitManualTime(); });
+    document.getElementById("js-timer-menu-button").addEventListener("click", function() { switchTab("timer"); });
+
+    // Timer controls
+    document.getElementById("js-hours-up").addEventListener("click", function() { adjustTimerUnit("hours", 1); });
+    document.getElementById("js-hours-down").addEventListener("click", function() { adjustTimerUnit("hours", -1); });
+    document.getElementById("js-minutes-up").addEventListener("click", function() { adjustTimerUnit("minutes", 1); });
+    document.getElementById("js-minutes-down").addEventListener("click", function() { adjustTimerUnit("minutes", -1); });
+    document.getElementById("js-seconds-up").addEventListener("click", function() { adjustTimerUnit("seconds", 1); });
+    document.getElementById("js-seconds-down").addEventListener("click", function() { adjustTimerUnit("seconds", -1); });
+    document.getElementById("js-timer-start").addEventListener("click", sendTimerStart);
+    document.getElementById("js-timer-pause").addEventListener("click", sendTimerPause);
+    document.getElementById("js-timer-restart").addEventListener("click", sendTimerRestart);
 
     // Slider input
     document.getElementById("js-brightness-control-label").addEventListener("mouseup", toggleBrightnessSliderInput);
@@ -40,16 +57,6 @@ window.addEventListener("load", function() { // Add event listeners for the java
             closePopup(this);
         });
     }
-
-    updatePickerState();
-
-    // Attach event listeners for both pickers
-    hourPickerContainer.addEventListener('mousedown', (e) => { timePick(e); toggleMinutePicker(); });
-    minutePickerContainer.addEventListener('mousedown', timePick);
-
-    // Add event listeners for toggling pickers
-    hourDisplay.addEventListener('click', toggleHourPicker);
-    minuteDisplay.addEventListener('click', toggleMinutePicker);
 });
 
 // Close the currently opened popup
@@ -91,10 +98,27 @@ function requestConfig() {
 
             if (timeSyncMode === "gps")
                 timeSyncSlider.checked = false;
+
+            // Work mode tab — switch to timer panel if saved mode is "timer"
+            let workModeNode = xmlDoc.getElementsByTagName("workMode")[0];
+            if (workModeNode && workModeNode.childNodes[0].nodeValue.toLowerCase() === "timer")
+                switchTab("timer");
+
+            // Timer duration — populate HH:MM picker from saved seconds value
+            let timerDurationNode = xmlDoc.getElementsByTagName("timerDuration")[0];
+            if (timerDurationNode) {
+                let totalSeconds = parseInt(timerDurationNode.childNodes[0].nodeValue, 10) || 3600;
+                let h = Math.floor(totalSeconds / 3600);
+                let m = Math.floor((totalSeconds / 60) % 60);
+                let s = Math.floor(totalSeconds %  60);
+                document.getElementById("js-timer-hours").textContent = String(h).padStart(2, "0");
+                document.getElementById("js-timer-minutes").textContent = String(m).padStart(2, "0");
+                document.getElementById("js-timer-seconds").textContent = String(s).padStart(2, "0");
+            }
         }
     };
 
-    xhttp.open("GET", "/settings", true);
+    xhttp.open("GET", "/settings", false);
     xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
     xhttp.send();
 }
@@ -152,6 +176,7 @@ function submitManualTime() {
     submitData += Array(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 
                         currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
     submitData += "&timezoneHoursOffset=" + (currentDate.getTimezoneOffset() / -60);
+    submitData += "&workMode=" + getActiveWorkMode();
 
     sendServerRequest(submitData);
 }
@@ -170,6 +195,7 @@ function submitNetworkRequest(event) {
 
     let currentDate = new Date();
     submitData += "&timezoneHoursOffset=" + (currentDate.getTimezoneOffset() / -60);
+    submitData += "&workMode=" + getActiveWorkMode();
 
     sendServerRequest(submitData);
 }
@@ -264,4 +290,76 @@ function updateSlider(slider, thumb, hasTooltip) {
         tooltipDiv.textContent = currentValue;
     }
 }
+
+// Tab switching
+function switchTab(tabName) {
+    let rtcPanel   = document.getElementById("js-main-settings");
+    let timerPanel = document.getElementById("js-timer-settings");
+    let rtcBtn     = document.getElementById("js-rtc-menu-button");
+    let timerBtn   = document.getElementById("js-timer-menu-button");
+
+    let isTimer = (tabName === "timer");
+
+    rtcPanel.classList.toggle("active-content", !isTimer);
+    timerPanel.classList.toggle("active-content", isTimer);
+
+    rtcBtn.classList.toggle("active-tab-button", !isTimer);
+    rtcBtn.classList.toggle("inactive-tab-button", isTimer);
+    timerBtn.classList.toggle("active-tab-button", isTimer);
+    timerBtn.classList.toggle("inactive-tab-button", !isTimer);
+}
+
+// Timer duration picker
+function getActiveWorkMode() {
+    return document.getElementById("js-timer-settings").classList.contains("active-content") ? "timer" : "rtc";
+}
+
+function adjustTimerUnit(unit, delta) {
+    let hoursEl   = document.getElementById("js-timer-hours");
+    let minutesEl = document.getElementById("js-timer-minutes");
+    let secondsEl = document.getElementById("js-timer-seconds");
+
+    let h = parseInt(hoursEl.textContent, 10);
+    let m = parseInt(minutesEl.textContent, 10);
+    let s = parseInt(secondsEl.textContent, 10);
+
+    if (unit === "hours") {
+        h = (h + delta + 100) % 100; // 0–99 hours
+    } else if (unit === "minutes") {
+        m += delta;
+        if (m < 0)  { m = 59; h = Math.max(0, h - 1); }
+        if (m > 59) { m = 0;  h = Math.min(99, h + 1); }
+    } else {
+        s += delta;
+        if (s < 0)  { s = 59; m = Math.max(0, m - 1); }
+        if (s > 59) { s = 0; m = Math.min(59, m + 1); }
+    }
+
+    hoursEl.textContent   = String(h).padStart(2, "0");
+    minutesEl.textContent = String(m).padStart(2, "0");
+    secondsEl.textContent = String(s).padStart(2, "0");
+}
+
+function getTimerDurationSeconds() {
+    let h = parseInt(document.getElementById("js-timer-hours").textContent, 10);
+    let m = parseInt(document.getElementById("js-timer-minutes").textContent, 10);
+    let s = parseInt(document.getElementById("js-timer-seconds").textContent, 10);
+
+    return h * 3600 + m * 60 + s;
+}
+
+function sendTimerStart() {
+    let seconds = getTimerDurationSeconds();
+    if (seconds === 0) return;
+    sendServerRequest("status=start&duration=" + seconds + "&workMode=timer");
+}
+
+function sendTimerPause() {
+    sendServerRequest("status=pause&workMode=timer");
+}
+
+function sendTimerRestart() {
+    sendServerRequest("status=restart&workMode=timer");
+}
+
 /* END OF MAIN mainScript.js FILE */

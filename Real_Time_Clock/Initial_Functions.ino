@@ -36,6 +36,14 @@ void getInitialClockSettings() {
       case 4:
         timezone = elValue.toInt();
         break;
+
+      case 5:
+        work_mode_is_timer = elValue == "timer";
+        break;
+
+      case 6:
+        timer_duration = elValue.toInt(); // Stored as seconds, kept in memory as minutes
+        break;
     }
   }
 }
@@ -47,7 +55,6 @@ void initializeFileSystem() {
     Serial.println(F("Failed to initialize file system"));
 #endif
   }
-  networkReconnect();
   getInitialClockSettings();
 }
 
@@ -81,7 +88,7 @@ void initializeServers() {
   server.on("/mainStyle.css", [] () { streamFileToServer("/mainStyle.css", "text/css"); });
   server.on("/mainScript.js", [] () { streamFileToServer("/mainScript.js", "text/javascript"); });
   server.on("/settings", [] () { streamFileToServer("/espSettings.xml", "text/xml"); });
-  server.on("/ip", sendIP);
+  server.on("/m", handleDeviceMonitoring);
   server.on("/reset", [] () {
     streamFileToServer("/index.html", "text/html"); // Show main page
     initializeModuleRTC();
