@@ -47,24 +47,25 @@ const PROGMEM char* ESP_SSID = "Test"; // ESP soft access point name | CHANGE NU
 const PROGMEM char* ESP_PASS = "Test1234"; // ESP soft access point password
 const PROGMEM char* EU_NTP_SERVER_1 = "0.europe.pool.ntp.org"; // NTP pool for IP addresses
 const PROGMEM char* START_TAGS[] = { "<daylightSavingEnabled>", "<timeSyncMode>", "<autoBrightnessControl>",
-                                     "<manualBrightnessLevel>", "<timezoneHoursOffset>" };
-const PROGMEM char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>", "</autoBrightnessControl>", 
-                                   "</manualBrightnessLevel>", "</timezoneHoursOffset>" };
+                                     "<manualBrightnessLevel>", "<timezoneHoursOffset>", "<workMode>",
+                                     "<timerDuration>" };
+const PROGMEM char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>", "</autoBrightnessControl>",
+                                   "</manualBrightnessLevel>", "</timezoneHoursOffset>", "</workMode>",
+                                   "</timerDuration>" };
 
 const uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
 const uint8_t LAST_UPDATE_HOUR = 5; // Last hour in which the clock will try to update
 const uint8_t FIRST_UPDATE_HOUR = 3; // First hour in which the clock will try to update
 
-const int CONNECT_TO_NETWORK_LOOP_COUNT = 60; // Used in connectClockToNetwork() and HandleWebInterface()
-const int CONNECT_TO_NETWORK_LOOP_DELAY = 250; // Used in connectClockToNetwork() and HandleWebInterface()
-
 uint8_t display_brightness = DEFAULT_BRIGHTNESS;
 uint8_t last_display_brightness = DEFAULT_BRIGHTNESS;
 uint8_t update_hour = FIRST_UPDATE_HOUR; // Request time from NTP server at 3:00 in the morning
+uint8_t timer_status = 0; // 0 - Paused; 1 - Running (Timer mode)
 int8_t timezone;
 int8_t second_now = 0;
 int8_t last_second = -1; // Used to check if the current second is different than the last
 int8_t blink_count = 0; // Amount of flashes when someone connects to the ESP / ESP connects to NTP server
+int16_t timer_duration = 0; // Remaining timer duration in seconds
 
 bool display_time = true; // If false, show temperature
 bool auto_brightness = true; // Used for brightness module
@@ -76,6 +77,7 @@ bool daylight_saving_enabled; // Daylight saving mode - ON/OFF
 bool daylight_saving_active;
 bool override_settings = false; // Triggers 'espSettings.xml' override
 bool time_update_pending = true; // Triggers time update at start if connected to NTP server
+bool work_mode_is_timer = false; // false = RTC mode, true = Timer mode
 
 // ---------------- Objects ---------------- //
 IPAddress time_server_ip; // NTP server ip container
@@ -85,6 +87,7 @@ ESP8266WebServer server(80);
 TM1637Display tm1637(CLK, DIO);
 ESP8266WebServer softwareUpdateServer(1394);
 ESP8266HTTPUpdateServer httpUpdater;
+unsigned long timer_millis = 0; // Tracks millis() reference point for Timer countdown
 /* ----------------------------------------------------------------------------------------------- */
 
 

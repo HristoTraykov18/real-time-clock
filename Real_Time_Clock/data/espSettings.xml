@@ -6,4 +6,6 @@
     <autoBrightnessControl>true</autoBrightnessControl>
     <manualBrightnessLevel>6</manualBrightnessLevel>
     <timezoneHoursOffset>0</timezoneHoursOffset>
+    <workMode>rtc</workMode>
+    <timerDuration>3600</timerDuration>
 </espSettings>

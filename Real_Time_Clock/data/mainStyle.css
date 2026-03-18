@@ -1,11 +1,13 @@
 :root {
     --red: #f02;
     --dark-blue: #012341;
-    --pale-purple: #384575;
+    --pale-purple: #5267b4;
     --thumb-diameter: 25px;
     --password-field-button-size: 24px;
+    --info-button-size: 70px;
     --loader-size: 80px;
     --animation-speed: .5s;
+    --screen-slide-distance: 60px;
 }
 .cursor-pointer { cursor: pointer; }
 .cursor-default { cursor: default; }
@@ -47,6 +49,7 @@ form {
     font-size: 18px;
     display: flex;
     justify-content: space-evenly;
+    background-color: var(--dark-blue);
 }
 .option-button {
     -webkit-transition: background-color var(--animation-speed);
@@ -54,58 +57,80 @@ form {
     height: 100%;
     width: 100%;
     padding: 10px 0px;
+    font-weight: bold;
 }
 .option-button:active { color: var(--red); }
 #js-main-menu-button {
     background-color: var(--dark-blue);
     border-bottom-right-radius: 30px;
 }
+.active-tab-button {
+    background-color: var(--dark-blue);
+}
+.inactive-tab-button {
+    background-color: var(--pale-purple);
+}
+#js-rtc-menu-button {
+    border-bottom-right-radius: 30px;
+}
+#js-timer-menu-button {
+    border-bottom-left-radius: 30px;
+}
 /* ------------------------------------------------ */
+
+/* Stacks both content panels on top of each other */
+.panels-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 480px;
+}
 
 .form-content {
     width: 100%;
-    height: 100%;
     position: relative;
     display: flex;
-    /* flex-direction: column;
-    justify-content: space-evenly; */
+    flex-direction: column;
+    margin-top: 10px;
+    min-height: 525px;
+    min-width: 360px;
 }
 .content {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
-    height: 100%;
-    transition: opacity var(--animation-speed) ease, 
+    transition: opacity var(--animation-speed) ease,
                 transform var(--animation-speed) ease;
     display: flex;
     flex-direction: column;
-    justify-content: center;
 }
 .active-content {
     opacity: 1;
     transform: translateX(0);
     pointer-events: auto;
+    position: relative;
 }
 .content:not(.active-content) {
     opacity: 0;
     transform: translateX(calc(-1 * var(--screen-slide-distance)));
     pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 /* ----- Styling and animation for loader ----- */
 .loader-container { display: none; }
 .loader {
-    top: 50vh;
     width: var(--loader-size);
     height: var(--loader-size);
-    margin: calc(var(--loader-size) * -1) auto auto auto;
     border: 10px solid #fff;
     border-radius: 50%;
     border-top: 10px solid var(--red);
-    -webkit-animation: spin 2s linear infinite; /* Safari */
-    animation: spin 2s linear infinite;
-    position: relative;
+    -webkit-animation: spin 1.5s linear infinite; /* Safari */
+    animation: spin 1.5s linear infinite;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top: calc(var(--loader-size) / -2);
+    margin-left: calc(var(--loader-size) / -2);
 }
 @-webkit-keyframes spin { /* Safari */
     0% { -webkit-transform: rotate(0deg); }
@@ -124,6 +149,8 @@ form {
     left: 0px;
     top: 0px;
     position: absolute;
+    min-width: 300px;
+    fill: var(--pale-purple);
 }
 fieldset {
     border-width: 0px;
@@ -194,8 +221,9 @@ fieldset {
     position: absolute;
     height: 25px;
     width: 25px;
-    background-color: white;
+    background-color: var(--dark-blue);
     border-radius: 20%;
+    border: 2px solid white;
 }
 .checkbox-label .checkbox-box::after { /* Style of the custom checkbox box */
     top: -1px;
@@ -214,8 +242,7 @@ fieldset {
 }
 .checkbox-label:hover {
     .checkbox-box {
-        border: 2px solid white;
-        box-shadow: 0px 0px 3px #000;
+        border: 2px solid var(--red);
         translate: -7.5%;
     }
     .checkbox-label div {
@@ -319,8 +346,9 @@ fieldset {
 .main-settings-input {
     padding: 2px 10px;
     margin: 5px auto;
-    border: 1px solid #000;
+    border: 2px solid #000;
 }
+.main-settings-input:hover { border: 2px solid var(--red); }
 .main-settings-input, .button-red {
     font-size: 25px;
     border-radius: 10px;
@@ -348,7 +376,7 @@ fieldset {
     box-shadow: 0px 0px 1px #000;
 }
 .button-red:hover {
-    color: #ccc;
+    color: #fce0e0;
     border: 2px solid var(--red);
     box-shadow: none;
 }
@@ -371,15 +399,15 @@ fieldset {
 .popup {
     position: absolute;
     top: 30%;
-    left: 10%;
-    width: 80%;
+    left: 50%;
+    width: 70%;
     z-index: 100;
     min-height: 100px;
     background-color: var(--dark-blue);
     border-radius: 3px;
     border: 3px solid #000;
     box-shadow: 0px 0px 3px #000;
-    translate: 0 -30%;
+    transform: translate(-50%, -80%);
 }
 .popup-big { top: 0px; }
 .popup p {
@@ -407,7 +435,6 @@ fieldset {
         border-bottom-left-radius: 10px;
         border-bottom-right-radius: 10px;
     }
-    .form-content { height: 500px; }
     .message { margin: 5px auto; }
     .main-settings-input {
         padding: 5px 10px;
@@ -441,16 +468,78 @@ fieldset {
     }
     /* ---------------------------------------------- */
 
-    .loader {
-        top: 50%;
-        margin: calc(var(--loader-size) / -2) auto auto auto;
-    }
-    .popup {
-        left: 50%;
-        width: 300px;
-        margin-left: -150px;
-    }
+    .popup { width: 40%; }
 }
+/* ------------------- Timer panel ------------------- */
+.timer-duration-picker {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px auto 10px;
+}
+.timer-duration-display {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.timer-unit-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+.timer-digit {
+    font-size: 48px;
+    font-weight: bold;
+    color: white;
+    background-color: var(--dark-blue);
+    border: 2px solid var(--pale-purple);
+    border-radius: 10px;
+    padding: 6px 12px;
+    text-align: center;
+    text-shadow: 1px 1px 2px black;
+    line-height: 1;
+}
+.timer-colon {
+    font-size: 52px;
+    font-weight: bold;
+    color: var(--red);
+    padding-bottom: 8px;
+    line-height: 1;
+    user-select: none;
+}
+.timer-arrow-btn {
+    background-color: transparent;
+    border: none;
+    color: var(--red);
+    font-size: 42px;
+    padding: 2px 10px;
+    cursor: pointer;
+    border-radius: 6px;
+    -webkit-transition: background-color var(--animation-speed);
+    transition: background-color var(--animation-speed);
+    line-height: 1;
+}
+.timer-arrow-btn:hover {
+    background-color: rgba(255, 0, 34, 0.15);
+}
+.timer-arrow-btn:active {
+    background-color: var(--pale-purple);
+}
+.timer-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px auto;
+}
+.timer-control-btn {
+    font-size: 18px;
+    padding: 8px 14px;
+    min-width: 90px;
+}
+/* --------------------------------------------------- */
+
 /* END OF MAIN mainStyle.css FILE */
 
 /* CSS for time picker */

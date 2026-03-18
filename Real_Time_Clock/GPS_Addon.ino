@@ -34,7 +34,6 @@ bool updateTimeFromGPS(TinyGPSDate &d, TinyGPSTime &t) {
     int current_second = t.second();
 
     current_hour += timezone;
-    time_update_pending = false;
     gps_connect_attempts_left = 0;
 
     rtc.adjust(DateTime(current_year, current_month, current_day, current_hour, current_minute, current_second));
