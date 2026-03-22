@@ -129,7 +129,7 @@ function sendServerRequest(requestParams, loader=true) {
     xhttp.timeout = 12000;
     xhttp.onreadystatechange = function() {
         if (this.readyState === 4) {
-            let response = "Възникна грешка\nМоля проверете дали сте свързани с мрежата на часовника и опитайте отново";
+            let response = "Възникна грешка\nМоля проверете дали сте свързани с часовника и опитайте отново";
 
             if (this.status === 200) {
                 if (loader)
@@ -144,7 +144,7 @@ function sendServerRequest(requestParams, loader=true) {
     };
     xhttp.ontimeout = function() {
         this.abort();
-        showStatusPopup("Времето за свързване с часовника изтече.\nМоля проверете дали сте свързани с мрежата на часовника и опитайте отново");
+        showStatusPopup("Времето за свързване с часовника изтече.\nМоля проверете дали сте свързани с часовника и опитайте отново");
     };
     xhttp.open("POST", "/", true);
     xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
@@ -397,8 +397,8 @@ function openInfoPanel(event) {
             document.getElementById("js-info-ssid").innerText = "Свързана мрежа: " + parts[0];
             document.getElementById("js-info-rssi").innerText = "Сила на сигнала: " +
                                         (parts[1] === "-0" ? "-" : ("-" + parts[1] + " dBm"));
-            document.getElementById("js-info-mac").innerText  = "MAC: " + parts[2];
-            document.getElementById("js-info-ip").innerText   = "IP: " + parts[3];
+            document.getElementById("js-info-ip").innerText   = "IP адрес: " + parts[2];
+            document.getElementById("js-info-mac").innerText  = "MAC адрес: " + parts[3];
             document.getElementById("js-info-time").innerText = "Час: " + parts[4];
 
             let timeParts = parts[4].split(":");

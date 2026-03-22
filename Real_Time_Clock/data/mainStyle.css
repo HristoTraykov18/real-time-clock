@@ -60,18 +60,10 @@ form {
     font-weight: bold;
 }
 .option-button:active { color: var(--red); }
-.active-tab-button {
-    background-color: var(--dark-blue);
-}
-.inactive-tab-button {
-    background-color: var(--pale-purple);
-}
-#js-rtc-menu-button {
-    border-bottom-right-radius: 30px;
-}
-#js-timer-menu-button {
-    border-bottom-left-radius: 30px;
-}
+.active-tab-button { background-color: var(--dark-blue); }
+.inactive-tab-button { background-color: var(--pale-purple); }
+#js-rtc-menu-button { border-bottom-right-radius: 30px; }
+#js-timer-menu-button { border-bottom-left-radius: 30px; }
 /* ------------------------------------------------ */
 
 /* Stacks both content panels on top of each other */
@@ -143,9 +135,7 @@ form {
     animation: inherit;
     animation-duration: 4s;
 }
-.loader:after {
-    animation-duration: 6s;
-}
+.loader:after { animation-duration: 6s; }
 @-webkit-keyframes spin { /* Safari */
     100% {transform: rotate(1turn)}
 }
@@ -471,12 +461,7 @@ fieldset {
     transition: background-color var(--animation-speed);
     line-height: 1;
 }
-.timer-arrow-btn:hover {
-    background-color: rgba(255, 0, 34, 0.15);
-}
-.timer-arrow-btn:active {
-    background-color: var(--pale-purple);
-}
+.timer-arrow-btn:active { color: var(--pale-purple); }
 .timer-controls {
     display: flex;
     justify-content: center;
@@ -516,9 +501,7 @@ fieldset {
     -webkit-transition: background-color var(--animation-speed);
     transition: background-color var(--animation-speed);
 }
-.info-button:active {
-    background-color: var(--red);
-}
+.info-button:active { background-color: var(--red); }
 #js-info-panel {
     position: absolute;
     top: 70px;
@@ -531,9 +514,7 @@ fieldset {
     transition: transform var(--animation-speed) ease;
     z-index: 50;
 }
-#js-info-panel.info-panel-open {
-    transform: translateX(0);
-}
+#js-info-panel.info-panel-open { transform: translateX(0); }
 .info-panel-content {
     background-color: var(--pale-purple);
     border: 2px solid #000;
@@ -571,9 +552,7 @@ fieldset {
     margin-top: calc((var(--loader-size) * 0.5) / -2);
     margin-left: calc((var(--loader-size) * 0.5) / -2);
 }
-.info-panel-loader::before, .info-panel-loader::after {
-    inset: -6px;
-}
+.info-panel-loader::before, .info-panel-loader::after { inset: -6px; }
 .info-panel-disconnected {
     display: none;
     position: absolute;
@@ -607,15 +586,8 @@ fieldset {
     /* --------------------------------------------------------- */
 
     /* ------------------- Info button and panel ------------------- */
-    ..info-button {
-        align-items: end;
-    }
-    .info-button:active {
-        background-color: var(--dark-blue);
-    }
-    .info-button:hover {
-        background-color: var(--red);
-    }
+    .info-button { align-items: end; }
+    .info-button:hover { background-color: var(--red); }
     /* ------------------------------------------------------------- */
 
     /* -------- Radio buttons and checkboxes -------- */
