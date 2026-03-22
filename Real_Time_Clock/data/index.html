@@ -55,12 +55,21 @@
               <div id="js-info-panel" class="info-panel">
                 <div id="js-info-button" class="info-button cursor-pointer">&#x2139;</div>
                 <div class="info-panel-content">
-                  <p class="info-panel-row">Информация за часовника</p>
-                  <p class="info-panel-row" id="js-info-ssid">Свързана мрежа: -</p>
-                  <p class="info-panel-row" id="js-info-rssi">Сила на сигнала: -</p>
-                  <p class="info-panel-row" id="js-info-mac">MAC на часовник: -</p>
-                  <p class="info-panel-row" id="js-info-ip">IP адрес: -</p>
-                  <p class="info-panel-row" id="js-info-time">Час: --:--:--</p>
+                  <p id="js-info-panel-title" class="info-panel-row">Информация за часовника</p>
+                  <div id="js-info-panel-loader" class="loader info-panel-loader"></div>
+                  <div id="js-info-panel-disconnected" class="info-panel-disconnected">
+                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="info-panel-disconnected-icon">
+                      <polygon points="50,5 95,85 5,85" fill="none" stroke="var(--red)" stroke-width="6" stroke-linejoin="round"/>
+                      <text x="50" y="73" text-anchor="middle" fill="var(--red)" font-size="52" font-weight="bold" font-family="Verdana, Arial, sans-serif">!</text>
+                    </svg>
+                  </div>
+                  <div id="js-info-panel-info">
+                    <p class="info-panel-row" id="js-info-ssid">Свързана мрежа: -</p>
+                    <p class="info-panel-row" id="js-info-rssi">Сила на сигнала: -</p>
+                    <p class="info-panel-row" id="js-info-mac">MAC на часовник: -</p>
+                    <p class="info-panel-row" id="js-info-ip">IP адрес: -</p>
+                    <p class="info-panel-row" id="js-info-time">Час: --:--:--</p>
+                  </div>
                 </div>
               </div>
               <div>

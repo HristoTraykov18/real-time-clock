@@ -132,7 +132,6 @@ form {
     position: relative;
     animation: spin 2s infinite linear;
     align-content: center;
-    justify-content: center;
 }
 .loader:before,
 .loader:after {
@@ -540,8 +539,11 @@ fieldset {
     border: 2px solid #000;
     box-shadow: 0px 0px 3px #000;
     padding: 8px 10px;
-    min-width: 200px;
+    width: 300px;
+    height: 140px;
     text-align: left;
+    position: relative;
+    overflow: hidden;
 }
 .info-panel-row {
     font-size: 14px;
@@ -554,6 +556,38 @@ fieldset {
     font-size: 16px;
     text-decoration: underline;
     text-align: center;
+    word-break: break-word;
+}
+.info-panel-loader {
+    width: calc(var(--loader-size) * 0.5);
+    height: calc(var(--loader-size) * 0.5);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border-left: 6px solid #0000;
+    border-bottom: 6px solid #0000;
+    border-top: 6px solid #0000;
+    border-right: 6px solid var(--red);
+    margin-top: calc((var(--loader-size) * 0.5) / -2);
+    margin-left: calc((var(--loader-size) * 0.5) / -2);
+}
+.info-panel-loader::before, .info-panel-loader::after {
+    inset: -6px;
+}
+.info-panel-disconnected {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -25%);
+    width: 40%;
+    height: 50%;
+    align-items: center;
+    justify-content: center;
+}
+.info-panel-disconnected-icon {
+    width: 100%;
+    height: 100%;
 }
 /* ------------------------------------------------------------- */
 

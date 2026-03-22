@@ -125,7 +125,6 @@ function sendServerRequest(requestParams, loader=true) {
     if (loader)
         toggleLoader(); // Show the loading screen
 
-    let retries = 2;
     let xhttp = new XMLHttpRequest();
     xhttp.timeout = 20000;
     xhttp.onreadystatechange = function() {
@@ -137,22 +136,8 @@ function sendServerRequest(requestParams, loader=true) {
                     toggleLoader();
                 response = this.responseText;
             }
-            else if (retries > 0) {
-                this.abort();
-                xhttp.open("POST", "/", true);
-                xhttp.send(requestParams);
-
-                if (retries === 2)
-                    response = "Заявката до часовника беше неуспешна. Опитвам отново...";
-
-                retries -= 1;
-            }
-            else {
-                if (loader)
-                    toggleLoader();
-
-                response = "Връзката с мрежата, към която се опитвате да се свържете не е стабилна\nМоля свържете часовника с друга мрежа";
-            }
+            else if (loader)
+                toggleLoader();
 
             showStatusPopup(response);
         }
@@ -306,10 +291,6 @@ function switchTab(tabName) {
 }
 
 // Timer duration picker
-function getActiveWorkMode() {
-    return document.getElementById("js-timer-settings").classList.contains("active-content") ? "timer" : "rtc";
-}
-
 function adjustTimerUnit(unit, delta) {
     let hoursEl   = document.getElementById("js-timer-hours");
     let minutesEl = document.getElementById("js-timer-minutes");
@@ -336,19 +317,16 @@ function adjustTimerUnit(unit, delta) {
     secondsEl.textContent = String(s).padStart(2, "0");
 }
 
+function getActiveWorkMode() {
+    return document.getElementById("js-timer-settings").classList.contains("active-content") ? "timer" : "rtc";
+}
+
 function getTimerDurationSeconds() {
     let h = parseInt(document.getElementById("js-timer-hours").textContent, 10);
     let m = parseInt(document.getElementById("js-timer-minutes").textContent, 10);
     let s = parseInt(document.getElementById("js-timer-seconds").textContent, 10);
 
     return h * 3600 + m * 60 + s;
-}
-
-function sendTimerStart() {
-    let seconds = getTimerDurationSeconds();
-    if (seconds === 0) return;
-    document.getElementById("js-timer-pause-control").innerHTML = "&#9646;&#9646; Пауза";
-    sendServerRequest("status=start&duration=" + seconds + "&workMode=timer", false);
 }
 
 function sendTimerPauseControl() {
@@ -363,12 +341,32 @@ function sendTimerPauseControl() {
     }
 }
 
-/* END OF MAIN mainScript.js FILE */
+function sendTimerStart() {
+    let seconds = getTimerDurationSeconds();
+    if (seconds === 0) return;
+    document.getElementById("js-timer-pause-control").innerHTML = "&#9646;&#9646; Пауза";
+    sendServerRequest("status=start&duration=" + seconds + "&workMode=timer", false);
+}
 
-// ─── Info panel ──────────────────────────────────────────────────────────────
-
+// Info panel
 let infoPanelTimeInterval = null;
 let infoPanelSeconds = 0;
+
+function closeInfoPanel() {
+    let panel = document.getElementById("js-info-panel");
+    panel.classList.remove("info-panel-open");
+
+    clearInterval(infoPanelTimeInterval);
+    infoPanelTimeInterval = null;
+
+    // Reset to neutral state for next open
+    document.getElementById("js-info-panel-loader").style.display = "none";
+    document.getElementById("js-info-panel-info").style.display = "none";
+    document.getElementById("js-info-panel-disconnected").style.display = "none";
+    document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
+
+    document.removeEventListener("click", closeInfoPanel);
+}
 
 function openInfoPanel(event) {
     event.stopPropagation(); // Prevent the document click handler from immediately closing the panel
@@ -378,13 +376,26 @@ function openInfoPanel(event) {
     if (panel.classList.contains("info-panel-open"))
         return;
 
-    // Request data from the ESP and populate the panel
+    panel.classList.add("info-panel-open");
+    document.addEventListener("click", closeInfoPanel);
+
+    // Show loader, hide info rows and disconnected state while waiting for response
+    document.getElementById("js-info-panel-loader").style.display = "block";
+    document.getElementById("js-info-panel-info").style.display = "none";
+    document.getElementById("js-info-panel-disconnected").style.display = "none";
+    document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
+
     let xhttp = new XMLHttpRequest();
+    xhttp.timeout = 5000;
     xhttp.onreadystatechange = function() {
-        if (this.readyState === 4 && this.status === 200) {
+        if (this.readyState !== 4) return;
+
+        document.getElementById("js-info-panel-loader").style.display = "none";
+
+        if (this.status === 200) {
             let parts = this.responseText.split("|");
             document.getElementById("js-info-ssid").innerText = "Свързана мрежа: " + parts[0];
-            document.getElementById("js-info-rssi").innerText = "Сила на сигнала: " + 
+            document.getElementById("js-info-rssi").innerText = "Сила на сигнала: " +
                                         (parts[1] === "-0" ? "-" : ("-" + parts[1] + " dBm"));
             document.getElementById("js-info-mac").innerText  = "MAC: " + parts[2];
             document.getElementById("js-info-ip").innerText   = "IP: " + parts[3];
@@ -394,24 +405,23 @@ function openInfoPanel(event) {
             infoPanelSeconds = parseInt(timeParts[0], 10) * 3600
                              + parseInt(timeParts[1], 10) * 60
                              + parseInt(timeParts[2], 10);
+
+            document.getElementById("js-info-panel-info").style.display = "block";
+            document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
+            infoPanelTimeInterval = setInterval(updateInfoPanelTime, 1000);
         }
+        else {
+            document.getElementById("js-info-panel-disconnected").style.display = "flex";
+            document.getElementById("js-info-panel-title").innerText = "Моля проверете дали сте свързани с часовника!";
+        }
+    };
+    xhttp.ontimeout = function() {
+        document.getElementById("js-info-panel-loader").style.display = "none";
+        document.getElementById("js-info-panel-disconnected").style.display = "flex";
+        document.getElementById("js-info-panel-title").innerText = "Моля проверете дали сте свързани с часовника!";
     };
     xhttp.open("GET", "/info", true);
     xhttp.send();
-
-    panel.classList.add("info-panel-open");
-    infoPanelTimeInterval = setInterval(updateInfoPanelTime, 1000);
-    document.addEventListener("click", closeInfoPanel);
-}
-
-function closeInfoPanel() {
-    let panel = document.getElementById("js-info-panel");
-    panel.classList.remove("info-panel-open");
-
-    clearInterval(infoPanelTimeInterval);
-    infoPanelTimeInterval = null;
-
-    document.removeEventListener("click", closeInfoPanel);
 }
 
 function updateInfoPanelTime() {
@@ -426,3 +436,5 @@ function updateInfoPanelTime() {
         + String(m).padStart(2, "0") + ":"
         + String(s).padStart(2, "0");
 }
+
+/* END OF MAIN mainScript.js FILE */
