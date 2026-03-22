@@ -16,6 +16,9 @@ window.addEventListener("load", function() { // Add event listeners for the java
     document.getElementById("js-rtc-menu-button").addEventListener("click", function() { switchTab("rtc"); submitManualTime(); });
     document.getElementById("js-timer-menu-button").addEventListener("click", function() { switchTab("timer"); });
 
+    // Info panel
+    document.getElementById("js-info-button").addEventListener("click", openInfoPanel);
+
     // Timer controls
     document.getElementById("js-hours-up").addEventListener("click", function() { adjustTimerUnit("hours", 1); });
     document.getElementById("js-hours-down").addEventListener("click", function() { adjustTimerUnit("hours", -1); });
@@ -361,3 +364,65 @@ function sendTimerPauseControl() {
 }
 
 /* END OF MAIN mainScript.js FILE */
+
+// ─── Info panel ──────────────────────────────────────────────────────────────
+
+let infoPanelTimeInterval = null;
+let infoPanelSeconds = 0;
+
+function openInfoPanel(event) {
+    event.stopPropagation(); // Prevent the document click handler from immediately closing the panel
+
+    let panel = document.getElementById("js-info-panel");
+
+    if (panel.classList.contains("info-panel-open"))
+        return;
+
+    // Request data from the ESP and populate the panel
+    let xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState === 4 && this.status === 200) {
+            let parts = this.responseText.split("|");
+            document.getElementById("js-info-ssid").innerText = "Свързана мрежа: " + parts[0];
+            document.getElementById("js-info-rssi").innerText = "Сила на сигнала: " + 
+                                        (parts[1] === "-0" ? "-" : ("-" + parts[1] + " dBm"));
+            document.getElementById("js-info-mac").innerText  = "MAC: " + parts[2];
+            document.getElementById("js-info-ip").innerText   = "IP: " + parts[3];
+            document.getElementById("js-info-time").innerText = "Час: " + parts[4];
+
+            let timeParts = parts[4].split(":");
+            infoPanelSeconds = parseInt(timeParts[0], 10) * 3600
+                             + parseInt(timeParts[1], 10) * 60
+                             + parseInt(timeParts[2], 10);
+        }
+    };
+    xhttp.open("GET", "/info", true);
+    xhttp.send();
+
+    panel.classList.add("info-panel-open");
+    infoPanelTimeInterval = setInterval(updateInfoPanelTime, 1000);
+    document.addEventListener("click", closeInfoPanel);
+}
+
+function closeInfoPanel() {
+    let panel = document.getElementById("js-info-panel");
+    panel.classList.remove("info-panel-open");
+
+    clearInterval(infoPanelTimeInterval);
+    infoPanelTimeInterval = null;
+
+    document.removeEventListener("click", closeInfoPanel);
+}
+
+function updateInfoPanelTime() {
+    infoPanelSeconds = (infoPanelSeconds + 1) % 86400;
+
+    let h = Math.floor(infoPanelSeconds / 3600);
+    let m = Math.floor((infoPanelSeconds % 3600) / 60);
+    let s = infoPanelSeconds % 60;
+
+    document.getElementById("js-info-time").innerText = "Час: "
+        + String(h).padStart(2, "0") + ":"
+        + String(m).padStart(2, "0") + ":"
+        + String(s).padStart(2, "0");
+}

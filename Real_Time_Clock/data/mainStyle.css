@@ -4,7 +4,7 @@
     --pale-purple: #5267b4;
     --thumb-diameter: 25px;
     --password-field-button-size: 24px;
-    --info-button-size: 70px;
+    --info-button-size: 40px;
     --loader-size: 80px;
     --animation-speed: .5s;
     --screen-slide-distance: 60px;
@@ -79,6 +79,7 @@ form {
     position: relative;
     width: 100%;
     min-height: 480px;
+    overflow: hidden;
 }
 
 .form-content {
@@ -113,28 +114,44 @@ form {
 }
 
 /* ----- Styling and animation for loader ----- */
-.loader-container { display: none; }
-.loader {
-    width: var(--loader-size);
-    height: var(--loader-size);
-    border: 10px solid #fff;
-    border-radius: 50%;
-    border-top: 10px solid var(--red);
-    -webkit-animation: spin 1.5s linear infinite; /* Safari */
-    animation: spin 1.5s linear infinite;
+.loader-container {
+    display: none;
     position: absolute;
     top: 50%;
     left: 50%;
     margin-top: calc(var(--loader-size) / -2);
     margin-left: calc(var(--loader-size) / -2);
 }
+.loader {
+    width: var(--loader-size);
+    height: var(--loader-size);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 8px solid #0000;
+    border-right-color: var(--red);
+    position: relative;
+    animation: spin 2s infinite linear;
+    align-content: center;
+    justify-content: center;
+}
+.loader:before,
+.loader:after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: inherit;
+    animation: inherit;
+    animation-duration: 4s;
+}
+.loader:after {
+    animation-duration: 6s;
+}
 @-webkit-keyframes spin { /* Safari */
-    0% { -webkit-transform: rotate(0deg); }
-    100% { -webkit-transform: rotate(360deg); }
+    100% {transform: rotate(1turn)}
 }
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    100% {transform: rotate(1turn)}
 }
 /* -------------------------------------------- */
 
@@ -405,49 +422,6 @@ fieldset {
     visibility: hidden;
 }
 
-@media only screen and (min-width: 1000px) { /* Styling for desktop view */
-    body { background-color: white; }
-    header { padding: 1% 0px; }
-    header, .main-container { width: 35%; }
-    form {
-        border-bottom-left-radius: 10px;
-        border-bottom-right-radius: 10px;
-    }
-    .message { margin: 5px auto; }
-    .main-settings-input {
-        padding: 5px 10px;
-        margin: 10px auto;
-    }
-    /* --------------------------------------------------------- */
-    
-    /* -------- Radio buttons and checkboxes -------- */
-    .checkbox-container { width: 55%; }
-    .checkbox-label div { margin-right: 25px; }
-    .checkbox-box {
-        width: 20px;
-        height: 20px;
-    }
-    .checkbox-slider { /* Custom radio button */
-        margin: 3px;
-        width: 18px;
-        height: 18px;
-    }
-    .checkbox-label .checkbox-box::after { /* Style the checkbox indicator */
-        width: 6px;
-        height: 17px;
-    }
-    .checkbox-slider-label {
-        margin: 0 10px;
-        width: 50px;
-    }
-    .checkbox-slider::after {
-        width: 18px;
-        height: 18px;
-    }
-    /* ---------------------------------------------- */
-
-    .popup { width: 40%; }
-}
 /* ------------------- Timer panel ------------------- */
 .timer-duration-picker {
     display: flex;
@@ -517,5 +491,114 @@ fieldset {
     min-width: 90px;
 }
 /* --------------------------------------------------- */
+
+/* ------------------- Info button and panel ------------------- */
+.info-button {
+    flex-shrink: 0;
+    width: var(--info-button-size);
+    height: var(--info-button-size);
+    border-bottom-left-radius: 50%;
+    border-top-left-radius: 50%;
+    background-color: var(--pale-purple);
+    border-top: 2px solid white;
+    border-bottom: 2px solid white;
+    border-left: 2px solid white;
+    box-shadow: 0px 0px 3px #000;
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: bold;
+    font-style: italic;
+    color: white;
+    text-shadow: 1px 1px 1px black;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-transition: background-color var(--animation-speed);
+    transition: background-color var(--animation-speed);
+}
+.info-button:hover {
+    background-color: var(--red);
+}
+#js-info-panel {
+    position: absolute;
+    top: 70px;
+    right: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    transform: translateX(calc(99% - var(--info-button-size)));
+    -webkit-transition: transform var(--animation-speed) ease;
+    transition: transform var(--animation-speed) ease;
+    z-index: 50;
+}
+#js-info-panel.info-panel-open {
+    transform: translateX(0);
+}
+.info-panel-content {
+    background-color: var(--pale-purple);
+    border: 2px solid #000;
+    box-shadow: 0px 0px 3px #000;
+    padding: 8px 10px;
+    min-width: 200px;
+    text-align: left;
+}
+.info-panel-row {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 5px 0;
+    cursor: default;
+    word-break: break-all;
+}
+.info-panel-content > p:first-of-type {
+    font-size: 16px;
+    text-decoration: underline;
+    text-align: center;
+}
+/* ------------------------------------------------------------- */
+
+@media only screen and (min-width: 1000px) { /* Styling for desktop view */
+    body { background-color: white; }
+    header { padding: 1% 0px; }
+    header, .main-container { width: 35%; }
+    form {
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
+    }
+    .message { margin: 5px auto; }
+    .main-settings-input {
+        padding: 5px 10px;
+        margin: 10px auto;
+    }
+    /* --------------------------------------------------------- */
+    
+    /* -------- Radio buttons and checkboxes -------- */
+    .checkbox-container { width: 55%; }
+    .checkbox-label div { margin-right: 25px; }
+    .checkbox-box {
+        width: 20px;
+        height: 20px;
+    }
+    .checkbox-slider { /* Custom radio button */
+        margin: 3px;
+        width: 18px;
+        height: 18px;
+    }
+    .checkbox-label .checkbox-box::after { /* Style the checkbox indicator */
+        width: 6px;
+        height: 17px;
+    }
+    .checkbox-slider-label {
+        margin: 0 10px;
+        width: 50px;
+    }
+    .checkbox-slider::after {
+        width: 18px;
+        height: 18px;
+    }
+    /* ---------------------------------------------- */
+
+    .popup { width: 40%; }
+}
 
 /* END OF MAIN mainStyle.css FILE */

@@ -50,7 +50,19 @@
             </svg>
             <!-- RTC PANEL -->
             <div id="js-main-settings" class="content active-content">
+              <!-- Info button and sliding info panel -->
               <p class="message">Моля въведете име и парола на мрежата за връзка</p>
+              <div id="js-info-panel" class="info-panel">
+                <div id="js-info-button" class="info-button cursor-pointer">&#x2139;</div>
+                <div class="info-panel-content">
+                  <p class="info-panel-row">Информация за часовника</p>
+                  <p class="info-panel-row" id="js-info-ssid">Свързана мрежа: -</p>
+                  <p class="info-panel-row" id="js-info-rssi">Сила на сигнала: -</p>
+                  <p class="info-panel-row" id="js-info-mac">MAC на часовник: -</p>
+                  <p class="info-panel-row" id="js-info-ip">IP адрес: -</p>
+                  <p class="info-panel-row" id="js-info-time">Час: --:--:--</p>
+                </div>
+              </div>
               <div>
                 <input type="text" class="main-settings-input" name="ssid" size="12" placeholder="Име на мрежа">
               </div>

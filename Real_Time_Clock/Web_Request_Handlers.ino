@@ -136,6 +136,43 @@ void handleWifiTimeSync(const String& ssid) {
   editTimeSyncMode("wifi");
 }
 
+void sendClockInfo() {
+  bool is_connected = WiFi.status() == WL_CONNECTED;
+  String ssid = is_connected ? WiFi.SSID() : "-";
+  int32_t rssi = is_connected ? abs(WiFi.RSSI()) : 0;
+
+  uint8_t mac_raw[6];
+  char mac_buf[18];
+  WiFi.macAddress(mac_raw); // Gets the 6 raw bytes
+  snprintf(mac_buf, sizeof(mac_buf), "%02X:%02X:%02X:%02X:%02X:%02X", 
+          mac_raw[0], mac_raw[1], mac_raw[2], mac_raw[3], mac_raw[4], mac_raw[5]);
+
+  char ip_buf[16] = "-";
+
+  if (is_connected) {
+    IPAddress ip = WiFi.localIP();
+    snprintf(ip_buf, sizeof(ip_buf), "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+  }
+
+  DateTime now = rtc.now();
+  char response[90];
+  
+  snprintf(response, sizeof(response), "%s|%s%d|%s|%s|%02d:%02d:%02d",
+           ssid.c_str(),
+           is_connected ? "" : "-",
+           rssi,
+           mac_buf,
+           ip_buf,
+           now.hour(), now.minute(), now.second());
+
+  server.send(200, "text/plain", response);
+
+#ifdef RTC_INFO_MESSAGES
+  Serial.print(F("Clock info: "));
+  Serial.println(response);
+#endif
+}
+
 void sendWebpageResponse(const char *webpage_response) {
   server.send(200, "text/plain", webpage_response);
 
