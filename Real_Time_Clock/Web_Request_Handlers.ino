@@ -63,7 +63,7 @@ void handleDeviceMonitoring() {
   Serial.print(F("Heap fragmentation: "));
   Serial.println(ESP.getHeapFragmentation());
 #endif
-  sendWebpageResponse(("Current Free Heap: " + String(ESP.getFreeHeap()) + " Heap fragmentation: " + ESP.getHeapFragmentation()).c_str());
+  sendWebpageResponse(("Current Free Heap: " + String(ESP.getFreeHeap()) + "\nHeap fragmentation: " + ESP.getHeapFragmentation()).c_str());
 }
 
 // ----------------------------------------------- Handle manual time synchronization ----------------------------------------------- //
@@ -192,9 +192,9 @@ void validateNetworkInput(const String& ssid, const String& pass, const String& 
   if (networkIsInRange(ssid) || is_hidden == "true") {
     if (connectClockToNetwork(ssid, pass, is_hidden == "true")) {
       if (autoUpdateTime(true))
-        sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + "Успешна актуализация на времето през Интернет").c_str());
+        sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + "\nУспешна актуализация на времето през Интернет").c_str());
       else
-        sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + "Неуспешна актуализация на времето, моля опитайте отново!").c_str());
+        sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + "\nНеуспешна актуализация на времето, моля опитайте отново!").c_str());
     }
     else
       sendWebpageResponse("Времето за опит за свързване изтече. Проверете името и паролата.");

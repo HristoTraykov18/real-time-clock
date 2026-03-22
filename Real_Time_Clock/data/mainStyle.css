@@ -540,7 +540,7 @@ fieldset {
     box-shadow: 0px 0px 3px #000;
     padding: 8px 10px;
     width: 300px;
-    height: 140px;
+    min-height: 140px;
     text-align: left;
     position: relative;
     overflow: hidden;
@@ -564,10 +564,10 @@ fieldset {
     position: absolute;
     top: 50%;
     left: 50%;
-    border-left: 6px solid #0000;
-    border-bottom: 6px solid #0000;
-    border-top: 6px solid #0000;
-    border-right: 6px solid var(--red);
+    border-left: 7px solid #0000;
+    border-bottom: 7px solid #0000;
+    border-top: 7px solid #0000;
+    border-right: 7px solid var(--red);
     margin-top: calc((var(--loader-size) * 0.5) / -2);
     margin-left: calc((var(--loader-size) * 0.5) / -2);
 }
