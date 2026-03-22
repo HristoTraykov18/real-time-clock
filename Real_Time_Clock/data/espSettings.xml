@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <espSettings>
     <daylightSavingEnabled>true</daylightSavingEnabled>
-    <daylightSavingActive>false</daylightSavingActive>
     <timeSyncMode>wifi</timeSyncMode>
     <autoBrightnessControl>true</autoBrightnessControl>
     <manualBrightnessLevel>6</manualBrightnessLevel>

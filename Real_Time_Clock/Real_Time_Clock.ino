@@ -66,20 +66,17 @@ void loop() {
     visualizeOnDisplay(); // Additional function
     checkForUserConnection(); // Additional function
 
-    // ---- Timer mode ---- //
-    if (work_mode_is_timer) {
+    if (work_mode_is_timer)
       timerCountdown(); // Additional function
-    }
-    // ---- RTC mode ---- //
     else
       autoUpdateTime(); // Additional function
 
 #ifdef  RTC_INFO_MESSAGES
-      Serial.print(F("WiFi status: "));
-      Serial.print(WiFi.status());
-      Serial.print(F(", "));
-      Serial.print(F("Connected devices: "));
-      Serial.println(WiFi.softAPgetStationNum());
+    Serial.print(F("WiFi status: "));
+    Serial.print(WiFi.status());
+    Serial.print(F(", "));
+    Serial.print(F("Connected devices: "));
+    Serial.println(WiFi.softAPgetStationNum());
 #endif
   }
 }

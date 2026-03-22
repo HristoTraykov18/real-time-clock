@@ -3,10 +3,21 @@
 
 // -------------------------------------- Try to update the time from NTP/GPS up to 5 times -------------------------------------- //
 bool autoUpdateTime(bool force_update) {
-  if ((rtc.now().hour() == update_hour && rtc.now().minute() == 0 && rtc.now().second() == 0) || force_update) {
+  DateTime now = rtc.now();
+
+  if ((now.hour() == UPDATE_HOUR && now.minute() == 0 && now.second() == 0) || force_update) {
     for (uint8_t i = 0; i < 5; i++) {
       if (updateTime())
         return true;
+    }
+
+    if (daylight_saving_enabled && !force_update) {
+      DateTime nowDst = rtc.now();
+      uint8_t temp_hour = nowDst.hour();
+      daylightSavingChange(temp_hour);
+
+      if (nowDst.hour() != temp_hour)
+        rtc.adjust(DateTime(nowDst.year(), nowDst.month(), nowDst.day(), temp_hour, nowDst.minute(), nowDst.second()));
     }
   }
 
@@ -82,22 +93,23 @@ bool connectClockToNetwork(const String& ssid, const String& pass, bool is_hidde
 }
 
 // ----------------------------------- Change time if needed depending on daylight saving time ----------------------------------- //
-// Daylight saving time change is on last Sunday in March/October
+// Called only when NTP failed. Applies +1h (March) or -1h (October) exactly once per transition.
 void daylightSavingChange(uint8_t &hour_now) {
   bool is_daylight_saving_period = isDaylightSavingPeriod();
-  Serial.print(F("is_daylight_saving_period: "));
+
+#ifdef  RTC_INFO_MESSAGES
+  Serial.print(F("DST Active: "));
+  Serial.println(daylight_saving_active);
+  Serial.print(F("DST Period: "));
   Serial.println(is_daylight_saving_period);
+#endif
 
   if (!daylight_saving_active && is_daylight_saving_period) {
-    if (WiFi.status() != WL_CONNECTED)
-      hour_now += 1;
-
+    hour_now += 1;
     daylight_saving_active = true;
   }
   else if (daylight_saving_active && !is_daylight_saving_period) {
-    if (WiFi.status() != WL_CONNECTED)
-      hour_now -= 1;
-
+    hour_now -= 1;
     daylight_saving_active = false;
   }
 }
@@ -173,17 +185,24 @@ void editTimeSyncMode(const char new_value[]) {
 }
 
 void editTimerDuration(const char new_value[]) {
-  editSettingsFile(new_value, 6); // timerDuration is at index 6 in START_TAGS / END_TAGS
+  int16_t new_duration = atoi(new_value);
 
-#ifdef  RTC_INFO_MESSAGES
-  Serial.print(F("Timer duration saved (seconds): "));
-  Serial.println(new_value);
-#endif
+  if (new_duration != timer_duration)
+    editSettingsFile(new_value, 6);
+
+  timer_millis = millis();
+  timer_millis_offset = 0;
+  timer_status = 1;
+  timer_duration = new_duration;
 }
 
 void editTimezoneOffset(const char new_value[]) {
-  editSettingsFile(new_value, 4);
-  timezone = atoi(new_value);
+  int16_t new_timezone = atoi(new_value);
+
+  if (new_timezone != timezone) {
+    editSettingsFile(new_value, 4);
+    timezone = new_timezone;
+  }
 }
 
 void editWorkMode(const char new_value[]) {
@@ -230,10 +249,10 @@ void flashDisplay() {
 }
 
 // ----------------------------------------- Get the last Sunday date of the month ----------------------------------------- //
-uint8_t getLastSundayDate() {
-  uint8_t day_of_the_week = rtc.now().dayOfTheWeek();
+uint8_t getLastSundayDate(DateTime &now) {
+  uint8_t day_of_the_week = now.dayOfTheWeek();
   uint8_t days_until_sunday = 7 - (day_of_the_week == 0 ? 7 : day_of_the_week);
-  uint8_t next_sunday_date = rtc.now().day() + days_until_sunday;
+  uint8_t next_sunday_date = now.day() + days_until_sunday;
 
   return 31 - ((31 - next_sunday_date) % 7);
 }
@@ -264,16 +283,17 @@ int getNTP_PacketLength(IPAddress& address) {
 // --------------------------------------------- Check if it's daylight saving period ---------------------------------------------- //
 bool isDaylightSavingPeriod() {
   bool is_period = false;
-  uint8_t month_now = rtc.now().month();
+  DateTime now = rtc.now();
+  uint8_t month_now = now.month();
 
   if (month_now > 3 && month_now < 10)
     is_period = true;
   else {
-    uint8_t last_sunday_date = getLastSundayDate();
-    uint8_t day_now = rtc.now().day();
+    uint8_t last_sunday_date = getLastSundayDate(now);
+    uint8_t day_now = now.day();
 
-    if ((month_now == 3 && day_now >= last_sunday_date) ||
-        (month_now == 10 && day_now < last_sunday_date))
+    if ((month_now == 3 && (day_now > last_sunday_date || (day_now == last_sunday_date && now.hour() >= 3))) || // March: DST active after 3:00 of last Sunday
+        (month_now == 10 && (day_now < last_sunday_date || (day_now == last_sunday_date && now.hour() < 3)))) // October: DST active before 3:00 of last Sunday
       is_period = true;
   }
 
@@ -297,9 +317,8 @@ void manualTimeUpdate() {
 
   rtc.adjust(DateTime(current_time[0], current_time[1] + 1, current_time[2],
                       current_time[3], current_time[4], current_time[5]));
+
   daylight_saving_active = isDaylightSavingPeriod();
-  Serial.print(F("daylight_saving_active: "));
-  Serial.println(daylight_saving_active);
 }
 
 // --------------------------------------- Check if a requested network is in range --------------------------------------- //
@@ -365,8 +384,9 @@ bool networkReconnect() {
 
 // --------------------------------------------- Print the current time to the TM1637 --------------------------------------------- //
 void printCurrentTime() {
-  int h = rtc.now().hour(); // Current hour
-  int m = rtc.now().minute(); // Current minute
+  DateTime now = rtc.now();
+  int h = now.hour(); // Current hour
+  int m = now.minute(); // Current minute
   int digits_to_print = ((h / 10) * 1000) + ((h % 10) * 100) + ((m / 10) * 10) + (m % 10);
 
   if (second_now % 2 == 1)
@@ -382,13 +402,13 @@ void printCurrentTime() {
   Serial.print(F(":"));
   Serial.print(second_now);
   Serial.print(F(" "));
-  Serial.print(rtc.now().day());
+  Serial.print(now.day());
   Serial.print(F("."));
-  Serial.print(rtc.now().month());
+  Serial.print(now.month());
   Serial.print(F("."));
-  Serial.print(rtc.now().year());
+  Serial.print(now.year());
   Serial.print(F(", Weekday: "));
-  Serial.print(rtc.now().dayOfTheWeek());
+  Serial.print(now.dayOfTheWeek());
   Serial.print(F(", "));
 #endif
 }
@@ -494,8 +514,6 @@ void sendNTP_Packet(IPAddress& address) {
   packet_buffer[1] = 0;     // Stratum, or type of clock
   packet_buffer[2] = 6;     // Polling Interval
   packet_buffer[3] = 0xEC;  // Peer Clock Precision
-
-  // 8 bytes of zero for Root Delay & Root Dispersion
   packet_buffer[12]  = 49;
   packet_buffer[13]  = 0x4E;
   packet_buffer[14]  = 49;
@@ -514,6 +532,11 @@ void sendNTP_Packet(IPAddress& address) {
 // ---------------------------------- Countdown one second and handle timer expiry ---------------------------------- //
 void timerCountdown() {
   if (timer_status == 1) {
+    if (millis() - timer_millis < 1000)
+      return;
+
+    timer_millis += 1000;
+
     if (timer_duration > 0)
       timer_duration--;
     else {
@@ -566,25 +589,11 @@ bool updateTime() { // Check if it's the right time to update the time or if tim
 #endif
 
 #ifdef  RTC_INFO_MESSAGES
-  if (time_updated) {
-    daylight_saving_active = false;
+  if (time_updated)
     Serial.println(F("Time updated from NTP server\n"));
-  }
   else
     Serial.println(F("\nCould not update time from NTP server\n"));
-#else
-  if (time_updated)
-    daylight_saving_active = false;
 #endif
-
-  if (daylight_saving_enabled) {
-    uint8_t temp_hour = rtc.now().hour();
-    daylightSavingChange(temp_hour);
-
-    if (rtc.now().hour() != temp_hour)
-      rtc.adjust(DateTime(rtc.now().year(), rtc.now().month(), rtc.now().day(),
-                          temp_hour, rtc.now().minute(), rtc.now().second()));
-  }
 
   return time_updated;
 }
@@ -607,8 +616,12 @@ bool updateTimeFromNTP() {
     unsigned long high_word = word(packet_buffer[40], packet_buffer[41]);
     unsigned long low_word = word(packet_buffer[42], packet_buffer[43]);
     unsigned long secs_since_1900 = high_word << 16 | low_word; // NTP time (seconds since Jan 1 1900)
-    // Unix time starts on Jan 1 1970. In seconds, 70 years is 2208988800. Add two seconds to compencate the delay
+    // Unix time starts on Jan 1 1970. In seconds, 70 years is 2208988800. Add one second to compensate calculation delay
     time_t epoch = secs_since_1900 - 2208988800UL + (timezone * 3600) + 1;
+
+    // DST offset
+    if (daylight_saving_enabled && isDaylightSavingPeriod())
+      epoch += 3600;
 
     struct tm *current_time = localtime(&epoch);
     current_time->tm_year += 1900; // Year is calculated from 1900 to now, so set to current year
@@ -616,10 +629,10 @@ bool updateTimeFromNTP() {
     rtc.adjust(DateTime(current_time->tm_year, current_time->tm_mon + 1, current_time->tm_mday,
                         current_time->tm_hour, current_time->tm_min, current_time->tm_sec));
 
+    daylight_saving_active = isDaylightSavingPeriod();
     connected_to_ntp = true;
     displayClockJustUpdated(false);
     time_updated = true;
-    update_hour = FIRST_UPDATE_HOUR;
   }
 
   return time_updated;

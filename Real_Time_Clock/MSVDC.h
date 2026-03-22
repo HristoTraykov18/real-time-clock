@@ -54,18 +54,18 @@ const PROGMEM char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>"
                                    "</timerDuration>" };
 
 const uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
-const uint8_t LAST_UPDATE_HOUR = 5; // Last hour in which the clock will try to update
-const uint8_t FIRST_UPDATE_HOUR = 3; // First hour in which the clock will try to update
+const uint8_t UPDATE_HOUR = 3; // Request time from NTP server at 3:00 in the morning
 
 uint8_t display_brightness = DEFAULT_BRIGHTNESS;
 uint8_t last_display_brightness = DEFAULT_BRIGHTNESS;
-uint8_t update_hour = FIRST_UPDATE_HOUR; // Request time from NTP server at 3:00 in the morning
 uint8_t timer_status = 0; // 0 - Paused; 1 - Running (Timer mode)
 int8_t timezone;
 int8_t second_now = 0;
 int8_t last_second = -1; // Used to check if the current second is different than the last
 int8_t blink_count = 0; // Amount of flashes when someone connects to the ESP / ESP connects to NTP server
 int16_t timer_duration = 0; // Remaining timer duration in seconds
+unsigned long timer_millis = 0;        // millis() timestamp of when the current timer-second began (or when resume was called)
+unsigned long timer_millis_offset = 0; // ms already elapsed within the current second at the moment of pause
 
 bool display_time = true; // If false, show temperature
 bool auto_brightness = true; // Used for brightness module
@@ -75,8 +75,6 @@ bool active_connection = false; // Active connection to the ESP network
 bool someone_just_connected = false; // Someone just connected to the ESP network
 bool daylight_saving_enabled; // Daylight saving mode - ON/OFF
 bool daylight_saving_active;
-bool override_settings = false; // Triggers 'espSettings.xml' override
-bool time_update_pending = true; // Triggers time update at start if connected to NTP server
 bool work_mode_is_timer = false; // false = RTC mode, true = Timer mode
 
 // ---------------- Objects ---------------- //
@@ -87,7 +85,6 @@ ESP8266WebServer server(80);
 TM1637Display tm1637(CLK, DIO);
 ESP8266WebServer softwareUpdateServer(1394);
 ESP8266HTTPUpdateServer httpUpdater;
-unsigned long timer_millis = 0; // Tracks millis() reference point for Timer countdown
 /* ----------------------------------------------------------------------------------------------- */
 
 

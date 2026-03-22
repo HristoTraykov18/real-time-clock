@@ -5,7 +5,7 @@
 void getInitialClockSettings() {
   String settings_file = readFileToString("/espSettings.xml");
   String elValue = "";
-  uint8_t tagsCount = sizeof(START_TAGS) / 4;
+  uint8_t tagsCount = sizeof(START_TAGS) / sizeof(START_TAGS[0]);
 
   for (int i = 0; i < tagsCount; i++) {
     elValue = settings_file.substring(settings_file.indexOf(START_TAGS[i]) + strlen(START_TAGS[i]), settings_file.indexOf(END_TAGS[i]));

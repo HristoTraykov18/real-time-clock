@@ -1,4 +1,3 @@
-const ANIMATION_TIMEOUT = 500;
 const SLIDERS_THUMB_DIAMETER = 25;
 
 
@@ -25,8 +24,7 @@ window.addEventListener("load", function() { // Add event listeners for the java
     document.getElementById("js-seconds-up").addEventListener("click", function() { adjustTimerUnit("seconds", 1); });
     document.getElementById("js-seconds-down").addEventListener("click", function() { adjustTimerUnit("seconds", -1); });
     document.getElementById("js-timer-start").addEventListener("click", sendTimerStart);
-    document.getElementById("js-timer-pause").addEventListener("click", sendTimerPause);
-    document.getElementById("js-timer-restart").addEventListener("click", sendTimerRestart);
+    document.getElementById("js-timer-pause-control").addEventListener("click", sendTimerPauseControl);
 
     // Slider input
     document.getElementById("js-brightness-control-label").addEventListener("mouseup", toggleBrightnessSliderInput);
@@ -35,14 +33,11 @@ window.addEventListener("load", function() { // Add event listeners for the java
     let slidersThumbs = document.getElementsByClassName("js-slider-thumb");
 
     for (let i = 0, arrLen = slidersInputs.length; i < arrLen; i++) {
-        // Check if the slider has tooltip
-        let hasTooltip = slidersInputs[i].parentNode.parentNode.classList.contains("js-sc-big");
-
         slidersInputs[i].addEventListener("input", function() {
-            updateSlider(this, slidersThumbs[i], hasTooltip);
+            updateSlider(this, slidersThumbs[i]);
         });
         slidersInputs[i].addEventListener("change", function() {
-            updateSlider(this, slidersThumbs[i], hasTooltip);
+            updateSlider(this, slidersThumbs[i]);
             let submitData = "autoBrightnessControl=false&manualBrightnessLevel=";
             submitData += slidersInputs[i].value;
 
@@ -90,7 +85,7 @@ function requestConfig() {
             let brightnessSliderThumb = document.getElementById("js-brightness-slider-thumb");
             brightnessSliderInput.value = xmlDoc.getElementsByTagName("manualBrightnessLevel")[0].childNodes[0].nodeValue;
 
-            updateSlider(brightnessSliderInput, brightnessSliderThumb, false);
+            updateSlider(brightnessSliderInput, brightnessSliderThumb);
 
             // Time synchronization mode slider
             let timeSyncSlider = document.getElementById("js-time-sync-mode");
@@ -123,8 +118,9 @@ function requestConfig() {
     xhttp.send();
 }
 
-function sendServerRequest(requestParams) {
-    toggleLoader(); // Show the loading screen
+function sendServerRequest(requestParams, loader=true) {
+    if (loader)
+        toggleLoader(); // Show the loading screen
 
     let retries = 2;
     let xhttp = new XMLHttpRequest();
@@ -134,7 +130,8 @@ function sendServerRequest(requestParams) {
             let response = "Възникна грешка\nМоля проверете дали сте свързани с мрежата на часовника и опитайте отново";
 
             if (this.status === 200) {
-                toggleLoader();
+                if (loader)
+                    toggleLoader();
                 response = this.responseText;
             }
             else if (retries > 0) {
@@ -142,13 +139,15 @@ function sendServerRequest(requestParams) {
                 xhttp.open("POST", "/", true);
                 xhttp.send(requestParams);
 
-                if (retries === 3)
+                if (retries === 2)
                     response = "Заявката до часовника беше неуспешна. Опитвам отново...";
 
                 retries -= 1;
             }
             else {
-                toggleLoader();
+                if (loader)
+                    toggleLoader();
+
                 response = "Връзката с мрежата, към която се опитвате да се свържете не е стабилна\nМоля свържете часовника с друга мрежа";
             }
 
@@ -272,7 +271,7 @@ function toggleTimeSyncMode() {
 }
 
 // Move the slider thumb
-function updateSlider(slider, thumb, hasTooltip) {
+function updateSlider(slider, thumb) {
     // Using min and max values of the input, so the thumb movement is responsive
     let min = Number(slider.min);
     let max = Number(slider.max);
@@ -283,12 +282,6 @@ function updateSlider(slider, thumb, hasTooltip) {
 
     // Set margin from left for the thumb
     thumb.style.left = `calc(${newX}% - ${SLIDERS_THUMB_DIAMETER / 2}px)`;
-
-    if (hasTooltip) { // Set tooltip value and position it if the slider has tooltip
-        let tooltipDiv = thumb.parentNode.children[0];
-        tooltipDiv.style.left = `calc(${newX}% - ${SLIDERS_THUMB_DIAMETER / 2}px)`;
-        tooltipDiv.textContent = currentValue;
-    }
 }
 
 // Tab switching
@@ -351,15 +344,20 @@ function getTimerDurationSeconds() {
 function sendTimerStart() {
     let seconds = getTimerDurationSeconds();
     if (seconds === 0) return;
-    sendServerRequest("status=start&duration=" + seconds + "&workMode=timer");
+    document.getElementById("js-timer-pause-control").innerHTML = "&#9646;&#9646; Пауза";
+    sendServerRequest("status=start&duration=" + seconds + "&workMode=timer", false);
 }
 
-function sendTimerPause() {
-    sendServerRequest("status=pause&workMode=timer");
-}
+function sendTimerPauseControl() {
+    let pauseControlBtn = document.getElementById("js-timer-pause-control");
 
-function sendTimerRestart() {
-    sendServerRequest("status=restart&workMode=timer");
+    if (pauseControlBtn.innerHTML.includes("Пауза")) {
+        sendServerRequest("status=pause&workMode=timer", false);
+        pauseControlBtn.innerHTML = "&#8635; Продължи";
+    } else {
+        sendServerRequest("status=resume&workMode=timer", false);
+        pauseControlBtn.innerHTML = "&#9646;&#9646; Пауза";
+    }
 }
 
 /* END OF MAIN mainScript.js FILE */

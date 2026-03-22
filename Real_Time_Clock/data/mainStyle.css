@@ -60,10 +60,6 @@ form {
     font-weight: bold;
 }
 .option-button:active { color: var(--red); }
-#js-main-menu-button {
-    background-color: var(--dark-blue);
-    border-bottom-right-radius: 30px;
-}
 .active-tab-button {
     background-color: var(--dark-blue);
 }
@@ -303,7 +299,6 @@ fieldset {
     -webkit-transition: opacity var(--animation-speed), pointer-events 0s;
     transition: opacity var(--animation-speed), pointer-events 0s;
 }
-.js-sc-big { margin-top: 35px; } /* js-slider-container-big */
 #js-brightness-slider-container {
     opacity: 0;
     pointer-events: none;
@@ -334,13 +329,6 @@ fieldset {
     position: absolute;
     pointer-events: none;
 }
-.js-slider-tooltip {
-    width: var(--thumb-diameter);
-    bottom: var(--thumb-diameter);
-    position: absolute;
-    color: var(--red);
-    font-size: 20px;
-}
 /* ------------------- */
 
 .main-settings-input {
@@ -364,17 +352,6 @@ fieldset {
     text-shadow: 1px 1px 1px #000;
     border: 2px solid #000;
     display: inline-block;
-}
-.button-red-square {
-    width: 30px;
-    height: 30px;
-    padding: 0px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 35%;
-    box-shadow: 0px 0px 1px #000;
-    cursor: pointer;
 }
 .button-red:hover {
     color: #fce0e0;
