@@ -392,7 +392,7 @@ fieldset {
 }
 .popup {
     position: absolute;
-    top: 30%;
+    top: 50%;
     left: 50%;
     width: 70%;
     z-index: 100;
@@ -504,7 +504,7 @@ fieldset {
     border-left: 2px solid white;
     box-shadow: 0px 0px 3px #000;
     display: flex;
-    align-items: end;
+    align-items: center;
     justify-content: center;
     font-size: 36px;
     font-weight: bold;
@@ -516,7 +516,7 @@ fieldset {
     -webkit-transition: background-color var(--animation-speed);
     transition: background-color var(--animation-speed);
 }
-.info-button:hover {
+.info-button:active {
     background-color: var(--red);
 }
 #js-info-panel {
@@ -526,7 +526,7 @@ fieldset {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    transform: translateX(calc(99% - var(--info-button-size)));
+    transform: translateX(calc(100% - var(--info-button-size)));
     -webkit-transition: transform var(--animation-speed) ease;
     transition: transform var(--animation-speed) ease;
     z-index: 50;
@@ -605,7 +605,19 @@ fieldset {
         margin: 10px auto;
     }
     /* --------------------------------------------------------- */
-    
+
+    /* ------------------- Info button and panel ------------------- */
+    ..info-button {
+        align-items: end;
+    }
+    .info-button:active {
+        background-color: var(--dark-blue);
+    }
+    .info-button:hover {
+        background-color: var(--red);
+    }
+    /* ------------------------------------------------------------- */
+
     /* -------- Radio buttons and checkboxes -------- */
     .checkbox-container { width: 55%; }
     .checkbox-label div { margin-right: 25px; }
@@ -632,7 +644,10 @@ fieldset {
     }
     /* ---------------------------------------------- */
 
-    .popup { width: 40%; }
+    .popup {
+        width: 40%;
+        top: 35%;
+    }
 }
 
 /* END OF MAIN mainStyle.css FILE */

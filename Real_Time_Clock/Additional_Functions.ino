@@ -48,8 +48,7 @@ void checkForUserConnection() {
 
 // ---------------------------------- Try to establish network connection with specific network ---------------------------------- //
 bool connectClockToNetwork(const String& ssid, const String& pass, bool is_hidden) {
-  const int CONNECT_TO_NETWORK_LOOP_COUNT = 200;
-  const int CONNECT_TO_NETWORK_LOOP_DELAY = 100;
+  const int CONNECT_ATTEMPT_DELAY = 100;
   bool is_connected = false;
 
   if ((WiFi.status() != WL_CONNECTED || WiFi.softAPgetStationNum() > 0 || is_hidden) && ssid != WiFi.SSID()) {
@@ -61,12 +60,12 @@ bool connectClockToNetwork(const String& ssid, const String& pass, bool is_hidde
     Serial.println(ssid);
 #endif
 
-    for (int i = 0; i < CONNECT_TO_NETWORK_LOOP_COUNT; i++) {
+    for (int i = 0; i < CONNECT_ATTEMPT_DELAY; i++) {
       if (WiFi.status() != WL_CONNECTED) {
 #ifdef  RTC_INFO_MESSAGES
         Serial.print(F("."));
 
-        if (i == CONNECT_TO_NETWORK_LOOP_COUNT - 1) {
+        if (i == CONNECT_ATTEMPT_DELAY - 1) {
           Serial.println();
         }
 #endif
@@ -81,7 +80,7 @@ bool connectClockToNetwork(const String& ssid, const String& pass, bool is_hidde
         break;
       }
 
-      delay(CONNECT_TO_NETWORK_LOOP_DELAY);
+      delay(CONNECT_ATTEMPT_DELAY);
     }
   }
 #ifdef  RTC_INFO_MESSAGES

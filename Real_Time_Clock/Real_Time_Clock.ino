@@ -63,13 +63,13 @@ void loop() {
   second_now = rtc.now().second();
 
   if (second_now != last_second) {
-    visualizeOnDisplay(); // Additional function
-    checkForUserConnection(); // Additional function
-
     if (work_mode_is_timer)
       timerCountdown(); // Additional function
     else
       autoUpdateTime(); // Additional function
+
+    visualizeOnDisplay(); // Additional function
+    checkForUserConnection(); // Additional function
 
 #ifdef  RTC_INFO_MESSAGES
     Serial.print(F("WiFi status: "));

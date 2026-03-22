@@ -126,7 +126,7 @@ function sendServerRequest(requestParams, loader=true) {
         toggleLoader(); // Show the loading screen
 
     let xhttp = new XMLHttpRequest();
-    xhttp.timeout = 20000;
+    xhttp.timeout = 12000;
     xhttp.onreadystatechange = function() {
         if (this.readyState === 4) {
             let response = "Възникна грешка\nМоля проверете дали сте свързани с мрежата на часовника и опитайте отново";
