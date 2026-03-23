@@ -7,11 +7,11 @@
     <link rel="shortcut icon" type="image/x-icon" href="neonLogoIcon.ico"/>
   </head>
   <body>
-    <header class="cursor-default">Добре дошли в настройките за часовник</header>
+    <header>Добре дошли в настройките за часовник</header>
     <div class="main-container">
       <div class="option-buttons-container">
-        <div id="js-rtc-menu-button" class="option-button cursor-pointer active-tab-button">Часовник</div>
-        <div id="js-timer-menu-button" class="option-button cursor-pointer inactive-tab-button">Таймер</div>
+        <div id="js-rtc-menu-button" class="option-button active-tab-button">Часовник</div>
+        <div id="js-timer-menu-button" class="option-button inactive-tab-button">Таймер</div>
       </div>
       <form>
         <div class="form-content">
@@ -50,25 +50,50 @@
             </svg>
             <!-- RTC PANEL -->
             <div id="js-main-settings" class="content active-content">
-              <!-- Info button and sliding info panel -->
               <p class="message">Моля въведете име и парола на мрежата за връзка</p>
-              <div id="js-info-panel" class="info-panel">
-                <div id="js-info-button" class="info-button cursor-pointer">&#x2139;</div>
-                <div class="info-panel-content">
-                  <p id="js-info-panel-title" class="info-panel-row">Информация за часовника</p>
-                  <div id="js-info-panel-loader" class="loader info-panel-loader"></div>
-                  <div id="js-info-panel-disconnected" class="info-panel-disconnected">
-                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="info-panel-disconnected-icon">
+              <div id="js-info-panel" class="side-panel">
+                <div id="js-info-button" class="side-panel-button">&#x2139;</div>
+                <div class="side-panel-content">
+                  <p id="js-info-panel-title" class="side-panel-row">Информация за часовника</p>
+                  <div id="js-info-panel-loader" class="loader side-panel-loader"></div>
+                  <div id="js-info-panel-disconnected" class="side-panel-disconnected">
+                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="side-panel-disconnected-icon">
                       <polygon points="50,5 95,85 5,85" fill="none" stroke="var(--red)" stroke-width="6" stroke-linejoin="round"/>
                       <text x="50" y="73" text-anchor="middle" fill="var(--red)" font-size="52" font-weight="bold" font-family="Verdana, Arial, sans-serif">!</text>
                     </svg>
                   </div>
                   <div id="js-info-panel-info">
-                    <p class="info-panel-row" id="js-info-ssid">Свързана мрежа: -</p>
-                    <p class="info-panel-row" id="js-info-rssi">Сила на сигнала: -</p>
-                    <p class="info-panel-row" id="js-info-ip">IP адрес: -</p>
-                    <p class="info-panel-row" id="js-info-mac">MAC адрес: -</p>
-                    <p class="info-panel-row" id="js-info-time">Час: --:--:--</p>
+                    <p class="side-panel-row" id="js-info-ssid">Свързана мрежа: -</p>
+                    <p class="side-panel-row" id="js-info-rssi">Сила на сигнала: -</p>
+                    <p class="side-panel-row" id="js-info-ip">IP адрес: -</p>
+                    <p class="side-panel-row" id="js-info-mac">MAC адрес: -</p>
+                    <p class="side-panel-row" id="js-info-time">Час: --:--:--</p>
+                  </div>
+                </div>
+              </div>
+              <div id="js-additional-settings" class="side-panel">
+                <div id="js-additional-settings-button" class="side-panel-button">
+                  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:60%;height:60%;fill:white;pointer-events:none;">
+                    <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.34.07-.68.07-1.08s-.03-.74-.07-1.08l2.32-1.84c.21-.17.27-.46.14-.7l-2.2-3.84c-.13-.24-.42-.32-.66-.24l-2.74 1.1c-.57-.44-1.18-.8-1.86-1.08L14.2 2.42A.55.55 0 0 0 13.67 2h-4.4a.55.55 0 0 0-.54.42l-.41 2.9c-.68.28-1.3.64-1.86 1.08L3.73 5.3c-.24-.08-.53 0-.66.24L.87 9.38c-.13.24-.07.53.14.7l2.32 1.84c-.04.34-.07.69-.07 1.08s.03.74.07 1.08L.99 15.92c-.21.17-.27.46-.14.7l2.2 3.84c.13.24.42.32.66.24l2.74-1.1c.57.44 1.18.8 1.86 1.08l.41 2.9c.05.24.27.42.54.42h4.4c.27 0 .49-.18.54-.42l.41-2.9c.68-.28 1.3-.64 1.86-1.08l2.74 1.1c.24.08.53 0 .66-.24l2.2-3.84c.13-.24.07-.53-.14-.7l-2.32-1.84z"/>
+                  </svg>
+                </div>
+                <div class="side-panel-content">
+                  <p id="js-additional-settings-title" class="side-panel-row">Допълнителни настройки</p>
+                  <div id="js-additional-settings-loader" class="loader side-panel-loader"></div>
+                  <div id="js-additional-settings-disconnected" class="side-panel-disconnected">
+                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="side-panel-disconnected-icon">
+                      <polygon points="50,5 95,85 5,85" fill="none" stroke="var(--red)" stroke-width="6" stroke-linejoin="round"/>
+                      <text x="50" y="73" text-anchor="middle" fill="var(--red)" font-size="52" font-weight="bold" font-family="Verdana, Arial, sans-serif">!</text>
+                    </svg>
+                  </div>
+                  <div id="js-additional-settings-info">
+                    <div class="more-settings-timezone-row side-panel-row">
+                      <span>Времева зона:</span>
+                      <button type="button" id="js-timezone-minus" class="button-red button-red-small">&#8722;</button>
+                      <span id="js-timezone-value">0</span>
+                      <button type="button" id="js-timezone-plus" class="button-red button-red-small">&#43;</button>
+                    </div>
+                    <button type="button" id="js-additional-settings-delete-btn" class="button-red button-red-medium inactive">Няма запазена мрежа</button>
                   </div>
                 </div>
               </div>
@@ -108,7 +133,7 @@
                 </span>
               </div>
               <div class="button-container">
-                <input type="submit" class="button-red cursor-pointer submit-button" value="Свързване">
+                <input type="submit" class="button-red submit-button" value="Свързване">
               </div>
               <div>
                 <div>Метод за сверяване:</div>
@@ -154,27 +179,27 @@
               <div class="timer-duration-picker">
                 <div class="timer-duration-display">
                   <div class="timer-unit-group">
-                    <button type="button" class="timer-arrow-btn cursor-pointer" id="js-hours-up">&#9650;</button>
+                    <button type="button" class="timer-arrow-btn" id="js-hours-up">&#9650;</button>
                     <span id="js-timer-hours" class="timer-digit">01</span>
-                    <button type="button" class="timer-arrow-btn cursor-pointer" id="js-hours-down">&#9660;</button>
+                    <button type="button" class="timer-arrow-btn" id="js-hours-down">&#9660;</button>
                   </div>
                   <span class="timer-colon">:</span>
                   <div class="timer-unit-group">
-                    <button type="button" class="timer-arrow-btn cursor-pointer" id="js-minutes-up">&#9650;</button>
+                    <button type="button" class="timer-arrow-btn" id="js-minutes-up">&#9650;</button>
                     <span id="js-timer-minutes" class="timer-digit">00</span>
-                    <button type="button" class="timer-arrow-btn cursor-pointer" id="js-minutes-down">&#9660;</button>
+                    <button type="button" class="timer-arrow-btn" id="js-minutes-down">&#9660;</button>
                   </div>
                   <span class="timer-colon">:</span>
                   <div class="timer-unit-group">
-                    <button type="button" class="timer-arrow-btn cursor-pointer" id="js-seconds-up">&#9650;</button>
+                    <button type="button" class="timer-arrow-btn" id="js-seconds-up">&#9650;</button>
                     <span id="js-timer-seconds" class="timer-digit">00</span>
-                    <button type="button" class="timer-arrow-btn cursor-pointer" id="js-seconds-down">&#9660;</button>
+                    <button type="button" class="timer-arrow-btn" id="js-seconds-down">&#9660;</button>
                   </div>
                 </div>
               </div>
               <div class="timer-controls button-container">
-                <button type="button" id="js-timer-start" class="button-red cursor-pointer timer-control-btn">&#9654; Старт</button>
-                <button type="button" id="js-timer-pause-control" class="button-red cursor-pointer timer-control-btn">&#9646;&#9646; Пауза</button>
+                <button type="button" id="js-timer-start" class="button-red timer-control-btn">&#9654; Старт</button>
+                <button type="button" id="js-timer-pause-control" class="button-red timer-control-btn">&#9646;&#9646; Пауза</button>
               </div>
             </div>
           </div>
@@ -188,7 +213,7 @@
       <div class="popup">
         <p id="js-popup-message" class="message"></p>
         <div class="button-container">
-          <div class="js-cancel-popup-button button-red cursor-pointer">OK</div>
+          <div class="js-cancel-popup-button button-red">OK</div>
         </div>
       </div>
       <div class="popup-background"></div>

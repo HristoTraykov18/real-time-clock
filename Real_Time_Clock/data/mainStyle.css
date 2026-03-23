@@ -4,13 +4,11 @@
     --pale-purple: #5267b4;
     --thumb-diameter: 25px;
     --password-field-button-size: 24px;
-    --info-button-size: 40px;
+    --side-panel-button-size: 40px;
     --loader-size: 80px;
     --animation-speed: .5s;
     --screen-slide-distance: 60px;
 }
-.cursor-pointer { cursor: pointer; }
-.cursor-default { cursor: default; }
 body {
     margin: 0 auto;
     color: white;
@@ -19,6 +17,7 @@ body {
     font-family: Verdana, Arial, sans-serif, monospace;
 }
 header {
+    cursor: default;
     padding-top: 5px;
     padding-bottom: 5px;
     font-size: 18px;
@@ -45,6 +44,7 @@ form {
 
 /* ---------------- Option buttons ---------------- */
 .option-buttons-container { /* Contains the buttons above the form */
+    cursor: pointer;
     width: 100%;
     font-size: 18px;
     display: flex;
@@ -165,6 +165,123 @@ fieldset {
     font-weight: bold;
     word-break: break-word;
 }
+
+/* ------------------- Side panel button and content (shared by info and additional-settings) ------------------- */
+.side-panel-button {
+    cursor: pointer;
+    flex-shrink: 0;
+    width: var(--side-panel-button-size);
+    height: var(--side-panel-button-size);
+    border-bottom-left-radius: 50%;
+    border-top-left-radius: 50%;
+    background-color: var(--pale-purple);
+    border-top: 2px solid white;
+    border-bottom: 2px solid white;
+    border-left: 2px solid white;
+    box-shadow: 0px 0px 3px #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 1px black;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-transition: background-color var(--animation-speed);
+    transition: background-color var(--animation-speed);
+    cursor: pointer;
+}
+.side-panel-button:active { background-color: var(--red); }
+.side-panel {
+    position: absolute;
+    right: 0;
+    width: 99%;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    transform: translateX(calc(100% - var(--side-panel-button-size)));
+    -webkit-transition: transform var(--animation-speed) ease;
+    transition: transform var(--animation-speed) ease;
+    z-index: 50;
+    max-width: 475px;
+}
+#js-info-panel { top: 70px; }
+.side-panel.side-panel-open {
+    transform: translateX(0);
+    z-index: 51;
+}
+.side-panel-content {
+    background-color: var(--pale-purple);
+    border: 2px solid #000;
+    box-shadow: 0px 0px 3px #000;
+    padding: 8px 10px;
+    width: 100%;
+    min-height: 140px;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+}
+.side-panel-row {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 5px 0;
+    cursor: default;
+    word-break: break-all;
+}
+.side-panel-content > p:first-of-type {
+    font-size: 18px;
+    text-decoration: underline;
+    text-align: center;
+    word-break: break-word;
+}
+.side-panel-loader {
+    width: calc(var(--loader-size) * 0.5);
+    height: calc(var(--loader-size) * 0.5);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border-left: 7px solid #0000;
+    border-bottom: 7px solid #0000;
+    border-top: 7px solid #0000;
+    border-right: 7px solid var(--red);
+    margin-top: calc((var(--loader-size) * 0.5) / -2);
+    margin-left: calc((var(--loader-size) * 0.5) / -2);
+}
+.side-panel-loader::before, .side-panel-loader::after { inset: -6px; }
+.side-panel-disconnected {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -25%);
+    width: 40%;
+    height: 50%;
+    align-items: center;
+    justify-content: center;
+}
+.side-panel-disconnected-icon {
+    width: 100%;
+    height: 100%;
+}
+/* ------------------- Additional settings panel specifics ------------------- */
+#js-additional-settings { top: calc(70px + var(--side-panel-button-size) + 6px); }
+#js-additional-settings-button { align-items: center; }
+.additional-settings-timezone-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    white-space: nowrap;
+    margin: 5px 0;
+}
+#js-timezone-value {
+    min-width: 30px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+}
+/* ---------------------------------------------------------------------- */
 
 /* ------------------- Auto settings ------------------- */
 .password-field {
@@ -349,15 +466,17 @@ fieldset {
 }
 .button-container { padding: 8px 0px; }
 .button-red {
+    cursor: pointer;
     color: white;
     font-weight: bold;
     padding: 10px 20px;
-    border-width: 0px;
     background-color: var(--red);
     box-shadow: 0px 0px 3px #000;
     text-shadow: 1px 1px 1px #000;
     border: 2px solid #000;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .button-red:hover {
     color: #fce0e0;
@@ -367,6 +486,33 @@ fieldset {
 .button-red:active {
     background-color: var(--pale-purple);
     box-shadow: 0px 0px 0px;
+}
+.button-red-small {
+    width: 26px;
+    height: 26px;
+    font-size: 22px;
+    padding: 0;
+    border-radius: 4px;
+    box-shadow: 0px 0px 2px #000;
+}
+.button-red-small:hover {
+    color: white;
+    border: 2px solid #000;
+    box-shadow: 0px 0px 2px #000;
+}
+.button-red-small:active { background-color: var(--dark-blue); }
+.button-red-medium {
+    font-size: 16px;
+    padding: 5px 8px;
+    border-radius: 10px;
+    width: 90%;
+    margin-top: 8px;
+}
+.button-red.inactive {
+    background-color: #444;
+    border-color: #222;
+    cursor: default;
+    box-shadow: none;
 }
 .popup-container { display: none; }
 .popup-container.show-popup { display: block; }
@@ -450,6 +596,7 @@ fieldset {
     user-select: none;
 }
 .timer-arrow-btn {
+    cursor: pointer;
     background-color: transparent;
     border: none;
     color: var(--red);
@@ -476,100 +623,6 @@ fieldset {
 }
 /* --------------------------------------------------- */
 
-/* ------------------- Info button and panel ------------------- */
-.info-button {
-    flex-shrink: 0;
-    width: var(--info-button-size);
-    height: var(--info-button-size);
-    border-bottom-left-radius: 50%;
-    border-top-left-radius: 50%;
-    background-color: var(--pale-purple);
-    border-top: 2px solid white;
-    border-bottom: 2px solid white;
-    border-left: 2px solid white;
-    box-shadow: 0px 0px 3px #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 36px;
-    font-weight: bold;
-    font-style: italic;
-    color: white;
-    text-shadow: 1px 1px 1px black;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-transition: background-color var(--animation-speed);
-    transition: background-color var(--animation-speed);
-}
-.info-button:active { background-color: var(--red); }
-#js-info-panel {
-    position: absolute;
-    top: 70px;
-    right: 0;
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    transform: translateX(calc(100% - var(--info-button-size)));
-    -webkit-transition: transform var(--animation-speed) ease;
-    transition: transform var(--animation-speed) ease;
-    z-index: 50;
-}
-#js-info-panel.info-panel-open { transform: translateX(0); }
-.info-panel-content {
-    background-color: var(--pale-purple);
-    border: 2px solid #000;
-    box-shadow: 0px 0px 3px #000;
-    padding: 8px 10px;
-    width: 300px;
-    min-height: 140px;
-    text-align: left;
-    position: relative;
-    overflow: hidden;
-}
-.info-panel-row {
-    font-size: 14px;
-    font-weight: bold;
-    margin: 5px 0;
-    cursor: default;
-    word-break: break-all;
-}
-.info-panel-content > p:first-of-type {
-    font-size: 16px;
-    text-decoration: underline;
-    text-align: center;
-    word-break: break-word;
-}
-.info-panel-loader {
-    width: calc(var(--loader-size) * 0.5);
-    height: calc(var(--loader-size) * 0.5);
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    border-left: 7px solid #0000;
-    border-bottom: 7px solid #0000;
-    border-top: 7px solid #0000;
-    border-right: 7px solid var(--red);
-    margin-top: calc((var(--loader-size) * 0.5) / -2);
-    margin-left: calc((var(--loader-size) * 0.5) / -2);
-}
-.info-panel-loader::before, .info-panel-loader::after { inset: -6px; }
-.info-panel-disconnected {
-    display: none;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -25%);
-    width: 40%;
-    height: 50%;
-    align-items: center;
-    justify-content: center;
-}
-.info-panel-disconnected-icon {
-    width: 100%;
-    height: 100%;
-}
-/* ------------------------------------------------------------- */
-
 @media only screen and (min-width: 1000px) { /* Styling for desktop view */
     body { background-color: white; }
     header { padding: 1% 0px; }
@@ -585,10 +638,11 @@ fieldset {
     }
     /* --------------------------------------------------------- */
 
-    /* ------------------- Info button and panel ------------------- */
-    .info-button { align-items: end; }
-    .info-button:hover { background-color: var(--red); }
-    /* ------------------------------------------------------------- */
+    /* ----------------------- Side panel ----------------------- */
+    .side-panel { width: 300px;}
+    .side-panel-button { align-items: end; }
+    .side-panel-button:hover { background-color: var(--red); }
+    /* ---------------------------------------------------------- */
 
     /* -------- Radio buttons and checkboxes -------- */
     .checkbox-container { width: 55%; }

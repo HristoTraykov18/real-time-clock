@@ -1,6 +1,6 @@
 // Real time clock software
 // Developed by Hristo Traykov, NEON.BG (Sofia)
-// Current version 1.6.x
+// Current version 1.7.x
 // DO NOT FORGET TO SETUP PROPERLY IN TOOLS
 // USE FLOAT FIRMWARE
 // 

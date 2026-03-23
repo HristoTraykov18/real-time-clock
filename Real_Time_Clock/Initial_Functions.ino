@@ -85,6 +85,8 @@ void initializeServers() {
   }
   server.on("/", handleWebInterface); // 192.168.4.1
   server.on("/info", sendClockInfo);
+  server.on("/additional-settings", sendAdditionalSettings);
+  server.on("/delete-creds", handleDeleteCreds);
   server.on("/neonLogoIcon.ico", [] () { streamFileToServer("/neonLogoIcon.ico", "image/x-icon"); });
   server.on("/mainStyle.css", [] () { streamFileToServer("/mainStyle.css", "text/css"); });
   server.on("/mainScript.js", [] () { streamFileToServer("/mainScript.js", "text/javascript"); });

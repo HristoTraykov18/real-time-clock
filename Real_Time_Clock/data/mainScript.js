@@ -19,6 +19,12 @@ window.addEventListener("load", function() { // Add event listeners for the java
     // Info panel
     document.getElementById("js-info-button").addEventListener("click", openInfoPanel);
 
+    // Additional settings panel
+    document.getElementById("js-additional-settings-button").addEventListener("click", openAdditionalSettings);
+    document.getElementById("js-timezone-minus").addEventListener("click", function(e) { e.stopPropagation(); adjustTimezone(-1); });
+    document.getElementById("js-timezone-plus").addEventListener("click",  function(e) { e.stopPropagation(); adjustTimezone(1); });
+    document.getElementById("js-additional-settings-delete-btn").addEventListener("click", deleteCredentials);
+
     // Timer controls
     document.getElementById("js-hours-up").addEventListener("click", function() { adjustTimerUnit("hours", 1); });
     document.getElementById("js-hours-down").addEventListener("click", function() { adjustTimerUnit("hours", -1); });
@@ -290,6 +296,238 @@ function switchTab(tabName) {
     timerBtn.classList.toggle("inactive-tab-button", !isTimer);
 }
 
+// Info panel
+let infoPanelTimeInterval = null;
+let infoPanelSeconds = 0;
+
+function closeInfoPanel() {
+    let panel = document.getElementById("js-info-panel");
+    panel.classList.remove("side-panel-open");
+
+    clearInterval(infoPanelTimeInterval);
+    infoPanelTimeInterval = null;
+
+    // Reset to neutral state for next open
+    document.getElementById("js-info-panel-loader").style.display = "none";
+    document.getElementById("js-info-panel-info").style.display = "none";
+    document.getElementById("js-info-panel-disconnected").style.display = "none";
+    document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
+
+    document.removeEventListener("click", closeInfoPanel);
+}
+
+function openInfoPanel(event) {
+    event.stopPropagation(); // Prevent the document click handler from immediately closing the panel
+
+    let panel = document.getElementById("js-info-panel");
+
+    if (panel.classList.contains("side-panel-open"))
+        return;
+
+    panel.classList.add("side-panel-open");
+    document.getElementById("js-additional-settings").classList.remove("side-panel-open");
+    document.addEventListener("click", closeInfoPanel);
+
+    // Show loader, hide info rows and disconnected state while waiting for response
+    document.getElementById("js-info-panel-loader").style.display = "block";
+    document.getElementById("js-info-panel-info").style.display = "none";
+    document.getElementById("js-info-panel-disconnected").style.display = "none";
+    document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
+
+    let xhttp = new XMLHttpRequest();
+    xhttp.timeout = 5000;
+    xhttp.onreadystatechange = function() {
+        if (this.readyState !== 4) return;
+
+        document.getElementById("js-info-panel-loader").style.display = "none";
+
+        if (this.status === 200) {
+            let parts = this.responseText.split("|");
+            document.getElementById("js-info-ssid").innerText = "Свързана мрежа: " + parts[0];
+            document.getElementById("js-info-rssi").innerText = "Сила на сигнала: " +
+                                        (parts[1] === "-0" ? "-" : ("-" + parts[1] + " dBm"));
+            document.getElementById("js-info-ip").innerText   = "IP адрес: " + parts[2];
+            document.getElementById("js-info-mac").innerText  = "MAC адрес: " + parts[3];
+            document.getElementById("js-info-time").innerText = "Час: " + parts[4];
+
+            let timeParts = parts[4].split(":");
+            infoPanelSeconds = parseInt(timeParts[0], 10) * 3600
+                             + parseInt(timeParts[1], 10) * 60
+                             + parseInt(timeParts[2], 10);
+
+            document.getElementById("js-info-panel-info").style.display = "block";
+            document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
+            infoPanelTimeInterval = setInterval(updateInfoPanelTime, 1000);
+        }
+        else {
+            document.getElementById("js-info-panel-disconnected").style.display = "flex";
+            document.getElementById("js-info-panel-title").innerText = "Моля проверете дали сте свързани с часовника!";
+        }
+    };
+    xhttp.ontimeout = function() { displayDisconnectedState("js-info-panel"); };
+    xhttp.open("GET", "/info", true);
+    xhttp.send();
+}
+
+function updateInfoPanelTime() {
+    infoPanelSeconds = (infoPanelSeconds + 1) % 86400;
+
+    let h = Math.floor(infoPanelSeconds / 3600);
+    let m = Math.floor((infoPanelSeconds % 3600) / 60);
+    let s = infoPanelSeconds % 60;
+
+    document.getElementById("js-info-time").innerText = "Час: "
+        + String(h).padStart(2, "0") + ":"
+        + String(m).padStart(2, "0") + ":"
+        + String(s).padStart(2, "0");
+}
+
+// More settings panel
+let additionalSettingsTzDebounce = null;
+let currentTimezone = 0;
+
+function closeAdditionalSettings() {
+    let panel = document.getElementById("js-additional-settings");
+    panel.classList.remove("side-panel-open");
+
+    clearTimeout(additionalSettingsTzDebounce);
+    additionalSettingsTzDebounce = null;
+
+    // Reset to neutral state for next open
+    document.getElementById("js-additional-settings-loader").style.display = "none";
+    document.getElementById("js-additional-settings-info").style.display = "none";
+    document.getElementById("js-additional-settings-disconnected").style.display = "none";
+    document.getElementById("js-additional-settings-title").innerText = "Допълнителни настройки";
+
+    document.removeEventListener("click", closeAdditionalSettings);
+}
+
+function openAdditionalSettings(event) {
+    event.stopPropagation();
+
+    let panel = document.getElementById("js-additional-settings");
+
+    if (panel.classList.contains("side-panel-open"))
+        return;
+
+    panel.classList.add("side-panel-open");
+    document.addEventListener("click", closeAdditionalSettings);
+
+    // Show loader while waiting for response
+    document.getElementById("js-additional-settings-loader").style.display = "block";
+    document.getElementById("js-additional-settings-info").style.display = "none";
+    document.getElementById("js-additional-settings-disconnected").style.display = "none";
+    document.getElementById("js-additional-settings-title").innerText = "Допълнителни настройки";
+
+    let xhttp = new XMLHttpRequest();
+    xhttp.timeout = 5000;
+    xhttp.onreadystatechange = function() {
+        if (this.readyState !== 4) return;
+        document.getElementById("js-additional-settings-loader").style.display = "none";
+
+        if (this.status === 200) {
+            let parts = this.responseText.split("|");
+            currentTimezone = parseInt(parts[0], 10);
+            document.getElementById("js-timezone-value").innerText = currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
+
+            let deleteBtn = document.getElementById("js-additional-settings-delete-btn");
+            if (parts[1] === "true") {
+                deleteBtn.textContent = "Прекъсване на връзката с мрежата";
+                deleteBtn.classList.remove("inactive");
+                deleteBtn.classList.add("active");
+            }
+            else {
+                deleteBtn.textContent = "Няма свързана мрежа";
+                deleteBtn.classList.remove("active");
+                deleteBtn.classList.add("inactive");
+            }
+
+            document.getElementById("js-additional-settings-info").style.display = "block";
+        }
+        else {
+            document.getElementById("js-additional-settings-disconnected").style.display = "flex";
+            document.getElementById("js-additional-settings-title").innerText = "Моля проверете дали сте свързани с часовника!";
+        }
+    };
+    xhttp.ontimeout = function() { displayDisconnectedState("js-additional-settings"); };
+    xhttp.open("GET", "/additional-settings", true);
+    xhttp.send();
+}
+
+function displayDisconnectedState(panelId) {
+    document.getElementById(panelId + "-info").style.display = "none";
+    document.getElementById(panelId + "-loader").style.display = "none";
+    document.getElementById(panelId + "-disconnected").style.display = "flex";
+    document.getElementById(panelId + "-title").innerText = "Моля проверете дали сте свързани с часовника!";
+}
+
+function adjustTimezone(delta) {
+    currentTimezone += delta;
+    if (currentTimezone > 12) currentTimezone = -12;
+    if (currentTimezone < -12) currentTimezone = 12;
+
+    document.getElementById("js-timezone-value").innerText = currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
+
+    // Show loader and reset after previous debounce if still pending
+    clearTimeout(additionalSettingsTzDebounce);
+
+    additionalSettingsTzDebounce = setTimeout(function() {
+        document.getElementById("js-additional-settings-loader").style.display = "block";
+        document.getElementById("js-additional-settings-info").style.display = "none";
+
+        let xhttp = new XMLHttpRequest();
+        xhttp.timeout = 5000;
+        xhttp.onreadystatechange = function() {
+            if (this.readyState !== 4) return;
+
+            document.getElementById("js-additional-settings-loader").style.display = "none";
+            document.getElementById("js-additional-settings-info").style.display = "block";
+
+            additionalSettingsTzDebounce = null;
+        };
+        xhttp.ontimeout = function() {
+            displayDisconnectedState("js-additional-settings");
+            additionalSettingsTzDebounce = null;
+        };
+        xhttp.open("POST", "/", true);
+        xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+        xhttp.send("timezoneHoursOffset=" + currentTimezone);
+    }, 1000);
+}
+
+function deleteCredentials(event) {
+    event.stopPropagation();
+
+    let deleteBtn = document.getElementById("js-additional-settings-delete-btn");
+    if (deleteBtn.classList.contains("inactive")) return;
+
+    document.getElementById("js-additional-settings-loader").style.display = "block";
+    document.getElementById("js-additional-settings-info").style.display = "none";
+
+    let xhttp = new XMLHttpRequest();
+    xhttp.timeout = 5000;
+    xhttp.onreadystatechange = function() {
+        if (this.readyState !== 4) return;
+
+        document.getElementById("js-additional-settings-loader").style.display = "none";
+        document.getElementById("js-additional-settings-info").style.display = "block";
+
+        if (this.status === 200) {
+            // File deleted — update button to inactive state
+            deleteBtn.textContent = "Няма свързана мрежа";
+            deleteBtn.classList.remove("active");
+            deleteBtn.classList.add("inactive");
+        }
+        else {
+            document.getElementById("js-additional-settings-disconnected").style.display = "flex";
+            document.getElementById("js-additional-settings-title").innerText = "Моля проверете дали сте свързани с часовника!";
+        }
+    };
+    xhttp.ontimeout = function() { displayDisconnectedState("js-additional-settings"); };
+    xhttp.open("GET", "/delete-creds", true);
+    xhttp.send();
+}
+
 // Timer duration picker
 function adjustTimerUnit(unit, delta) {
     let hoursEl   = document.getElementById("js-timer-hours");
@@ -346,95 +584,6 @@ function sendTimerStart() {
     if (seconds === 0) return;
     document.getElementById("js-timer-pause-control").innerHTML = "&#9646;&#9646; Пауза";
     sendServerRequest("status=start&duration=" + seconds + "&workMode=timer", false);
-}
-
-// Info panel
-let infoPanelTimeInterval = null;
-let infoPanelSeconds = 0;
-
-function closeInfoPanel() {
-    let panel = document.getElementById("js-info-panel");
-    panel.classList.remove("info-panel-open");
-
-    clearInterval(infoPanelTimeInterval);
-    infoPanelTimeInterval = null;
-
-    // Reset to neutral state for next open
-    document.getElementById("js-info-panel-loader").style.display = "none";
-    document.getElementById("js-info-panel-info").style.display = "none";
-    document.getElementById("js-info-panel-disconnected").style.display = "none";
-    document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
-
-    document.removeEventListener("click", closeInfoPanel);
-}
-
-function openInfoPanel(event) {
-    event.stopPropagation(); // Prevent the document click handler from immediately closing the panel
-
-    let panel = document.getElementById("js-info-panel");
-
-    if (panel.classList.contains("info-panel-open"))
-        return;
-
-    panel.classList.add("info-panel-open");
-    document.addEventListener("click", closeInfoPanel);
-
-    // Show loader, hide info rows and disconnected state while waiting for response
-    document.getElementById("js-info-panel-loader").style.display = "block";
-    document.getElementById("js-info-panel-info").style.display = "none";
-    document.getElementById("js-info-panel-disconnected").style.display = "none";
-    document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
-
-    let xhttp = new XMLHttpRequest();
-    xhttp.timeout = 5000;
-    xhttp.onreadystatechange = function() {
-        if (this.readyState !== 4) return;
-
-        document.getElementById("js-info-panel-loader").style.display = "none";
-
-        if (this.status === 200) {
-            let parts = this.responseText.split("|");
-            document.getElementById("js-info-ssid").innerText = "Свързана мрежа: " + parts[0];
-            document.getElementById("js-info-rssi").innerText = "Сила на сигнала: " +
-                                        (parts[1] === "-0" ? "-" : ("-" + parts[1] + " dBm"));
-            document.getElementById("js-info-ip").innerText   = "IP адрес: " + parts[2];
-            document.getElementById("js-info-mac").innerText  = "MAC адрес: " + parts[3];
-            document.getElementById("js-info-time").innerText = "Час: " + parts[4];
-
-            let timeParts = parts[4].split(":");
-            infoPanelSeconds = parseInt(timeParts[0], 10) * 3600
-                             + parseInt(timeParts[1], 10) * 60
-                             + parseInt(timeParts[2], 10);
-
-            document.getElementById("js-info-panel-info").style.display = "block";
-            document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
-            infoPanelTimeInterval = setInterval(updateInfoPanelTime, 1000);
-        }
-        else {
-            document.getElementById("js-info-panel-disconnected").style.display = "flex";
-            document.getElementById("js-info-panel-title").innerText = "Моля проверете дали сте свързани с часовника!";
-        }
-    };
-    xhttp.ontimeout = function() {
-        document.getElementById("js-info-panel-loader").style.display = "none";
-        document.getElementById("js-info-panel-disconnected").style.display = "flex";
-        document.getElementById("js-info-panel-title").innerText = "Моля проверете дали сте свързани с часовника!";
-    };
-    xhttp.open("GET", "/info", true);
-    xhttp.send();
-}
-
-function updateInfoPanelTime() {
-    infoPanelSeconds = (infoPanelSeconds + 1) % 86400;
-
-    let h = Math.floor(infoPanelSeconds / 3600);
-    let m = Math.floor((infoPanelSeconds % 3600) / 60);
-    let s = infoPanelSeconds % 60;
-
-    document.getElementById("js-info-time").innerText = "Час: "
-        + String(h).padStart(2, "0") + ":"
-        + String(m).padStart(2, "0") + ":"
-        + String(s).padStart(2, "0");
 }
 
 /* END OF MAIN mainScript.js FILE */

@@ -55,6 +55,17 @@ void handleBrightnessControl() {
   sendWebpageResponse("Промените са запазени");
 }
 
+// ----------------------------------------- Handle deletion of saved network credentials ----------------------------------------- //
+void handleDeleteCreds() {
+  if (LittleFS.exists("creds.txt")) {
+    LittleFS.remove("creds.txt");
+    sendWebpageResponse("Запазената мрежа е изтрита!");
+    WiFi.disconnect(true);
+  }
+  else
+    sendWebpageResponse("Няма запазена мрежа!");
+}
+
 // ------------------------------------------------ Handle device monitoring requests ------------------------------------------------ //
 void handleDeviceMonitoring() {
 #ifdef  RTC_INFO_MESSAGES
@@ -138,7 +149,6 @@ void handleWifiTimeSync(const String& ssid) {
 
 void sendClockInfo() {
   bool is_connected = WiFi.status() == WL_CONNECTED;
-  String ssid = is_connected ? WiFi.SSID() : "-";
   int32_t rssi = is_connected ? abs(WiFi.RSSI()) : 0;
   char ip_buf[16] = "-";
 
@@ -157,7 +167,7 @@ void sendClockInfo() {
   char response[90];
 
   snprintf(response, sizeof(response), "%s|%s%d|%s|%s|%02d:%02d:%02d",
-           ssid.c_str(),
+           is_connected ? WiFi.SSID().c_str() : "-",
            is_connected ? "" : "-",
            rssi,
            ip_buf,
@@ -168,6 +178,23 @@ void sendClockInfo() {
 
 #ifdef RTC_INFO_MESSAGES
   Serial.print(F("Clock info: "));
+  Serial.println(response);
+#endif
+}
+
+void sendAdditionalSettings() {
+  char timezone_buf[1];
+  itoa(timezone, timezone_buf, 10);
+
+  char response[8];
+  snprintf(response, sizeof(response), "%s|%s",
+           timezone_buf,
+           LittleFS.exists("creds.txt") ? "true" : "false");
+
+  server.send(200, "text/plain", response);
+
+#ifdef RTC_INFO_MESSAGES
+  Serial.print(F("Additional settings: "));
   Serial.println(response);
 #endif
 }
