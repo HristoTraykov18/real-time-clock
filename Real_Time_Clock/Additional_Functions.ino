@@ -249,11 +249,11 @@ void flashDisplay() {
 
 // ----------------------------------------- Get the last Sunday date of the month ----------------------------------------- //
 uint8_t getLastSundayDate(DateTime &now) {
-  uint8_t day_of_the_week = now.dayOfTheWeek();
-  uint8_t days_until_sunday = 7 - (day_of_the_week == 0 ? 7 : day_of_the_week);
-  uint8_t next_sunday_date = now.day() + days_until_sunday;
+  int8_t day_of_the_week = now.dayOfTheWeek();
+  int8_t days_until_sunday = 7 - (day_of_the_week == 0 ? 7 : day_of_the_week);
+  int8_t result = 31 - (now.day() + days_until_sunday);
 
-  return 31 - ((31 - next_sunday_date) % 7);
+  return 31 - (((result % 7) + 7) % 7); // Return next Sunday date and prevent C99 standard change of modulo operator way of work
 }
 
 // ---------------------------------- Get length of the packet received from the NTP server ---------------------------------- //
