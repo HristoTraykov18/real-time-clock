@@ -23,6 +23,7 @@
 #define SDA_READ()  ((GPI & (1 << SDA)) != 0)
 
 bool autoUpdateTime(bool force_update=false);
+bool isDaylightSavingPeriod(time_t epoch_val=-1);
 
 void setup() {
 #ifdef  RTC_INFO_MESSAGES
