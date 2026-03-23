@@ -280,23 +280,43 @@ int getNTP_PacketLength(IPAddress& address) {
 }
 
 // --------------------------------------------- Check if it's daylight saving period ---------------------------------------------- //
-bool isDaylightSavingPeriod() {
-  bool is_period = false;
-  DateTime now = rtc.now();
-  uint8_t month_now = now.month();
+// Called with no argument: reads the current RTC time (existing behaviour, used everywhere except NTP update).
+// Called with an epoch argument: derives date/time from that Unix timestamp instead of from the RTC.
+// This overload is needed by updateTimeFromNTP() so the DST decision is based on the *new* NTP time,
+// not on the old time still held in the RTC hardware at the moment of the call.
+bool isDaylightSavingPeriod(time_t epoch_val) {
+  uint8_t month_now, day_now, hour_now, last_sunday_date;
 
-  if (month_now > 3 && month_now < 10)
-    is_period = true;
+  if (epoch_val == -1) {
+    DateTime now = rtc.now();
+    month_now = now.month();
+    day_now   = now.day();
+    hour_now  = now.hour();
+
+    if (month_now > 3 && month_now < 10)
+      return true;
+    else
+      last_sunday_date = getLastSundayDate(now);
+  }
   else {
-    uint8_t last_sunday_date = getLastSundayDate(now);
-    uint8_t day_now = now.day();
+    struct tm *t = localtime(&epoch_val);
+    month_now = t->tm_mon + 1; // tm_mon is 0-based
+    day_now   = t->tm_mday;
+    hour_now  = t->tm_hour;
 
-    if ((month_now == 3 && (day_now > last_sunday_date || (day_now == last_sunday_date && now.hour() >= 3))) || // March: DST active after 3:00 of last Sunday
-        (month_now == 10 && (day_now < last_sunday_date || (day_now == last_sunday_date && now.hour() < 3)))) // October: DST active before 3:00 of last Sunday
-      is_period = true;
+    if (month_now > 3 && month_now < 10)
+      return true;
+    else {
+      DateTime epochDt(t->tm_year + 1900, month_now, day_now, hour_now, t->tm_min, t->tm_sec);
+      last_sunday_date = getLastSundayDate(epochDt);
+    }
   }
 
-  return is_period;
+  if ((month_now == 3 && (day_now > last_sunday_date || (day_now == last_sunday_date && hour_now >= 3))) || // March: DST active after 3:00 of last Sunday
+      (month_now == 10 && (day_now < last_sunday_date || (day_now == last_sunday_date && hour_now < 3)))) // October: DST active before 3:00 of last Sunday
+    return true;
+
+  return false;
 }
 
 // --------------------------------------- Update the time manually from the user's device ---------------------------------------- //
@@ -619,7 +639,7 @@ bool updateTimeFromNTP() {
     time_t epoch = secs_since_1900 - 2208988800UL + (timezone * 3600) + 1;
 
     // DST offset
-    if (daylight_saving_enabled && isDaylightSavingPeriod())
+    if (daylight_saving_enabled && isDaylightSavingPeriod(epoch))
       epoch += 3600;
 
     struct tm *current_time = localtime(&epoch);
@@ -629,6 +649,7 @@ bool updateTimeFromNTP() {
                         current_time->tm_hour, current_time->tm_min, current_time->tm_sec));
 
     daylight_saving_active = isDaylightSavingPeriod();
+    
     connected_to_ntp = true;
     displayClockJustUpdated(false);
     time_updated = true;
