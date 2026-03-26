@@ -64,96 +64,98 @@ function closePopup(clickedButton) {
     clickedButton.parentNode.parentNode.parentNode.classList.remove("show-popup");
 }
 
-function requestConfig() {
-    let xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState === 4 && this.status === 200) {
-            let xmlDoc = this.responseXML;  // Get the settings file and compare each value
-                                            // Edit the webpage accordingly
+async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-            // Daylight saving checkbox
-            let daylightSavingCheckbox = document.getElementById("js-daylight-saving");
-
-            if (xmlDoc.getElementsByTagName("daylightSavingEnabled")[0].childNodes[0].nodeValue == "true")
-                daylightSavingCheckbox.checked = true;
-
-            // Slider (for brightness) input and checkbox
-            let brightnessSliderContainer = document.getElementById("js-brightness-slider-container");
-
-            if (xmlDoc.getElementsByTagName("autoBrightnessControl")[0].childNodes[0].nodeValue  != "true") {
-                brightnessSliderContainer.style.opacity = 1;
-                brightnessSliderContainer.style.pointerEvents = "all";
-                document.getElementById("js-brightness-control").checked = false;
-            }
-
-            let brightnessSliderInput = document.getElementById("js-brightness-slider-input");
-            let brightnessSliderThumb = document.getElementById("js-brightness-slider-thumb");
-            brightnessSliderInput.value = xmlDoc.getElementsByTagName("manualBrightnessLevel")[0].childNodes[0].nodeValue;
-
-            updateSlider(brightnessSliderInput, brightnessSliderThumb);
-
-            // Time synchronization mode slider
-            let timeSyncSlider = document.getElementById("js-time-sync-mode");
-            let timeSyncMode = xmlDoc.getElementsByTagName("timeSyncMode")[0].childNodes[0].nodeValue.toLowerCase();
-
-            if (timeSyncMode === "gps")
-                timeSyncSlider.checked = false;
-
-            // Work mode tab — switch to timer panel if saved mode is "timer"
-            let workModeNode = xmlDoc.getElementsByTagName("workMode")[0];
-            if (workModeNode && workModeNode.childNodes[0].nodeValue.toLowerCase() === "timer")
-                switchTab("timer");
-
-            if (getActiveWorkMode() === "rtc")
-                submitManualTime();
-
-            // Timer duration — populate HH:MM picker from saved seconds value
-            let timerDurationNode = xmlDoc.getElementsByTagName("timerDuration")[0];
-            if (timerDurationNode) {
-                let totalSeconds = parseInt(timerDurationNode.childNodes[0].nodeValue, 10) || 3600;
-                let h = Math.floor(totalSeconds / 3600);
-                let m = Math.floor((totalSeconds / 60) % 60);
-                let s = Math.floor(totalSeconds %  60);
-                document.getElementById("js-timer-hours").textContent = String(h).padStart(2, "0");
-                document.getElementById("js-timer-minutes").textContent = String(m).padStart(2, "0");
-                document.getElementById("js-timer-seconds").textContent = String(s).padStart(2, "0");
-            }
-        }
-    };
-
-    xhttp.open("GET", "/settings", true);
-    xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-    xhttp.send();
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timer);
+        return response;
+    } catch (err) {
+        clearTimeout(timer);
+        throw err;
+    }
 }
 
-function sendServerRequest(requestParams, loader=true) {
-    if (loader)
-        toggleLoader(); // Show the loading screen
+async function requestConfig() {
+    try {
+        const response = await fetch("/settings");
+        if (!response.ok) return;
+        const xmlDoc = new DOMParser().parseFromString(await response.text(), "text/xml");
 
-    let xhttp = new XMLHttpRequest();
-    xhttp.timeout = 12000;
-    xhttp.onreadystatechange = function() {
-        if (this.readyState === 4) {
-            let response = "Възникна грешка\nМоля проверете дали сте свързани с часовника и опитайте отново";
+        // Daylight saving checkbox
+        let daylightSavingCheckbox = document.getElementById("js-daylight-saving");
 
-            if (this.status === 200) {
-                if (loader)
-                    toggleLoader();
-                response = this.responseText;
-            }
-            else if (loader)
-                toggleLoader();
+        if (xmlDoc.getElementsByTagName("daylightSavingEnabled")[0].childNodes[0].nodeValue == "true")
+            daylightSavingCheckbox.checked = true;
 
-            showStatusPopup(response);
+        // Slider (for brightness) input and checkbox
+        let brightnessSliderContainer = document.getElementById("js-brightness-slider-container");
+
+        if (xmlDoc.getElementsByTagName("autoBrightnessControl")[0].childNodes[0].nodeValue  != "true") {
+            brightnessSliderContainer.style.opacity = 1;
+            brightnessSliderContainer.style.pointerEvents = "all";
+            document.getElementById("js-brightness-control").checked = false;
         }
+
+        let brightnessSliderInput = document.getElementById("js-brightness-slider-input");
+        let brightnessSliderThumb = document.getElementById("js-brightness-slider-thumb");
+        brightnessSliderInput.value = xmlDoc.getElementsByTagName("manualBrightnessLevel")[0].childNodes[0].nodeValue;
+
+        updateSlider(brightnessSliderInput, brightnessSliderThumb);
+
+        // Time synchronization mode slider
+        let timeSyncSlider = document.getElementById("js-time-sync-mode");
+        let timeSyncMode = xmlDoc.getElementsByTagName("timeSyncMode")[0].childNodes[0].nodeValue.toLowerCase();
+
+        if (timeSyncMode === "gps")
+            timeSyncSlider.checked = false;
+
+        // Work mode tab — switch to timer panel if saved mode is "timer"
+        let workModeNode = xmlDoc.getElementsByTagName("workMode")[0];
+
+        if (workModeNode && workModeNode.childNodes[0].nodeValue.toLowerCase() === "timer")
+            switchTab("timer");
+
+        if (getActiveWorkMode() === "rtc")
+            submitManualTime();
+
+        // Timer duration — populate HH:MM picker from saved seconds value
+        let timerDurationNode = xmlDoc.getElementsByTagName("timerDuration")[0];
+
+        if (timerDurationNode) {
+            let totalSeconds = parseInt(timerDurationNode.childNodes[0].nodeValue, 10) || 3600;
+            let h = Math.floor(totalSeconds / 3600);
+            let m = Math.floor((totalSeconds / 60) % 60);
+            let s = Math.floor(totalSeconds %  60);
+            document.getElementById("js-timer-hours").textContent = String(h).padStart(2, "0");
+            document.getElementById("js-timer-minutes").textContent = String(m).padStart(2, "0");
+            document.getElementById("js-timer-seconds").textContent = String(s).padStart(2, "0");
+        }
+    } catch {
+        showStatusPopup("Неуспешно зареждане на конфигурацията на часовника.\nМоля проверете дали сте свързани и опитайте отново");
     };
-    xhttp.ontimeout = function() {
-        this.abort();
+}
+
+async function sendServerRequest(params, loader = true) {
+    if (loader) toggleLoader();
+    try {
+        const response = await fetchWithTimeout("/", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+            body: params
+        }, 12000);
+
+        if (loader) toggleLoader();
+
+        showStatusPopup(response.ok ? await response.text() : "Възникна грешка\nМоля проверете дали сте свързани с часовника и опитайте отново");
+    } catch {
+
+        if (loader) toggleLoader();
+
         showStatusPopup("Времето за свързване с часовника изтече.\nМоля проверете дали сте свързани с часовника и опитайте отново");
-    };
-    xhttp.open("POST", "/", true);
-    xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-    xhttp.send(requestParams);
+    }
 }
 
 function showStatusPopup(popupText) {
@@ -197,8 +199,7 @@ function toggleBrightnessSliderInput() {
     if (isChecked) { // Show
         sliderContainer.style.opacity = 1;
         sliderContainer.style.pointerEvents = "all";
-    }
-    else { // Hide
+    } else { // Hide
         sliderContainer.style.opacity = 0;
         sliderContainer.style.pointerEvents = "none";
     }
@@ -236,8 +237,7 @@ function togglePasswordVisibility() {
         passInput.type = "text";
         showPasswordButton.style.opacity = "0";
         hidePasswordButton.style.opacity = "1";
-    }
-    else {
+    } else {
         passInput.type = "password";
         showPasswordButton.style.opacity = "1";
         hidePasswordButton.style.opacity = "0";
@@ -306,11 +306,12 @@ function displayDisconnectedState(panelId) {
     document.getElementById(panelId + "-title").innerText = "Моля проверете дали сте свързани с часовника!";
 }
 
-function openSidePanel(panelId, title, fetchUrl, closeFn, onSuccess) {
-    let panel = document.getElementById(panelId);
-    if (panel.classList.contains("side-panel-open")) return;
-    if (activePanelCloseFn) activePanelCloseFn();
+async function openSidePanel(panelId, title, fetchUrl, closeFn, onSuccess) {
+    const panel = document.getElementById(panelId);
 
+    if (panel.classList.contains("side-panel-open")) return;
+
+    if (activePanelCloseFn) activePanelCloseFn();
     activePanelCloseFn = closeFn;
     panel.classList.add("side-panel-open");
     document.addEventListener("click", closeFn);
@@ -320,21 +321,19 @@ function openSidePanel(panelId, title, fetchUrl, closeFn, onSuccess) {
     document.getElementById(panelId + "-disconnected").style.display = "none";
     document.getElementById(panelId + "-title").innerText = title;
 
-    let xhttp = new XMLHttpRequest();
-    xhttp.timeout = 5000;
-    xhttp.onreadystatechange = function() {
-        if (this.readyState !== 4) return;
+    try {
+        const response = await fetchWithTimeout(fetchUrl, {}, 5000);
         document.getElementById(panelId + "-loader").style.display = "none";
-        if (this.status === 200) {
-            onSuccess(this.responseText);
+        if (response.ok) {
+            onSuccess(await response.text());
             document.getElementById(panelId + "-info").style.display = "block";
+        } else {
+            displayDisconnectedState(panelId);
         }
-        else
-            displayDisconnectedState(panelId); // optimization 4: single path for all failures
-    };
-    xhttp.ontimeout = function() { displayDisconnectedState(panelId); };
-    xhttp.open("GET", fetchUrl, true);
-    xhttp.send();
+    } catch {
+        document.getElementById(panelId + "-loader").style.display = "none";
+        displayDisconnectedState(panelId);
+    }
 }
 
 // Info panel specific functionality
@@ -388,6 +387,7 @@ let currentTimezone = 0;
 
 function adjustTimezone(delta) {
     currentTimezone += delta;
+
     if (currentTimezone > 12) currentTimezone = -12;
     if (currentTimezone < -12) currentTimezone = 12;
 
@@ -396,27 +396,22 @@ function adjustTimezone(delta) {
     // Show loader and reset after previous debounce if still pending
     clearTimeout(additionalSettingsTzDebounce);
 
-    additionalSettingsTzDebounce = setTimeout(function() {
+    additionalSettingsTzDebounce = setTimeout(async function() {
         document.getElementById("js-additional-settings-loader").style.display = "block";
         document.getElementById("js-additional-settings-info").style.display = "none";
 
-        let xhttp = new XMLHttpRequest();
-        xhttp.timeout = 5000;
-        xhttp.onreadystatechange = function() {
-            if (this.readyState !== 4) return;
-
+        try {
+            await fetchWithTimeout("/", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+                body: "timezoneHoursOffset=" + currentTimezone
+            }, 5000);
             document.getElementById("js-additional-settings-loader").style.display = "none";
             document.getElementById("js-additional-settings-info").style.display = "block";
-
-            additionalSettingsTzDebounce = null;
-        };
-        xhttp.ontimeout = function() {
+        } catch {
             displayDisconnectedState("js-additional-settings");
-            additionalSettingsTzDebounce = null;
-        };
-        xhttp.open("POST", "/", true);
-        xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-        xhttp.send("timezoneHoursOffset=" + currentTimezone);
+        }
+        additionalSettingsTzDebounce = null;
     }, 1000);
 }
 
@@ -427,37 +422,30 @@ function closeAdditionalSettings() {
     closeSidePanel("js-additional-settings");
 }
 
-function deleteCredentials(event) {
+async function deleteCredentials(event) {
     event.stopPropagation();
+    const deleteBtn = document.getElementById("js-additional-settings-delete-btn");
 
-    let deleteBtn = document.getElementById("js-additional-settings-delete-btn");
     if (deleteBtn.classList.contains("inactive")) return;
 
     document.getElementById("js-additional-settings-loader").style.display = "block";
     document.getElementById("js-additional-settings-info").style.display = "none";
 
-    let xhttp = new XMLHttpRequest();
-    xhttp.timeout = 5000;
-    xhttp.onreadystatechange = function() {
-        if (this.readyState !== 4) return;
-
+    try {
+        const response = await fetchWithTimeout("/delete-creds", {}, 5000);
         document.getElementById("js-additional-settings-loader").style.display = "none";
-        document.getElementById("js-additional-settings-info").style.display = "block";
 
-        if (this.status === 200) {
-            // File deleted — update button to inactive state
+        if (response.ok) {
+            document.getElementById("js-additional-settings-info").style.display = "block";
             deleteBtn.textContent = "Няма свързана мрежа";
-            deleteBtn.classList.remove("active");
-            deleteBtn.classList.add("inactive");
+            deleteBtn.classList.replace("active", "inactive");
+        } else {
+            displayDisconnectedState("js-additional-settings");
         }
-        else {
-            document.getElementById("js-additional-settings-disconnected").style.display = "flex";
-            document.getElementById("js-additional-settings-title").innerText = "Моля проверете дали сте свързани с часовника!";
-        }
-    };
-    xhttp.ontimeout = function() { displayDisconnectedState("js-additional-settings"); };
-    xhttp.open("GET", "/delete-creds", true);
-    xhttp.send();
+    } catch {
+        document.getElementById("js-additional-settings-loader").style.display = "none";
+        displayDisconnectedState("js-additional-settings");
+    }
 }
 
 function openAdditionalSettings(event) {
@@ -470,14 +458,13 @@ function openAdditionalSettings(event) {
                 currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
 
             let deleteBtn = document.getElementById("js-additional-settings-delete-btn");
+
             if (parts[1] === "true") {
                 deleteBtn.textContent = "Прекъсване на връзката с мрежата";
-                deleteBtn.classList.remove("inactive");
-                deleteBtn.classList.add("active");
+                deleteBtn.classList.replace("inactive", "active");
             } else {
                 deleteBtn.textContent = "Няма свързана мрежа";
-                deleteBtn.classList.remove("active");
-                deleteBtn.classList.add("inactive");
+                deleteBtn.classList.replace("active", "inactive");
             }
         }
     );
@@ -540,7 +527,9 @@ function sendTimerPauseControl() {
 
 function sendTimerStart() {
     let seconds = getTimerDurationSeconds();
+
     if (seconds === 0) return;
+
     document.getElementById("js-timer-pause-control").innerHTML = "&#9646;&#9646; Пауза";
     sendServerRequest("status=start&duration=" + seconds + "&workMode=timer", false);
 }

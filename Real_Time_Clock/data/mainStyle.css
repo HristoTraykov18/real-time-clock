@@ -228,6 +228,7 @@ fieldset {
     cursor: default;
     word-break: break-all;
 }
+.side-panel-button-row { text-align: center; }
 .side-panel-content > p:first-of-type {
     font-size: 18px;
     text-decoration: underline;
