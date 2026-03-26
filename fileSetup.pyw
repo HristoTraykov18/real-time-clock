@@ -1,11 +1,10 @@
 import os
+import re
 import tkinter as tk
 from shutil import copy
 
 
 class FileSetupApp:
-    info_label_text = ""
-
     # Constants
     MODULES = {"gps": "GPS", "ls": "Light_Sensitivity", "temp": "Temperature"}
     WEBPAGE_MAIN_FILES = ["index.html", "mainScript.js", "mainStyle.css"]
@@ -17,6 +16,7 @@ class FileSetupApp:
     TEXT_SHOW_DURATION = 3500
 
     def __init__(self):
+        self.info_label_text = ""
         os.chdir("./Real_Time_Clock")
 
         # Find the compilation folder (in case I rename it from Real_Time_Clock_Compile)
@@ -40,7 +40,7 @@ class FileSetupApp:
         # Event handler for return click
         self.root.bind("<Return>", self.set_files)
         self.is_production_setup = tk.IntVar()  # tkinter integer class
-        self.modules_input_value = tk.StringVar()  # tkinter string class
+        self.modules_input_value = ""  # tkinter string class
 
         try:
             self.root.iconbitmap("./data/neonLogoIcon.ico")
@@ -95,10 +95,8 @@ class FileSetupApp:
 
                                 if filename in requested_addons_filenames:  # Insert the content of the addon file
                                     with open("./data/" + filename, "r", encoding="utf8") as file_to_write:
-                                        lines_to_add = file_to_write.readlines()
-
-                                        for line_to_add in lines_to_add:
-                                            current_file.write(line_to_add)
+                                        current_file.write(
+                                            file_to_write.read())
 
                                     # Remove the file from the list for less iterations
                                     requested_addons_filenames.remove(filename)
@@ -119,25 +117,23 @@ class FileSetupApp:
                     passed_file_marker = False
 
                     for line in lines:
-                        for main_filename in self.WEBPAGE_MAIN_FILES:
+                        for marker_filename in self.WEBPAGE_MAIN_FILES:
                             requested_filename = False
                             # Skip the marker line for the end of the main file,
                             # delete the lines after it
                             # and append the addon files after the end of file mark
-                            if (js_and_css_marker + main_filename + end_of_js_and_css_marker) in line:
+                            if (js_and_css_marker + marker_filename + end_of_js_and_css_marker) in line:
                                 passed_file_marker = True
 
                                 # Only append the requested addons
                                 for filename in webpage_addon_filenames:
                                     if filename in requested_addons_filenames and \
-                                        ((filename.endswith(".js") and main_filename.endswith(".js")) or
-                                         (filename.endswith(".css") and main_filename.endswith(".css"))):
+                                        ((filename.endswith(".js") and marker_filename.endswith(".js")) or
+                                         (filename.endswith(".css") and marker_filename.endswith(".css"))):
                                         requested_filename = True
                                         with open("./data/" + filename, "r", encoding="utf8") as file_to_write:
-                                            lines_to_add = file_to_write.readlines()
-
-                                            for line_to_add in lines_to_add:
-                                                current_file.write(line_to_add)
+                                            current_file.write(
+                                                file_to_write.read())
 
                                         # Remove the file from the list for less iterations
                                         requested_addons_filenames.remove(
@@ -159,13 +155,14 @@ class FileSetupApp:
         """ Clear the content of the compilation folder and it's subfolders (keep the subfolders) """
         with os.scandir(self.COMPILE_READY_FOLDER) as entities:
             for dir_entity in entities:
-                actual_dir_entity = self.COMPILE_READY_FOLDER + dir_entity.name
+                actual_dir_entity = os.path.join(
+                    self.COMPILE_READY_FOLDER, dir_entity.name)
 
                 if os.path.isdir(actual_dir_entity):
                     with os.scandir(actual_dir_entity + "/") as sub_entities:
                         for sub_entity in sub_entities:
-                            os.remove(actual_dir_entity +
-                                      "/" + sub_entity.name)
+                            os.remove(os.path.join(
+                                actual_dir_entity, sub_entity.name))
                 else:
                     os.remove(actual_dir_entity)
 
@@ -196,8 +193,7 @@ class FileSetupApp:
         # Scan the MAIN folder for 'data' subfolder
         with os.scandir("./") as entities:
             # Append the main sketch file to the end to prevent issues with the variables' changes
-            entities_names = list(map(lambda x: x.name, entities))
-
+            entities_names = [e.name for e in entities]
             entities_names.pop(entities_names.index(self.MAIN_RTC_INO_FILE))
             entities_names.append(self.MAIN_RTC_INO_FILE)
 
@@ -235,13 +231,8 @@ class FileSetupApp:
                             # Skip the old files
                             if ".old" not in sub_entity_name and sub_entity_name not in self.WEBPAGE_MAIN_FILES:
                                 src_dir = "./" + dir_entity_name + "/" + sub_entity_name
-                                is_module_file = False
 
-                                for module in modules_list:  # GPS, Temperature, LightSensitivity
-                                    if (module + "Addon").lower() in sub_entity_name.lower():
-                                        is_module_file = True
-
-                                if not is_module_file:
+                                if not any((m + "Addon").lower() in sub_entity_name.lower() for m in modules_list):
                                     copy(src_dir, dest_dir)
 
                     if should_add_modules:
@@ -272,14 +263,7 @@ class FileSetupApp:
 
     def create_compilation_folder(self):
         """ Create the compile ready folder and subfolders inside it """
-        first_slash = self.COMPILE_READY_FOLDER.find("/") + 1
-
-        for folder in (self.COMPILE_READY_FOLDER[first_slash:] + "data").split("/"):
-            os.mkdir(folder)
-            os.chdir(folder)
-
-        for folder in (self.COMPILE_READY_FOLDER[first_slash:] + "data").split("/"):
-            os.chdir("../")
+        os.makedirs(self.COMPILE_READY_FOLDER + "data", exist_ok=True)
 
     def define_requested_modules(self, modules_to_activate):
         """ Create definitions for the requested modules """
@@ -313,69 +297,63 @@ class FileSetupApp:
 
     def optimize_webpage_files(self):
         """ Optimize javascript and css files (basically make them .min) """
-        os.chdir("./data")  # Change directory to edit webpage files
-        comment_marks = ["//", "/*"]
+        os.chdir("./data")
 
         with os.scandir("./") as entities:
             for dir_entity in entities:
-                dir_entity_name = dir_entity.name
+                name = dir_entity.name
+                if not (name.endswith(".js") or name.endswith(".css")):
+                    continue
 
-                if dir_entity_name.endswith(".js") or dir_entity_name.endswith(".css"):
-                    with open(dir_entity_name, "r+", encoding="utf8") as current_file:
-                        is_multiline_comment = False
-                        lines = current_file.readlines()
+                with open(name, "r", encoding="utf8") as f:
+                    lines = f.readlines()
 
-                        current_file.seek(0)
-                        current_file.truncate()
+                output = []
+                is_multiline_comment = False
 
-                        for current_line in lines:
-                            comment_start = -1
-                            comment_end = -1
+                for line in lines:
+                    # --- Handle lines that fall entirely inside a block comment ---
+                    if is_multiline_comment:
+                        end_idx = line.find("*/")
+                        if end_idx != -1:
+                            # keep whatever follows */
+                            line = line[end_idx + 2:]
+                            is_multiline_comment = False
+                        else:
+                            continue  # whole line is comment body — skip it
 
-                            # Remove comments
-                            for comment_mark in comment_marks:
-                                if is_multiline_comment and current_line.find("*/") != -1:
-                                    comment_start = 0
-                                    comment_end = current_line.find("*/") + 2
-                                    is_multiline_comment = False
-                                    break
+                    # --- Strip /* ... */ block comments (may span to next lines) ---
+                    while "/*" in line:
+                        start = line.find("/*")
+                        end = line.find("*/", start)
+                        if end != -1:
+                            # inline block comment
+                            line = line[:start] + line[end + 2:]
+                        else:
+                            # block comment opens, no close
+                            line = line[:start]
+                            is_multiline_comment = True
+                            break
 
-                                if comment_mark in current_line:
-                                    if current_line.find(comment_mark) != current_line.find(comment_mark + "\")") \
-                                            and current_line.find(comment_mark) != -1:
-                                        comment_start = current_line.find(
-                                            comment_mark)
+                    # --- Strip // single-line comments ---
+                    # Preserves the original behaviour of ignoring // that is
+                    # immediately followed by ") to avoid false positives in strings
+                    if "//" in line:
+                        idx = line.find("//")
+                        if line.find("//") != line.find("//\")"):
+                            line = line[:idx]
 
-                                    if comment_mark == "/*":
-                                        comment_end = current_line.find(
-                                            "*/", comment_start)
+                    # --- Collapse whitespace ---
+                    # strip() handles \r, \n, \t and leading/trailing spaces,
+                    # replacing the os.linesep character-compare that never worked on Windows.
+                    # re.sub collapses internal runs in one pass instead of char-by-char.
+                    line = re.sub(r"\s+", " ", line.strip())
+                    if line:
+                        output.append(line)
 
-                                        if comment_end != -1:
-                                            comment_end += 2
-                                        else:
-                                            is_multiline_comment = True
-                                    break
-
-                            if comment_start != -1:
-                                current_line = current_line[:comment_start]
-
-                                if comment_end != -1:
-                                    current_line += current_line[comment_end:]
-
-                            remove_space = True
-
-                            # Replace new line characters with spaces
-                            # and reduce spaces to no more than one consecutive
-                            for symbol in current_line:
-                                if symbol == " " or symbol == "\n" or symbol == os.linesep:
-                                    if remove_space:
-                                        symbol = ""
-                                    else:
-                                        symbol = " "
-                                        remove_space = True
-                                else:
-                                    remove_space = False
-                                current_file.write(symbol)
+                # Single write per file instead of one write per character
+                with open(name, "w", encoding="utf8") as f:
+                    f.write(" ".join(output))
 
         self.info_label_text += "Webpage files optimized!"
         self.root.after(self.TEXT_SHOW_DURATION, self.clear_empty_label_text)
@@ -402,9 +380,9 @@ class FileSetupApp:
              any(module in self.MODULES for module in self.modules_input_value.split(" "))):
             try:
                 self.copy_files_for_compilation(should_add_modules)
-            except:
+            except Exception as e:
                 self.error_label.config(
-                    text="Failed to copy files to compile ready folder!")
+                    text="Failed to copy files to compile ready folder!\n" + str(e))
                 return
 
             self.info_label_text += "Files moved from main to compile ready folder!\n"
@@ -432,13 +410,11 @@ class FileSetupApp:
         modules_keys = list(self.MODULES.keys())
 
         # Add all modules keys in the main label text
-        for i, module_key in enumerate(modules_keys):
-            if i < len(modules_keys) - 2:
-                main_label_text += f"{module_key}, "
-            elif i == len(modules_keys) - 2:
-                main_label_text += f"{module_key} and "
-            else:
-                main_label_text += f"{module_key})\n"
+        if len(modules_keys) > 1:
+            main_label_text += ", ".join(modules_keys[:-1]) + \
+                f" and {modules_keys[-1]})\n"
+        else:
+            main_label_text += f"{modules_keys[0]})\n"
 
         main_label_text += "Separate them with space"
         self.main_label = tk.Label(
@@ -449,9 +425,8 @@ class FileSetupApp:
         hint_label_text = ""
 
         # Create the hint label text
-        for i in modules_keys:
-            hint_label_text += f"{i} for {self.MODULES[i]}\n"
-
+        hint_label_text = "\n".join(
+            f"{k} for {v}" for k, v in self.MODULES.items()) + "\n"
         hint_label_text += "empty for all\ndash for none"
         self.hint_label = tk.Label(
             self.root, text=hint_label_text, font=self.TEXT_FONT)
