@@ -190,7 +190,6 @@ fieldset {
     user-select: none;
     -webkit-transition: background-color var(--animation-speed);
     transition: background-color var(--animation-speed);
-    cursor: pointer;
 }
 .side-panel-button:active { background-color: var(--red); }
 .side-panel {
@@ -602,7 +601,6 @@ fieldset {
     color: var(--red);
     font-size: 42px;
     padding: 2px 10px;
-    cursor: pointer;
     border-radius: 6px;
     -webkit-transition: background-color var(--animation-speed);
     transition: background-color var(--animation-speed);
@@ -640,7 +638,7 @@ fieldset {
     /* --------------------------------------------------------- */
 
     /* ----------------------- Side panel ----------------------- */
-    .side-panel { width: 300px;}
+    .side-panel { width: 350px;}
     .side-panel-button { align-items: end; }
     .side-panel-button:hover { background-color: var(--red); }
     /* ---------------------------------------------------------- */

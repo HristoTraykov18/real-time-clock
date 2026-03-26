@@ -4,9 +4,6 @@ const SLIDERS_THUMB_DIAMETER = 25;
 window.addEventListener("load", function() { // Add event listeners for the javascript functionalities
     requestConfig();
 
-    if (getActiveWorkMode() === "rtc")
-        submitManualTime();
-
     document.getElementsByTagName("form")[0].addEventListener("submit", submitNetworkRequest);
     document.getElementById("js-time-sync-mode").addEventListener("click", toggleTimeSyncMode);
     document.getElementById("js-daylight-saving").addEventListener("click", toggleDaylightSaving);
@@ -63,7 +60,6 @@ window.addEventListener("load", function() { // Add event listeners for the java
     }
 });
 
-// Close the currently opened popup
 function closePopup(clickedButton) {
     clickedButton.parentNode.parentNode.parentNode.classList.remove("show-popup");
 }
@@ -108,6 +104,9 @@ function requestConfig() {
             if (workModeNode && workModeNode.childNodes[0].nodeValue.toLowerCase() === "timer")
                 switchTab("timer");
 
+            if (getActiveWorkMode() === "rtc")
+                submitManualTime();
+
             // Timer duration — populate HH:MM picker from saved seconds value
             let timerDurationNode = xmlDoc.getElementsByTagName("timerDuration")[0];
             if (timerDurationNode) {
@@ -122,7 +121,7 @@ function requestConfig() {
         }
     };
 
-    xhttp.open("GET", "/settings", false);
+    xhttp.open("GET", "/settings", true);
     xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
     xhttp.send();
 }
@@ -157,7 +156,6 @@ function sendServerRequest(requestParams, loader=true) {
     xhttp.send(requestParams);
 }
 
-// Display the popup on submit
 function showStatusPopup(popupText) {
     document.getElementById("js-popup-container").classList.add("show-popup");
     document.getElementById("js-popup-message").innerText = popupText;
@@ -174,7 +172,6 @@ function submitManualTime() {
     sendServerRequest(submitData);
 }
 
-// Write the changes to their hidden inputs so the server can read them
 function submitNetworkRequest(event) {
     event.preventDefault();
     let networkInputs = document.getElementsByClassName("main-settings-input");
@@ -193,7 +190,6 @@ function submitNetworkRequest(event) {
     sendServerRequest(submitData);
 }
 
-// Show or hide the slider input
 function toggleBrightnessSliderInput() {
     let isChecked = document.getElementById("js-brightness-control").checked;
     let sliderContainer = document.getElementById("js-brightness-slider-container");
@@ -220,7 +216,6 @@ function toggleDaylightSaving() {
     sendServerRequest(submitData);
 }
 
-// Loading screen during server xml http response
 function toggleLoader() {
     let formContainers = document.getElementsByClassName("form-content");
 
@@ -232,7 +227,6 @@ function toggleLoader() {
     }
 }
 
-// Show or hide the password
 function togglePasswordVisibility() {
     let passInput = document.getElementById("js-pass-input");
     let showPasswordButton = document.getElementById("js-show-password-button");
@@ -264,7 +258,6 @@ function toggleTimeSyncMode() {
     sendServerRequest(submitData);
 }
 
-// Move the slider thumb
 function updateSlider(slider, thumb) {
     // Using min and max values of the input, so the thumb movement is responsive
     let min = Number(slider.min);
@@ -278,7 +271,6 @@ function updateSlider(slider, thumb) {
     thumb.style.left = `calc(${newX}% - ${SLIDERS_THUMB_DIAMETER / 2}px)`;
 }
 
-// Tab switching
 function switchTab(tabName) {
     let rtcPanel   = document.getElementById("js-main-settings");
     let timerPanel = document.getElementById("js-timer-settings");
@@ -296,77 +288,85 @@ function switchTab(tabName) {
     timerBtn.classList.toggle("inactive-tab-button", !isTimer);
 }
 
-// Info panel
-let infoPanelTimeInterval = null;
-let infoPanelSeconds = 0;
+// Side panels common functionality
+let activePanelCloseFn = null;
 
-function closeInfoPanel() {
-    let panel = document.getElementById("js-info-panel");
-    panel.classList.remove("side-panel-open");
-
-    clearInterval(infoPanelTimeInterval);
-    infoPanelTimeInterval = null;
-
-    // Reset to neutral state for next open
-    document.getElementById("js-info-panel-loader").style.display = "none";
-    document.getElementById("js-info-panel-info").style.display = "none";
-    document.getElementById("js-info-panel-disconnected").style.display = "none";
-    document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
-
-    document.removeEventListener("click", closeInfoPanel);
+function closeSidePanel(panelId) {
+    document.getElementById(panelId).classList.remove("side-panel-open");
+    document.getElementById(panelId + "-loader").style.display = "none";
+    document.getElementById(panelId + "-info").style.display = "none";
+    document.getElementById(panelId + "-disconnected").style.display = "none";
+    activePanelCloseFn = null;
 }
 
-function openInfoPanel(event) {
-    event.stopPropagation(); // Prevent the document click handler from immediately closing the panel
+function displayDisconnectedState(panelId) {
+    document.getElementById(panelId + "-info").style.display = "none";
+    document.getElementById(panelId + "-loader").style.display = "none";
+    document.getElementById(panelId + "-disconnected").style.display = "flex";
+    document.getElementById(panelId + "-title").innerText = "Моля проверете дали сте свързани с часовника!";
+}
 
-    let panel = document.getElementById("js-info-panel");
+function openSidePanel(panelId, title, fetchUrl, closeFn, onSuccess) {
+    let panel = document.getElementById(panelId);
+    if (panel.classList.contains("side-panel-open")) return;
+    if (activePanelCloseFn) activePanelCloseFn();
 
-    if (panel.classList.contains("side-panel-open"))
-        return;
-
+    activePanelCloseFn = closeFn;
     panel.classList.add("side-panel-open");
-    document.getElementById("js-additional-settings").classList.remove("side-panel-open");
-    document.addEventListener("click", closeInfoPanel);
+    document.addEventListener("click", closeFn);
 
-    // Show loader, hide info rows and disconnected state while waiting for response
-    document.getElementById("js-info-panel-loader").style.display = "block";
-    document.getElementById("js-info-panel-info").style.display = "none";
-    document.getElementById("js-info-panel-disconnected").style.display = "none";
-    document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
+    document.getElementById(panelId + "-loader").style.display = "block";
+    document.getElementById(panelId + "-info").style.display = "none";
+    document.getElementById(panelId + "-disconnected").style.display = "none";
+    document.getElementById(panelId + "-title").innerText = title;
 
     let xhttp = new XMLHttpRequest();
     xhttp.timeout = 5000;
     xhttp.onreadystatechange = function() {
         if (this.readyState !== 4) return;
-
-        document.getElementById("js-info-panel-loader").style.display = "none";
-
+        document.getElementById(panelId + "-loader").style.display = "none";
         if (this.status === 200) {
-            let parts = this.responseText.split("|");
-            document.getElementById("js-info-ssid").innerText = "Свързана мрежа: " + parts[0];
-            document.getElementById("js-info-rssi").innerText = "Сила на сигнала: " +
-                                        (parts[1] === "-0" ? "-" : ("-" + parts[1] + " dBm"));
-            document.getElementById("js-info-ip").innerText   = "IP адрес: " + parts[2];
-            document.getElementById("js-info-mac").innerText  = "MAC адрес: " + parts[3];
-            document.getElementById("js-info-time").innerText = "Час: " + parts[4];
+            onSuccess(this.responseText);
+            document.getElementById(panelId + "-info").style.display = "block";
+        }
+        else
+            displayDisconnectedState(panelId); // optimization 4: single path for all failures
+    };
+    xhttp.ontimeout = function() { displayDisconnectedState(panelId); };
+    xhttp.open("GET", fetchUrl, true);
+    xhttp.send();
+}
+
+// Info panel specific functionality
+let infoPanelTimeInterval = null;
+let infoPanelSeconds = 0;
+
+function closeInfoPanel() {
+    clearInterval(infoPanelTimeInterval);
+    infoPanelTimeInterval = null;
+    document.removeEventListener("click", closeInfoPanel);
+    closeSidePanel("js-info-panel");
+}
+
+function openInfoPanel(event) {
+    event.stopPropagation();
+    openSidePanel("js-info-panel", "Информация за часовника", "/info", closeInfoPanel,
+        function(responseText) {
+            let parts = responseText.split("|");
+            document.getElementById("js-info-ssid").innerText  = "Свързана мрежа: "  + parts[0];
+            document.getElementById("js-info-rssi").innerText  = "Сила на сигнала: " +
+                (parts[1] === "-0" ? "-" : ("-" + parts[1] + " dBm"));
+            document.getElementById("js-info-ip").innerText    = "IP адрес: "         + parts[2];
+            document.getElementById("js-info-mac").innerText   = "MAC адрес: "        + parts[3];
+            document.getElementById("js-info-time").innerText  = "Час: "              + parts[4];
 
             let timeParts = parts[4].split(":");
             infoPanelSeconds = parseInt(timeParts[0], 10) * 3600
                              + parseInt(timeParts[1], 10) * 60
                              + parseInt(timeParts[2], 10);
-
-            document.getElementById("js-info-panel-info").style.display = "block";
-            document.getElementById("js-info-panel-title").innerText = "Информация за часовника";
             infoPanelTimeInterval = setInterval(updateInfoPanelTime, 1000);
         }
-        else {
-            document.getElementById("js-info-panel-disconnected").style.display = "flex";
-            document.getElementById("js-info-panel-title").innerText = "Моля проверете дали сте свързани с часовника!";
-        }
-    };
-    xhttp.ontimeout = function() { displayDisconnectedState("js-info-panel"); };
-    xhttp.open("GET", "/info", true);
-    xhttp.send();
+    );
 }
 
 function updateInfoPanelTime() {
@@ -382,84 +382,9 @@ function updateInfoPanelTime() {
         + String(s).padStart(2, "0");
 }
 
-// More settings panel
+// Additional settings panel specific functionality
 let additionalSettingsTzDebounce = null;
 let currentTimezone = 0;
-
-function closeAdditionalSettings() {
-    let panel = document.getElementById("js-additional-settings");
-    panel.classList.remove("side-panel-open");
-
-    clearTimeout(additionalSettingsTzDebounce);
-    additionalSettingsTzDebounce = null;
-
-    // Reset to neutral state for next open
-    document.getElementById("js-additional-settings-loader").style.display = "none";
-    document.getElementById("js-additional-settings-info").style.display = "none";
-    document.getElementById("js-additional-settings-disconnected").style.display = "none";
-    document.getElementById("js-additional-settings-title").innerText = "Допълнителни настройки";
-
-    document.removeEventListener("click", closeAdditionalSettings);
-}
-
-function openAdditionalSettings(event) {
-    event.stopPropagation();
-
-    let panel = document.getElementById("js-additional-settings");
-
-    if (panel.classList.contains("side-panel-open"))
-        return;
-
-    panel.classList.add("side-panel-open");
-    document.addEventListener("click", closeAdditionalSettings);
-
-    // Show loader while waiting for response
-    document.getElementById("js-additional-settings-loader").style.display = "block";
-    document.getElementById("js-additional-settings-info").style.display = "none";
-    document.getElementById("js-additional-settings-disconnected").style.display = "none";
-    document.getElementById("js-additional-settings-title").innerText = "Допълнителни настройки";
-
-    let xhttp = new XMLHttpRequest();
-    xhttp.timeout = 5000;
-    xhttp.onreadystatechange = function() {
-        if (this.readyState !== 4) return;
-        document.getElementById("js-additional-settings-loader").style.display = "none";
-
-        if (this.status === 200) {
-            let parts = this.responseText.split("|");
-            currentTimezone = parseInt(parts[0], 10);
-            document.getElementById("js-timezone-value").innerText = currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
-
-            let deleteBtn = document.getElementById("js-additional-settings-delete-btn");
-            if (parts[1] === "true") {
-                deleteBtn.textContent = "Прекъсване на връзката с мрежата";
-                deleteBtn.classList.remove("inactive");
-                deleteBtn.classList.add("active");
-            }
-            else {
-                deleteBtn.textContent = "Няма свързана мрежа";
-                deleteBtn.classList.remove("active");
-                deleteBtn.classList.add("inactive");
-            }
-
-            document.getElementById("js-additional-settings-info").style.display = "block";
-        }
-        else {
-            document.getElementById("js-additional-settings-disconnected").style.display = "flex";
-            document.getElementById("js-additional-settings-title").innerText = "Моля проверете дали сте свързани с часовника!";
-        }
-    };
-    xhttp.ontimeout = function() { displayDisconnectedState("js-additional-settings"); };
-    xhttp.open("GET", "/additional-settings", true);
-    xhttp.send();
-}
-
-function displayDisconnectedState(panelId) {
-    document.getElementById(panelId + "-info").style.display = "none";
-    document.getElementById(panelId + "-loader").style.display = "none";
-    document.getElementById(panelId + "-disconnected").style.display = "flex";
-    document.getElementById(panelId + "-title").innerText = "Моля проверете дали сте свързани с часовника!";
-}
 
 function adjustTimezone(delta) {
     currentTimezone += delta;
@@ -495,6 +420,13 @@ function adjustTimezone(delta) {
     }, 1000);
 }
 
+function closeAdditionalSettings() {
+    clearTimeout(additionalSettingsTzDebounce);
+    additionalSettingsTzDebounce = null;
+    document.removeEventListener("click", closeAdditionalSettings);
+    closeSidePanel("js-additional-settings");
+}
+
 function deleteCredentials(event) {
     event.stopPropagation();
 
@@ -528,7 +460,32 @@ function deleteCredentials(event) {
     xhttp.send();
 }
 
-// Timer duration picker
+function openAdditionalSettings(event) {
+    event.stopPropagation();
+    openSidePanel("js-additional-settings", "Допълнителни настройки", "/additional-settings", closeAdditionalSettings,
+        function(responseText) {
+            let parts = responseText.split("|");
+            currentTimezone = parseInt(parts[0], 10);
+            document.getElementById("js-timezone-value").innerText =
+                currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
+
+            let deleteBtn = document.getElementById("js-additional-settings-delete-btn");
+            if (parts[1] === "true") {
+                deleteBtn.textContent = "Прекъсване на връзката с мрежата";
+                deleteBtn.classList.remove("inactive");
+                deleteBtn.classList.add("active");
+            } else {
+                deleteBtn.textContent = "Няма свързана мрежа";
+                deleteBtn.classList.remove("active");
+                deleteBtn.classList.add("inactive");
+            }
+        }
+    );
+}
+
+// Timer
+let timerIsRunning = false;
+
 function adjustTimerUnit(unit, delta) {
     let hoursEl   = document.getElementById("js-timer-hours");
     let minutesEl = document.getElementById("js-timer-minutes");
@@ -570,13 +527,15 @@ function getTimerDurationSeconds() {
 function sendTimerPauseControl() {
     let pauseControlBtn = document.getElementById("js-timer-pause-control");
 
-    if (pauseControlBtn.innerHTML.includes("Пауза")) {
+    if (!timerIsRunning) {
         sendServerRequest("status=pause&workMode=timer", false);
         pauseControlBtn.innerHTML = "&#8635; Продължи";
     } else {
         sendServerRequest("status=resume&workMode=timer", false);
         pauseControlBtn.innerHTML = "&#9646;&#9646; Пауза";
     }
+
+    timerIsRunning = !timerIsRunning;
 }
 
 function sendTimerStart() {
