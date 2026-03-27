@@ -76,6 +76,7 @@ bool someone_just_connected = false; // Someone just connected to the ESP networ
 bool daylight_saving_enabled; // Daylight saving mode - ON/OFF
 bool daylight_saving_active;
 bool work_mode_is_timer = false; // false = RTC mode, true = Timer mode
+bool software_update_server_active = false; // true when the OTA update server is listening
 
 // ---------------- Objects ---------------- //
 IPAddress time_server_ip; // NTP server ip container

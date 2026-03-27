@@ -59,7 +59,7 @@ void setup() {
 
 void loop() {
   server.handleClient();
-  softwareUpdateServer.handleClient();
+  if (software_update_server_active) softwareUpdateServer.handleClient();
   yield();
   second_now = rtc.now().second();
 

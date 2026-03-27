@@ -20,7 +20,8 @@ window.addEventListener("load", function() { // Add event listeners for the java
     document.getElementById("js-additional-settings-button").addEventListener("click", openAdditionalSettings);
     document.getElementById("js-timezone-minus").addEventListener("click", function(e) { e.stopPropagation(); adjustTimezone(-1); });
     document.getElementById("js-timezone-plus").addEventListener("click",  function(e) { e.stopPropagation(); adjustTimezone(1); });
-    document.getElementById("js-additional-settings-delete-btn").addEventListener("click", deleteCredentials);
+    document.getElementById("js-delete-creds-btn").addEventListener("click", deleteCredentials);
+    document.getElementById("js-software-update-btn").addEventListener("click", activateSoftwareUpdate);
 
     // Timer controls
     document.getElementById("js-hours-up").addEventListener("click", function() { adjustTimerUnit("hours", 1); });
@@ -385,6 +386,28 @@ function updateInfoPanelTime() {
 let additionalSettingsTzDebounce = null;
 let currentTimezone = 0;
 
+async function activateSoftwareUpdate(event) {
+    event.stopPropagation();
+
+    document.getElementById("js-additional-settings-loader").style.display = "block";
+    document.getElementById("js-additional-settings-info").style.display = "none";
+
+    try {
+        const response = await fetchWithTimeout("/activate-update", {}, 5000);
+        document.getElementById("js-additional-settings-loader").style.display = "none";
+
+        if (response.ok) {
+            // Redirect to the OTA update page on port 1394
+            window.location.href = `http://${window.location.hostname}:1394/sourceControl`;
+        } else {
+            displayDisconnectedState("js-additional-settings");
+        }
+    } catch {
+        document.getElementById("js-additional-settings-loader").style.display = "none";
+        displayDisconnectedState("js-additional-settings");
+    }
+}
+
 function adjustTimezone(delta) {
     currentTimezone += delta;
 
@@ -424,7 +447,7 @@ function closeAdditionalSettings() {
 
 async function deleteCredentials(event) {
     event.stopPropagation();
-    const deleteBtn = document.getElementById("js-additional-settings-delete-btn");
+    const deleteBtn = document.getElementById("js-delete-creds-btn");
 
     if (deleteBtn.classList.contains("inactive")) return;
 
@@ -457,7 +480,7 @@ function openAdditionalSettings(event) {
             document.getElementById("js-timezone-value").innerText =
                 currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
 
-            let deleteBtn = document.getElementById("js-additional-settings-delete-btn");
+            let deleteBtn = document.getElementById("js-delete-creds-btn");
 
             if (parts[1] === "true") {
                 deleteBtn.textContent = "Прекъсване на връзката с мрежата";

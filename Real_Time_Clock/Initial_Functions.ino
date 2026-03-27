@@ -87,6 +87,7 @@ void initializeServers() {
   server.on("/info", sendClockInfo);
   server.on("/additional-settings", sendAdditionalSettings);
   server.on("/delete-creds", handleDeleteCreds);
+  server.on("/activate-update", handleActivateSoftwareUpdate);
   server.on("/neonLogoIcon.ico", [] () { streamFileToServer("/neonLogoIcon.ico", "image/x-icon"); });
   server.on("/mainStyle.css", [] () { streamFileToServer("/mainStyle.css", "text/css"); });
   server.on("/mainScript.js", [] () { streamFileToServer("/mainScript.js", "text/javascript"); });
@@ -102,12 +103,9 @@ void initializeServers() {
   const char *UPDATE_PASS = "m%O0gsLKOkDl";
 
   server.begin();
-#ifdef  RTC_INFO_MESSAGES
-    Serial.println(F("Web server started"));
-#endif
   httpUpdater.setup(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS);
-  softwareUpdateServer.begin();
 #ifdef  RTC_INFO_MESSAGES
-    Serial.println(F("Software update server started"));
+  Serial.println(F("Web server started"));
+  Serial.println(F("Software update server configured (not started)"));
 #endif
 }

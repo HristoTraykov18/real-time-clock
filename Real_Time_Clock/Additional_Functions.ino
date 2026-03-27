@@ -33,6 +33,15 @@ void checkForUserConnection() {
   else if (WiFi.softAPgetStationNum() == 0 && active_connection) {
     someone_just_connected = false;
     active_connection = false;
+
+    if (software_update_server_active) {
+      softwareUpdateServer.stop();
+      software_update_server_active = false;
+
+#ifdef  RTC_INFO_MESSAGES
+      Serial.println(F("OTA update server stopped"));
+#endif
+    }
   }
 
   // Prevents network hanging

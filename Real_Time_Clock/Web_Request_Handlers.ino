@@ -42,6 +42,20 @@ void handleWebInterface() {
 #endif
 }
 
+// ----------------------------------------- Handle software update server activation ----------------------------------------- //
+void handleActivateSoftwareUpdate() {
+  if (!software_update_server_active) {
+    softwareUpdateServer.begin();
+    software_update_server_active = true;
+
+#ifdef  RTC_INFO_MESSAGES
+    Serial.println(F("OTA update server started"));
+#endif
+  }
+
+  sendWebpageResponse("ok");
+}
+
 // --------------------------------------------- Handle brightness change synchronization --------------------------------------------- //
 void handleBrightnessControl() {
   if (server.arg("autoBrightnessControl") == "false") {
