@@ -11,6 +11,7 @@ class FileSetupApp:
     TEXT_FONT = "Verdana 8 bold"
     COMPILE_READY_FOLDER = "./Real_Time_Clock_Compile/Real_Time_Clock/"
     MAIN_RTC_INO_FILE = "Real_Time_Clock.ino"
+    MSVDC_HEADER = "MSVDC.h"
     SELECTED_MODULES_HEADER = "SelectedModules.h"
     PLATFORM_HEADER = "Platform.h"
     TEXT_SHOW_DURATION = 3500
@@ -28,9 +29,9 @@ class FileSetupApp:
                         break
 
         WINDOW_WIDTH = 400
-        WINDOW_HEIGHT = 275
+        WINDOW_HEIGHT = 325
         WINDOW_POS_X = 575
-        WINDOW_POS_Y = 300
+        WINDOW_POS_Y = 250
         self.root = tk.Tk()
         self.root.resizable(0, 0)
         self.root.wm_minsize(width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
@@ -39,8 +40,12 @@ class FileSetupApp:
             f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}+{WINDOW_POS_X}+{WINDOW_POS_Y}")
         # Event handler for return click
         self.root.bind("<Return>", self.set_files)
-        self.is_production_setup = tk.IntVar()  # tkinter integer class
-        self.modules_input_value = ""  # tkinter string class
+        self.is_production_setup = tk.IntVar()
+        self.is_edit_id = tk.IntVar(value=0)
+        self.modules_input_value = ""
+        self.timezone_value = 2  # default timezone offset (+2)
+        # Clock ID from last_id.txt (one level up — same dir as the script)
+        self.clock_id_value = None
 
         try:
             self.root.iconbitmap("./data/neonLogoIcon.ico")
@@ -151,6 +156,89 @@ class FileSetupApp:
                         else:  # Write the main file content
                             current_file.write(line)
 
+    def adjust_timezone(self, delta):
+        """ Increment or decrement the timezone value, wrapping at the ±12 boundary """
+        self.timezone_value += delta
+
+        if self.timezone_value > 12:
+            self.timezone_value = -12
+        elif self.timezone_value < -12:
+            self.timezone_value = 12
+
+        display = f"+{self.timezone_value}" if self.timezone_value >= 0 else str(
+            self.timezone_value)
+        self.timezone_display.config(text=display)
+
+    def edit_timezone_in_settings(self):
+        """ Write the selected timezone offset into the copied espSettings.xml """
+        xml_path = self.COMPILE_READY_FOLDER + "data/espSettings.xml"
+
+        with open(xml_path, "r", encoding="utf8") as f:
+            content = f.read()
+
+        content = re.sub(
+            r'(<timezoneHoursOffset>).*?(</timezoneHoursOffset>)',
+            rf'\g<1>{self.timezone_value}\g<2>',
+            content
+        )
+
+        with open(xml_path, "w", encoding="utf8") as f:
+            f.write(content)
+
+        self.info_label_text += f"Timezone set to {self.timezone_value}\n"
+
+    def toggle_edit_id(self):
+        """ Show or hide the clock ID row depending on the checkbox state """
+        if self.is_edit_id.get() == 1:
+            try:
+                with open("../last_id.txt", "r", encoding="utf8") as f:
+                    self.clock_id_value = int(f.read().strip())
+                    self.id_display.config(text=f"{self.clock_id_value:05d}")
+            except FileNotFoundError:
+                self.error_label.config(
+                    text="Could not find \"last_id.txt\"\nCreate it in the main directory")
+                self.is_edit_id.set(0)
+                return
+            except ValueError:
+                self.error_label.config(
+                    text="Could not get ID from \"last_id.txt\"\nVerify the file is not empty")
+                self.is_edit_id.set(0)
+                return
+
+            self.id_frame.pack(after=self.cb_edit_id)
+        else:
+            self.id_frame.pack_forget()
+
+    def adjust_clock_id(self, delta):
+        """ Increment or decrement the clock ID value, clamped to 1–99999 """
+        self.clock_id_value = max(1, min(99999, self.clock_id_value + delta))
+        self.id_display.config(text=f"{self.clock_id_value:05d}")
+
+    def edit_clock_id_and_pass(self):
+        """ Set ESP_SSID and ESP_PASS in the compilation folder MSVDC.h """
+        header_path = self.COMPILE_READY_FOLDER + self.MSVDC_HEADER
+
+        with open(header_path, "r", encoding="utf8") as f:
+            content = f.read()
+
+        ssid = f"NBG_CLOCK_{self.clock_id_value:05d}"
+        content = re.sub(r'(ESP_SSID\s*=\s*)"[^"]*"', rf'\1"{ssid}"', content)
+        content = re.sub(r'(ESP_PASS\s*=\s*)"[^"]*"', r'\1"NEON1234"', content)
+
+        with open(header_path, "w", encoding="utf8") as f:
+            f.write(content)
+
+        self.info_label_text += f"Clock ID set to {ssid}\n"
+
+    def save_and_increment_clock_id(self):
+        """ Write the incremented ID to last_id.txt and update the UI display """
+        self.clock_id_value += 1
+
+        with open("../last_id.txt", "w", encoding="utf8") as f:
+            f.write(str(self.clock_id_value))
+
+        self.id_display.config(text=f"{self.clock_id_value:05d}")
+
     def clear_compile_ready_folder(self):
         """ Clear the content of the compilation folder and it's subfolders (keep the subfolders) """
         with os.scandir(self.COMPILE_READY_FOLDER) as entities:
@@ -171,7 +259,7 @@ class FileSetupApp:
         self.info_label.config(text="")
 
     def disable_info_messages(self):
-        """ Comment the info messages definition in MSVDC.h to prevent debug messages in production code """
+        """ Comment the info messages definition in Real_Time_Clock.ino to prevent debug messages in production code """
         INFO_MESSAGES_DEFINITION = "#define RTC_INFO_MESSAGES"
 
         with open(self.COMPILE_READY_FOLDER + self.MAIN_RTC_INO_FILE, "r+", encoding="utf8") as current_file:
@@ -312,7 +400,7 @@ class FileSetupApp:
                 is_multiline_comment = False
 
                 for line in lines:
-                    # --- Handle lines that fall entirely inside a block comment ---
+                    # Handle lines that fall entirely inside a block comment
                     if is_multiline_comment:
                         end_idx = line.find("*/")
                         if end_idx != -1:
@@ -322,7 +410,7 @@ class FileSetupApp:
                         else:
                             continue  # whole line is comment body — skip it
 
-                    # --- Strip /* ... */ block comments (may span to next lines) ---
+                    # Strip /* ... */ block comments (may span to next lines)
                     while "/*" in line:
                         start = line.find("/*")
                         end = line.find("*/", start)
@@ -335,23 +423,17 @@ class FileSetupApp:
                             is_multiline_comment = True
                             break
 
-                    # --- Strip // single-line comments ---
-                    # Preserves the original behaviour of ignoring // that is
-                    # immediately followed by ") to avoid false positives in strings
+                    # Strip // single-line comments
                     if "//" in line:
-                        idx = line.find("//")
+                        idx = line.find("// ")
                         if line.find("//") != line.find("//\")"):
                             line = line[:idx]
 
-                    # --- Collapse whitespace ---
-                    # strip() handles \r, \n, \t and leading/trailing spaces,
-                    # replacing the os.linesep character-compare that never worked on Windows.
-                    # re.sub collapses internal runs in one pass instead of char-by-char.
+                    # Collapse whitespace
                     line = re.sub(r"\s+", " ", line.strip())
                     if line:
                         output.append(line)
 
-                # Single write per file instead of one write per character
                 with open(name, "w", encoding="utf8") as f:
                     f.write(" ".join(output))
 
@@ -387,6 +469,12 @@ class FileSetupApp:
 
             self.info_label_text += "Files moved from main to compile ready folder!\n"
 
+            self.edit_timezone_in_settings()
+
+            if self.is_edit_id.get() == 1:
+                self.edit_clock_id_and_pass()
+                self.save_and_increment_clock_id()
+
             # Change directory to optimize the files
             os.chdir(self.COMPILE_READY_FOLDER)
             self.optimize_webpage_files()
@@ -406,6 +494,19 @@ class FileSetupApp:
         """ Create widgets in the application """
         self.cb = tk.Checkbutton(self.root, text="RTC info messages", font=self.TEXT_FONT,
                                  variable=self.is_production_setup, onvalue=0, offvalue=1)
+        self.cb_edit_id = tk.Checkbutton(self.root, text="Edit clock ID", font=self.TEXT_FONT,
+                                         variable=self.is_edit_id, command=self.toggle_edit_id)
+
+        self.id_frame = tk.Frame(self.root)
+        tk.Label(self.id_frame, text="Clock ID:", font=self.TEXT_FONT).pack(
+            side=tk.LEFT, padx=(0, 4))
+        tk.Button(self.id_frame, text="-", font=self.TEXT_FONT, width=2,
+                  command=lambda: self.adjust_clock_id(-1)).pack(side=tk.LEFT)
+        self.id_display = tk.Label(self.id_frame, text="-----", font=self.TEXT_FONT, width=6,
+                                   relief=tk.SUNKEN, anchor="center")
+        self.id_display.pack(side=tk.LEFT, padx=2)
+        tk.Button(self.id_frame, text="+", font=self.TEXT_FONT, width=2,
+                  command=lambda: self.adjust_clock_id(1)).pack(side=tk.LEFT)
         main_label_text = "Modules to use (options are "
         modules_keys = list(self.MODULES.keys())
 
@@ -420,6 +521,19 @@ class FileSetupApp:
         self.main_label = tk.Label(
             self.root, text=main_label_text, font=self.TEXT_FONT)
         self.modules_input = tk.Entry(self.root, font=self.TEXT_FONT)
+
+        # Timezone row: [-] [display label] [+]
+        self.timezone_frame = tk.Frame(self.root)
+        tk.Label(self.timezone_frame, text="Timezone offset:",
+                 font=self.TEXT_FONT).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Button(self.timezone_frame, text="-", font=self.TEXT_FONT, width=2,
+                  command=lambda: self.adjust_timezone(-1)).pack(side=tk.LEFT)
+        self.timezone_display = tk.Label(self.timezone_frame, text="+2", font=self.TEXT_FONT, width=4,
+                                         relief=tk.SUNKEN, anchor="center")
+        self.timezone_display.pack(side=tk.LEFT, padx=2)
+        tk.Button(self.timezone_frame, text="+", font=self.TEXT_FONT, width=2,
+                  command=lambda: self.adjust_timezone(1)).pack(side=tk.LEFT)
+
         self.button = tk.Button(
             self.root, text="Set files", font=self.TEXT_FONT)
         hint_label_text = ""
@@ -437,7 +551,8 @@ class FileSetupApp:
         # Event handler for LMB click on the button
         self.button.bind("<Button-1>", self.set_files)
 
-        for element in [self.cb, self.main_label, self.modules_input, self.button, self.hint_label,
+        for element in [self.cb, self.cb_edit_id, self.main_label, self.modules_input,
+                        self.timezone_frame, self.button, self.hint_label,
                         self.info_label, self.error_label]:
             element.pack()
 

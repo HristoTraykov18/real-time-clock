@@ -289,10 +289,8 @@ int getNTP_PacketLength(IPAddress& address) {
 }
 
 // --------------------------------------------- Check if it's daylight saving period ---------------------------------------------- //
-// Called with no argument: reads the current RTC time (existing behaviour, used everywhere except NTP update).
+// Called with no argument: reads the current RTC time (used everywhere except NTP update).
 // Called with an epoch argument: derives date/time from that Unix timestamp instead of from the RTC.
-// This overload is needed by updateTimeFromNTP() so the DST decision is based on the *new* NTP time,
-// not on the old time still held in the RTC hardware at the moment of the call.
 bool isDaylightSavingPeriod(time_t epoch_val) {
   uint8_t month_now, day_now, hour_now, last_sunday_date;
 
@@ -658,7 +656,7 @@ bool updateTimeFromNTP() {
                         current_time->tm_hour, current_time->tm_min, current_time->tm_sec));
 
     daylight_saving_active = isDaylightSavingPeriod();
-    
+
     connected_to_ntp = true;
     displayClockJustUpdated(false);
     time_updated = true;

@@ -82,12 +82,6 @@ void handleDeleteCreds() {
 
 // ------------------------------------------------ Handle device monitoring requests ------------------------------------------------ //
 void handleDeviceMonitoring() {
-#ifdef  RTC_INFO_MESSAGES
-  Serial.print(F("Current Free Heap: "));
-  Serial.println(ESP.getFreeHeap());
-  Serial.print(F("Heap fragmentation: "));
-  Serial.println(ESP.getHeapFragmentation());
-#endif
   sendWebpageResponse(("Current Free Heap: " + String(ESP.getFreeHeap()) + "\nHeap fragmentation: " + ESP.getHeapFragmentation()).c_str());
 }
 

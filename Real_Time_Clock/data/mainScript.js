@@ -169,7 +169,6 @@ function submitManualTime() {
     let currentDate = new Date();
     submitData += Array(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 
                         currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
-    submitData += "&timezoneHoursOffset=" + (currentDate.getTimezoneOffset() / -60);
     submitData += "&workMode=" + getActiveWorkMode();
 
     sendServerRequest(submitData);
@@ -186,8 +185,6 @@ function submitNetworkRequest(event) {
     submitData += "&isHiddenNetwork=";
     submitData += document.getElementsByName("hiddenNetwork")[0].checked;
 
-    let currentDate = new Date();
-    submitData += "&timezoneHoursOffset=" + (currentDate.getTimezoneOffset() / -60);
     submitData += "&workMode=" + getActiveWorkMode();
 
     sendServerRequest(submitData);
@@ -397,7 +394,6 @@ async function activateSoftwareUpdate(event) {
         document.getElementById("js-additional-settings-loader").style.display = "none";
 
         if (response.ok) {
-            // Redirect to the OTA update page on port 1394
             window.location.href = `http://${window.location.hostname}:1394/sourceControl`;
         } else {
             displayDisconnectedState("js-additional-settings");
