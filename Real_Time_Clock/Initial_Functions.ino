@@ -3,47 +3,48 @@
 
 // -------------------------------------- Get infomation from the xml file in the ESP ------------------------------------- //
 void getInitialClockSettings() {
-  String settings_file = readFileToString("/espSettings.xml");
-  String elValue = "";
-  uint8_t tagsCount = sizeof(START_TAGS) / sizeof(START_TAGS[0]);
+  char buf[512];
+  File f = LittleFS.open("/espSettings.xml", "r");
+  size_t len = f.read((uint8_t*)buf, sizeof(buf) - 1);
+  f.close();
+  buf[len] = '\0';
 
-  for (int i = 0; i < tagsCount; i++) {
-    elValue = settings_file.substring(settings_file.indexOf(START_TAGS[i]) + strlen(START_TAGS[i]), settings_file.indexOf(END_TAGS[i]));
+  uint8_t tagsCount = sizeof(START_TAGS) / sizeof(START_TAGS[0]);
+  char val[16]; // Longest stored value is "3600" or "false" - 5 chars; 16 is generous
+
+  for (uint8_t i = 0; i < tagsCount; i++) {
+    char *p = strstr(buf, START_TAGS[i]);
+
+    if (!p) continue;
+
+    p += strlen(START_TAGS[i]);
+
+    char *end = strstr(p, END_TAGS[i]);
+    if (!end) continue;
+
+    size_t val_len = end - p;
+
+    if (val_len >= sizeof(val)) val_len = sizeof(val) - 1;
+  
+    memcpy(val, p, val_len);
+    val[val_len] = '\0';
 
     switch (i) {
-      case 0:
-        daylight_saving_enabled = elValue == "true";
-        break;
-
+      case 0: daylight_saving_enabled = strcmp(val, "true") == 0; break;
       case 1:
-#ifdef  GPS_MODULE
-        set_time_with_gps = elValue == "gps";
+#ifdef GPS_MODULE
+        set_time_with_gps = strcmp(val, "gps") == 0;
 #endif
         break;
-
-      case 2:
-        auto_brightness = elValue == "true";
-        break;
-
+      case 2: auto_brightness = strcmp(val, "true") == 0; break;
       case 3:
-        display_brightness = elValue.toInt();
+        display_brightness = atoi(val);
 
-        if (!auto_brightness)
-          last_display_brightness = display_brightness;
-
+        if (!auto_brightness) last_display_brightness = display_brightness;
         break;
-
-      case 4:
-        timezone = elValue.toInt();
-        break;
-
-      case 5:
-        work_mode_is_timer = elValue == "timer";
-        break;
-
-      case 6:
-        timer_duration = elValue.toInt(); // Stored as seconds, kept in memory as minutes
-        break;
+      case 4: timezone = atoi(val); break;
+      case 5: work_mode_is_timer = strcmp(val, "timer") == 0; break;
+      case 6: timer_duration = atoi(val); break;
     }
   }
 }
@@ -97,13 +98,17 @@ void initializeServers() {
     streamFileToServer("/index.html", "text/html"); // Show main page
     initializeModuleRTC();
   });
+  server.begin();
 
   const char *UPDATE_PATH = "/sourceControl";
   const char *UPDATE_UNAME = "ghost";
   const char *UPDATE_PASS = "m%O0gsLKOkDl";
 
-  server.begin();
   httpUpdater.setup(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS);
+  softwareUpdateServer.onNotFound([UPDATE_PATH] () {
+    softwareUpdateServer.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/", true);
+    softwareUpdateServer.send(302, "text/plain", "");
+  });
 #ifdef  RTC_INFO_MESSAGES
   Serial.println(F("Web server started"));
   Serial.println(F("Software update server configured (not started)"));

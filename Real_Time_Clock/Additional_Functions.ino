@@ -171,15 +171,28 @@ void editManualBrightness(const char new_value[]) {
 }
 
 void editSettingsFile(const char new_value[], uint8_t tags_id) {
-  String settings_file = readFileToString("/espSettings.xml");
-  File f = LittleFS.open("/espSettings.xml", "w");
+  char buf[512];
+  File f = LittleFS.open("/espSettings.xml", "r");
+  size_t len = f.read((uint8_t*)buf, sizeof(buf) - 1);
+  f.close();
+  buf[len] = '\0';
 
-  // Rewrite everything before the opening tag
-  f.write((settings_file.substring(0, settings_file.indexOf(START_TAGS[tags_id]) + strlen(START_TAGS[tags_id]))).c_str());
-  f.write(new_value);
+  // Find the end of the opening tag (where the value starts)
+  char *value_start = strstr(buf, START_TAGS[tags_id]);
 
-  // Rewrite everything after the closing tag
-  f.write((settings_file.substring(settings_file.indexOf(END_TAGS[tags_id]), settings_file.length())).c_str());
+  if (!value_start) return;
+
+  value_start += strlen(START_TAGS[tags_id]);
+
+  // Find the start of the closing tag (where the value ends)
+  char *value_end = strstr(value_start, END_TAGS[tags_id]);
+
+  if (!value_end) return;
+
+  f = LittleFS.open("/espSettings.xml", "w");
+  f.write((uint8_t*)buf, value_start - buf);  // Everything before the value
+  f.write((uint8_t*)new_value, strlen(new_value));  // The new value
+  f.write((uint8_t*)value_end, len - (value_end - buf));  // Closing tag onwards
   f.close();
 }
 
@@ -471,19 +484,6 @@ void printRemainingTime() {
   Serial.print(timer_status);
   Serial.print(F(", "));
 #endif
-}
-
-// ---------------------------------------------- File content reading function ---------------------------------------------- //
-String readFileToString(const char *filename) {
-  File f = LittleFS.open(filename, "r");
-  String page;
-
-  while (f.available())
-    page += char(f.read());
-
-  f.close();
-
-  return page;
 }
 
 // --------------------------------------------- Resets the Real-Time Clock module --------------------------------------------- //
