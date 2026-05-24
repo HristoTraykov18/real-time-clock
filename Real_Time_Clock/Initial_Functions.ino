@@ -88,16 +88,14 @@ void initializeServers() {
   server.on("/info", sendClockInfo);
   server.on("/additional-settings", sendAdditionalSettings);
   server.on("/delete-creds", handleDeleteCreds);
+  server.on("/timeout", handleSessionTimeout);
+  server.on("/extend", handleExtendSession);
   server.on("/activate-update", handleActivateSoftwareUpdate);
   server.on("/neonLogoIcon.ico", [] () { streamFileToServer("/neonLogoIcon.ico", "image/x-icon"); });
   server.on("/mainStyle.css", [] () { streamFileToServer("/mainStyle.css", "text/css"); });
   server.on("/mainScript.js", [] () { streamFileToServer("/mainScript.js", "text/javascript"); });
   server.on("/settings", [] () { streamFileToServer("/espSettings.xml", "text/xml"); });
   server.on("/m", handleDeviceMonitoring);
-  server.on("/reset", [] () {
-    streamFileToServer("/index.html", "text/html"); // Show main page
-    initializeModuleRTC();
-  });
   server.begin();
 
   const char *UPDATE_PATH = "/sourceControl";

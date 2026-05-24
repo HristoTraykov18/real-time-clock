@@ -69,6 +69,12 @@ void handleBrightnessControl() {
   sendWebpageResponse("Промените са запазени");
 }
 
+// ----------------------------------------- Extend the current session to prevent timeout ----------------------------------------- //
+void handleExtendSession() {
+  sendWebpageResponse("Успешно удължихте сесията си!");
+  last_http_activity_ms = millis();
+}
+
 // ----------------------------------------- Handle deletion of saved network credentials ----------------------------------------- //
 void handleDeleteCreds() {
   if (LittleFS.exists("creds.txt")) {
@@ -82,20 +88,25 @@ void handleDeleteCreds() {
 
 // ------------------------------------------------ Handle device monitoring requests ------------------------------------------------ //
 void handleDeviceMonitoring() {
-  sendWebpageResponse(("Current Free Heap: " + String(ESP.getFreeHeap()) + "\nHeap fragmentation: " + ESP.getHeapFragmentation()).c_str());
+  sendWebpageResponse(("Max free block size: " + String(ESP.getMaxFreeBlockSize()) + "\nCurrent Free Heap: " + \
+    String(ESP.getFreeHeap()) + "\nHeap fragmentation: " + String(ESP.getHeapFragmentation())).c_str());
 }
 
 // ----------------------------------------------- Handle manual time synchronization ----------------------------------------------- //
 void handleManualTimeSync() {
   if (networkReconnect()) {
     if (autoUpdateTime(true))
-      sendWebpageResponse(("Часовникът е свързан с мрежа " + WiFi.SSID() + ".\nУспешно сверяване през Интернет.").c_str());
+      sendWebpageResponse(("Часовникът е свързан с мрежа " + WiFi.SSID() + ".\nУспешно сверяване през Интернет!").c_str());
     else
       sendWebpageResponse(("Часовникът е свързан с мрежа " + WiFi.SSID() + ".\nНеуспешно сверяване през Интернет. Моля опитайте отново!").c_str());
   }
   else {
     manualTimeUpdate();
-    sendWebpageResponse("Часовникът се свери автоматично от устройството Ви");
+
+    if (LittleFS.exists("creds.txt"))
+      sendWebpageResponse(("Неуспешно свързване със запаметената мрежа " + WiFi.SSID() + "!\nЧасовникът се свери автоматично от устройството Ви.").c_str());
+    else
+      sendWebpageResponse("Часовникът се свери автоматично от устройството Ви.");
   }
 }
 
@@ -118,6 +129,12 @@ void handleTimerControl() {
   else {
     sendWebpageResponse("Невалидна команда за таймер");
   }
+}
+
+// ---------------------------------------------- Handle user inactivity timeout ---------------------------------------------- //
+void handleSessionTimeout() {
+  sendWebpageResponse("Сесията Ви изтече!\nЗа да използвате настройките, моля свържете се с часовника отново!");
+  evictStaleStations();
 }
 
 // ----------------------------------------- Handle time synchronization throught Wi-Fi ----------------------------------------- //
@@ -183,6 +200,7 @@ void sendClockInfo() {
            now.hour(), now.minute(), now.second());
 
   server.send(200, "text/plain", response);
+  last_http_activity_ms = millis();
 
 #ifdef RTC_INFO_MESSAGES
   Serial.print(F("Clock info: "));
@@ -200,6 +218,7 @@ void sendAdditionalSettings() {
            LittleFS.exists("creds.txt") ? "true" : "false");
 
   server.send(200, "text/plain", response);
+  last_http_activity_ms = millis();
 
 #ifdef RTC_INFO_MESSAGES
   Serial.print(F("Additional settings: "));
@@ -209,6 +228,7 @@ void sendAdditionalSettings() {
 
 void sendWebpageResponse(const char *webpage_response) {
   server.send(200, "text/plain", webpage_response);
+  last_http_activity_ms = millis();
 
 #ifdef  RTC_INFO_MESSAGES
   Serial.println(webpage_response);
@@ -217,9 +237,10 @@ void sendWebpageResponse(const char *webpage_response) {
 
 void streamFileToServer(const char *filename, const char *filestream_format) {
   File data_file = LittleFS.open(filename, "r");
-
   server.streamFile(data_file, filestream_format);
   data_file.close();
+
+  last_http_activity_ms = millis();
 }
 
 void validateNetworkInput(const String& ssid, const String& pass, const String& is_hidden) {

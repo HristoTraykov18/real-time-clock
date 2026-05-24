@@ -36,6 +36,8 @@
 
 /* ------------------------------------------- COMMON ------------------------------------------- */
 // ------------------ Definitions ------------------ //
+extern "C" bool wifi_softap_deauth(uint8_t mac[6]);
+
 // #define SCL D1 | By default on the ESP8266
 // #define SDA D2 | By default on the ESP8266
 #define CLK           D4 // Display clock input
@@ -55,6 +57,7 @@ const PROGMEM char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>"
 
 const uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
 const uint8_t UPDATE_HOUR = 3; // Request time from NTP server at 3:00 in the morning
+const unsigned long AP_CONNECTION_TIMEOUT = 610000UL; // Inactivity timeout duration for clients connected to the ESP
 
 uint8_t display_brightness = DEFAULT_BRIGHTNESS;
 uint8_t last_display_brightness = DEFAULT_BRIGHTNESS;
@@ -64,8 +67,9 @@ int8_t second_now = 0;
 int8_t last_second = -1; // Used to check if the current second is different than the last
 int8_t blink_count = 0; // Amount of flashes when someone connects to the ESP / ESP connects to NTP server
 int16_t timer_duration = 0; // Remaining timer duration in seconds
-unsigned long timer_millis = 0;        // millis() timestamp of when the current timer-second began (or when resume was called)
+unsigned long timer_millis = 0; // millis() timestamp of when the current timer-second began (or when resume was called)
 unsigned long timer_millis_offset = 0; // ms already elapsed within the current second at the moment of pause
+unsigned long last_http_activity_ms = 0; // Updated on every HTTP request
 
 bool display_time = true; // If false, show temperature
 bool auto_brightness = true; // Used for brightness module
@@ -77,6 +81,7 @@ bool daylight_saving_enabled; // Daylight saving mode - ON/OFF
 bool daylight_saving_active;
 bool work_mode_is_timer = false; // false = RTC mode, true = Timer mode
 bool software_update_server_active = false; // true when the OTA update server is listening
+volatile bool ap_station_associated = false; // Set/Cleared by SoftAP events
 
 // ---------------- Objects ---------------- //
 IPAddress time_server_ip; // NTP server ip container
@@ -86,6 +91,8 @@ ESP8266WebServer server(80);
 TM1637Display tm1637(CLK, DIO);
 ESP8266WebServer softwareUpdateServer(1394);
 ESP8266HTTPUpdateServer httpUpdater;
+WiFiEventHandler apConnectHandler;
+WiFiEventHandler apDisconnectHandler;
 /* ----------------------------------------------------------------------------------------------- */
 
 

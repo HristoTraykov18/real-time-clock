@@ -1,8 +1,10 @@
 const SLIDERS_THUMB_DIAMETER = 25;
+const INACTIVITY_TIMEOUT_MS = 600000;
+const INACTIVITY_WARNING_SECONDS = 30;
 
 
 window.addEventListener("load", function() { // Add event listeners for the javascript functionalities
-    requestConfig();
+    let configLoaded = requestConfig();
 
     document.getElementsByTagName("form")[0].addEventListener("submit", submitNetworkRequest);
     document.getElementById("js-time-sync-mode").addEventListener("click", toggleTimeSyncMode);
@@ -52,20 +54,68 @@ window.addEventListener("load", function() { // Add event listeners for the java
         });
     }
 
-    let closePopupButtons = document.getElementsByClassName("js-cancel-popup-button"); // Close buttons in popups
+    // Inactivity session timeout for softAP clients
+    if (window.location.hostname === "192.168.4.1") {
+        document.getElementById("js-continue-session-button").addEventListener("click", resetInactivityTimer);
+        resetInactivityTimer(false);
+        inactivityTicker = setInterval(inactivityTick, 1000);
+    }
+
+    let closePopupButtons = document.getElementsByClassName("js-close-popup-button"); // Close buttons in popups
 
     for (let i = 0, arrLen = closePopupButtons.length; i < arrLen; i++) {
         closePopupButtons[i].addEventListener("click", function() {
             closePopup(this);
         });
     }
+
+    if (configLoaded && getActiveWorkMode() === "rtc")
+        submitManualTime();
 });
+
+// Inactivity timeout functionality
+let inactivityDeadline = 0;
+let inactivityTicker = null;
+let sessionDisconnected = false;
+
+function inactivityTick() {
+    if (sessionDisconnected) return;
+    let remainingSeconds = Math.ceil((inactivityDeadline - Date.now()) / 1000);
+
+    if (remainingSeconds <= 0) {
+        timeoutForInactivity();
+        return;
+    }
+    if (remainingSeconds <= INACTIVITY_WARNING_SECONDS) {
+        document.getElementById("js-timeout-popup-message").innerText =
+            "Устройството Ви ще бъде разкачено от мрежата на часовника, поради неактивност след: " + remainingSeconds + " секунди";
+        document.getElementById("js-timeout-popup-container").classList.add("show-popup");
+    }
+}
+
+function resetInactivityTimer(sendExtendRequest = true) {
+    if (sessionDisconnected) return;
+
+    if (sendExtendRequest)
+        sendServerRequest("", false, "/extend");
+
+    inactivityDeadline = Date.now() + INACTIVITY_TIMEOUT_MS;
+}
+
+function timeoutForInactivity() {
+    sessionDisconnected = true;
+    clearInterval(inactivityTicker);
+    sendServerRequest("", false, "/timeout");
+    document.getElementById("js-timeout-popup-container").classList.remove("show-popup");
+    document.getElementsByClassName("js-close-popup-button")[0].addEventListener("click", function() { window.location.reload(); });
+}
+// --------------------------------
 
 function closePopup(clickedButton) {
     clickedButton.parentNode.parentNode.parentNode.classList.remove("show-popup");
 }
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -119,9 +169,6 @@ async function requestConfig() {
         if (workModeNode && workModeNode.childNodes[0].nodeValue.toLowerCase() === "timer")
             switchTab("timer");
 
-        if (getActiveWorkMode() === "rtc")
-            submitManualTime();
-
         // Timer duration — populate HH:MM picker from saved seconds value
         let timerDurationNode = xmlDoc.getElementsByTagName("timerDuration")[0];
 
@@ -135,27 +182,27 @@ async function requestConfig() {
             document.getElementById("js-timer-seconds").textContent = String(s).padStart(2, "0");
         }
     } catch {
-        showStatusPopup("Неуспешно зареждане на конфигурацията на часовника.\nМоля проверете дали сте свързани и опитайте отново");
+        showStatusPopup("Неуспешно зареждане на конфигурацията на часовника.\nМоля проверете дали сте свързани и опитайте отново!");
     };
 }
 
-async function sendServerRequest(params, loader = true) {
+async function sendServerRequest(params, loader = true, route = '/') {
     if (loader) toggleLoader();
     try {
-        const response = await fetchWithTimeout("/", {
+        const response = await fetchWithTimeout(route, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
             body: params
-        }, 12000);
+        }, 18000);
 
         if (loader) toggleLoader();
 
-        showStatusPopup(response.ok ? await response.text() : "Възникна грешка\nМоля проверете дали сте свързани с часовника и опитайте отново");
+        showStatusPopup(response.ok ? await response.text() : "Възникна грешка!");
     } catch {
 
         if (loader) toggleLoader();
 
-        showStatusPopup("Времето за свързване с часовника изтече.\nМоля проверете дали сте свързани с часовника и опитайте отново");
+        showStatusPopup("Неуспешно свързване с часовника!\nМоля проверете дали сте свързани с мрежата му и опитайте отново");
     }
 }
 
@@ -320,7 +367,7 @@ async function openSidePanel(panelId, title, fetchUrl, closeFn, onSuccess) {
     document.getElementById(panelId + "-title").innerText = title;
 
     try {
-        const response = await fetchWithTimeout(fetchUrl, {}, 5000);
+        const response = await fetchWithTimeout(fetchUrl, {});
         document.getElementById(panelId + "-loader").style.display = "none";
         if (response.ok) {
             onSuccess(await response.text());
@@ -390,7 +437,7 @@ async function activateSoftwareUpdate(event) {
     document.getElementById("js-additional-settings-info").style.display = "none";
 
     try {
-        const response = await fetchWithTimeout("/activate-update", {}, 5000);
+        const response = await fetchWithTimeout("/activate-update", {});
         document.getElementById("js-additional-settings-loader").style.display = "none";
 
         if (response.ok) {
@@ -424,7 +471,7 @@ function adjustTimezone(delta) {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
                 body: "timezoneHoursOffset=" + currentTimezone
-            }, 5000);
+            });
             document.getElementById("js-additional-settings-loader").style.display = "none";
             document.getElementById("js-additional-settings-info").style.display = "block";
         } catch {
@@ -451,7 +498,7 @@ async function deleteCredentials(event) {
     document.getElementById("js-additional-settings-info").style.display = "none";
 
     try {
-        const response = await fetchWithTimeout("/delete-creds", {}, 5000);
+        const response = await fetchWithTimeout("/delete-creds", {});
         document.getElementById("js-additional-settings-loader").style.display = "none";
 
         if (response.ok) {

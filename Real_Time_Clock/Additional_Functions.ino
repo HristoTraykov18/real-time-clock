@@ -26,11 +26,15 @@ bool autoUpdateTime(bool force_update) {
 
 // ----------------------------------- Check if someone has connected to the ESP's network ----------------------------------- //
 void checkForUserConnection() {
-  if (WiFi.softAPgetStationNum() == 1 && !active_connection) {
+  bool counted = WiFi.softAPgetStationNum() > 0;
+  bool http_live = (millis() - last_http_activity_ms) < AP_CONNECTION_TIMEOUT;
+  bool present = ap_station_associated && counted && http_live;
+
+  if (present && !active_connection) {
     someone_just_connected = true;
     active_connection = true;
   }
-  else if (WiFi.softAPgetStationNum() == 0 && active_connection) {
+  else if (!present && active_connection) {
     someone_just_connected = false;
     active_connection = false;
 
@@ -42,25 +46,18 @@ void checkForUserConnection() {
       Serial.println(F("OTA update server stopped"));
 #endif
     }
-  }
 
-  // Prevents network hanging
-  if (WiFi.status() == WL_NO_SSID_AVAIL || WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_DISCONNECTED) {
-    WiFi.disconnect();
-    WiFi.begin();
-
-#ifdef  RTC_INFO_MESSAGES
-    Serial.println(F("Network reset"));
-#endif
+    if (counted)
+      evictStaleStations();
   }
 }
 
 // ---------------------------------- Try to establish network connection with specific network ---------------------------------- //
 bool connectClockToNetwork(const String& ssid, const String& pass, bool is_hidden) {
-  const int CONNECT_ATTEMPT_DELAY = 100;
+  const int CONNECT_ATTEMPT_DELAY = 120;
   bool is_connected = false;
 
-  if ((WiFi.status() != WL_CONNECTED || WiFi.softAPgetStationNum() > 0 || is_hidden) && ssid != WiFi.SSID()) {
+  if ((WiFi.status() == WL_CONNECTED && ssid != WiFi.SSID()) || WiFi.status() != WL_CONNECTED) {
     WiFi.begin(ssid, pass);
     yield();
 
@@ -233,6 +230,27 @@ void editWorkMode(const char new_value[]) {
   }
 }
 
+// ----------------------------- Evict stations that are still associated, but not really present ----------------------------- //
+void evictStaleStations() {
+  struct station_info *si = wifi_softap_get_station_info();
+
+  while (si != NULL) {
+    char mac_addr[18];
+    snprintf(mac_addr, sizeof(mac_addr), "%02X:%02X:%02X:%02X:%02X:%02X",
+            si->bssid[0], si->bssid[1], si->bssid[2],
+            si->bssid[3], si->bssid[4], si->bssid[5]);
+    wifi_softap_deauth(si->bssid);
+    si = STAILQ_NEXT(si, next);
+
+#ifdef  RTC_INFO_MESSAGES
+    Serial.print(mac_addr);
+    Serial.println(F(" disconnected from softAP due to inactivity"));
+#endif
+  }
+
+  wifi_softap_free_station_info();
+}
+
 // --------------------- Flash the display if someone connects to the ESP or if it connects to NTP server --------------------- //
 void flashDisplay() {
   if (someone_just_connected && blink_count == 0) {
@@ -339,6 +357,52 @@ bool isDaylightSavingPeriod(time_t epoch_val) {
   return false;
 }
 
+// ----------------------------------- Manage reconnection after the ESP disconnects from a known network ----------------------------------- //
+void manageStaReconnect() {
+  static uint8_t retry_count = 2;
+  static bool back_off_active = false;
+  static uint8_t back_off_hour = 0;
+
+  if (!LittleFS.exists("creds.txt") || ap_station_associated) return;
+
+  if (WiFi.status() == WL_CONNECTED) {
+    if (back_off_active) {
+      back_off_active = false;
+
+#ifdef  RTC_INFO_MESSAGES
+      Serial.println(F("Back off disabled "));
+#endif
+    }
+
+    retry_count = 0;
+    return;
+  }
+
+  if (back_off_active) {
+    if (rtc.now().hour() != back_off_hour) {
+      back_off_active = false;
+      retry_count = 0;
+    }
+
+    return;
+  }
+
+  if (retry_count < 3) {
+    if (networkReconnect())
+      retry_count = 0;
+    else if (++retry_count >= 3) {
+      back_off_active = true;
+      back_off_hour = rtc.now().hour();
+
+#ifdef  RTC_INFO_MESSAGES
+    Serial.print(F("Back off enabled for "));
+    Serial.print(back_off_hour + 1);
+    Serial.println(F(":00"));
+#endif
+    }
+  }
+}
+
 // --------------------------------------- Update the time manually from the user's device ---------------------------------------- //
 void manualTimeUpdate() {
   String current_time_str = server.arg("currentTime");
@@ -399,9 +463,8 @@ bool networkReconnect() {
           i += 1;
           continue;
         }
-        else {
+        else
           network_data[i] += current_char;
-        }
       }
 
       f.close();

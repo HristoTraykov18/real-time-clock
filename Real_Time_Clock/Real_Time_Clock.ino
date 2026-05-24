@@ -1,6 +1,6 @@
 // Real time clock software
 // Developed by Hristo Traykov, NEON.BG (Sofia)
-// Current version 1.7.x
+// Current version 1.9.x
 // DO NOT FORGET TO SETUP PROPERLY IN TOOLS
 // USE FLOAT FIRMWARE
 // 
@@ -29,6 +29,10 @@ void setup() {
 #ifdef  RTC_INFO_MESSAGES
   Serial.begin(115200); // Serial monitor
 #endif
+
+  WiFi.persistent(false);
+  WiFi.setAutoReconnect(false);
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
   wifi_country_t country_settings = { "EU", 1, 13, WIFI_COUNTRY_POLICY_MANUAL };
   wifi_set_country(&country_settings);
 
@@ -54,7 +58,24 @@ void setup() {
 #endif
 
   tm1637.setBrightness(display_brightness); // Set brightness of the 7-digit display (TM1637)
-  WiFi.softAP(ESP_SSID, ESP_PASS, 1, 0, 1); // Set ESP access point
+  WiFi.softAP(ESP_SSID, ESP_PASS, (WiFi.status() == WL_CONNECTED ? WiFi.channel() : 1), 0, 1); // Set ESP access point
+
+  apConnectHandler = WiFi.onSoftAPModeStationConnected(
+    [](const WiFiEventSoftAPModeStationConnected&) {
+      ap_station_associated = true;
+      last_http_activity_ms = millis();
+#ifdef  RTC_INFO_MESSAGES
+      Serial.println(F("\n=== Device connected to softAP ==="));
+#endif
+  });
+
+  apDisconnectHandler = WiFi.onSoftAPModeStationDisconnected(
+    [](const WiFiEventSoftAPModeStationDisconnected&) {
+      ap_station_associated = false;
+#ifdef  RTC_INFO_MESSAGES
+      Serial.println(F("Device disconnected from softAP"));
+#endif
+  });
 }
 
 void loop() {
@@ -70,7 +91,6 @@ void loop() {
       autoUpdateTime(); // Additional function
 
     visualizeOnDisplay(); // Additional function
-    checkForUserConnection(); // Additional function
 
 #ifdef  RTC_INFO_MESSAGES
     Serial.print(F("WiFi status: "));
@@ -79,5 +99,8 @@ void loop() {
     Serial.print(F("Connected devices: "));
     Serial.println(WiFi.softAPgetStationNum());
 #endif
+
+    checkForUserConnection(); // Additional function
+    manageStaReconnect(); // Additional function
   }
 }
