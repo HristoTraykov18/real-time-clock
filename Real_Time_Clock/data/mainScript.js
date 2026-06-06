@@ -3,7 +3,7 @@ const INACTIVITY_TIMEOUT_MS = 600000;
 const INACTIVITY_WARNING_SECONDS = 30;
 
 
-window.addEventListener("load", function() { // Add event listeners for the javascript functionalities
+function initializeApp () { // Add event listeners for the javascript functionalities
     let configLoaded = requestConfig();
 
     document.getElementsByTagName("form")[0].addEventListener("submit", submitNetworkRequest);
@@ -56,8 +56,10 @@ window.addEventListener("load", function() { // Add event listeners for the java
 
     // Inactivity session timeout for softAP clients
     if (window.location.hostname === "192.168.4.1") {
-        document.getElementById("js-continue-session-button").addEventListener("click", resetInactivityTimer);
-        resetInactivityTimer(false);
+        document.getElementById("js-continue-session-button").addEventListener("click", function() {
+            resetInactivityTimer(true);
+        });
+        resetInactivityTimer();
         inactivityTicker = setInterval(inactivityTick, 1000);
     }
 
@@ -71,7 +73,7 @@ window.addEventListener("load", function() { // Add event listeners for the java
 
     if (configLoaded && getActiveWorkMode() === "rtc")
         submitManualTime();
-});
+};
 
 // Inactivity timeout functionality
 let inactivityDeadline = 0;
@@ -93,7 +95,7 @@ function inactivityTick() {
     }
 }
 
-function resetInactivityTimer(sendExtendRequest = true) {
+function resetInactivityTimer(sendExtendRequest = false) {
     if (sessionDisconnected) return;
 
     if (sendExtendRequest)
@@ -122,6 +124,10 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
     try {
         const response = await fetch(url, { ...options, signal: controller.signal });
         clearTimeout(timer);
+
+        if (window.location.hostname === "192.168.4.1")
+            resetInactivityTimer();
+
         return response;
     } catch (err) {
         clearTimeout(timer);
@@ -193,7 +199,7 @@ async function sendServerRequest(params, loader = true, route = '/') {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
             body: params
-        }, 18000);
+        }, 20000);
 
         if (loader) toggleLoader();
 
@@ -317,10 +323,10 @@ function updateSlider(slider, thumb) {
 }
 
 function switchTab(tabName) {
-    let rtcPanel   = document.getElementById("js-main-settings");
+    let rtcPanel = document.getElementById("js-main-settings");
     let timerPanel = document.getElementById("js-timer-settings");
-    let rtcBtn     = document.getElementById("js-rtc-menu-button");
-    let timerBtn   = document.getElementById("js-timer-menu-button");
+    let rtcBtn = document.getElementById("js-rtc-menu-button");
+    let timerBtn = document.getElementById("js-timer-menu-button");
 
     let isTimer = (tabName === "timer");
 
@@ -354,9 +360,12 @@ function displayDisconnectedState(panelId) {
 async function openSidePanel(panelId, title, fetchUrl, closeFn, onSuccess) {
     const panel = document.getElementById(panelId);
 
-    if (panel.classList.contains("side-panel-open")) return;
+    if (panel.classList.contains("side-panel-open"))
+        return;
 
-    if (activePanelCloseFn) activePanelCloseFn();
+    if (activePanelCloseFn)
+        activePanelCloseFn();
+
     activePanelCloseFn = closeFn;
     panel.classList.add("side-panel-open");
     document.addEventListener("click", closeFn);
@@ -397,12 +406,12 @@ function openInfoPanel(event) {
     openSidePanel("js-info-panel", "Информация за часовника", "/info", closeInfoPanel,
         function(responseText) {
             let parts = responseText.split("|");
-            document.getElementById("js-info-ssid").innerText  = "Свързана мрежа: "  + parts[0];
-            document.getElementById("js-info-rssi").innerText  = "Сила на сигнала: " +
+            document.getElementById("js-info-ssid").innerText = "Свързана мрежа: " + parts[0];
+            document.getElementById("js-info-rssi").innerText = "Сила на сигнала: " +
                 (parts[1] === "-0" ? "-" : ("-" + parts[1] + " dBm"));
-            document.getElementById("js-info-ip").innerText    = "IP адрес: "         + parts[2];
-            document.getElementById("js-info-mac").innerText   = "MAC адрес: "        + parts[3];
-            document.getElementById("js-info-time").innerText  = "Час: "              + parts[4];
+            document.getElementById("js-info-ip").innerText = "IP адрес: " + parts[2];
+            document.getElementById("js-info-mac").innerText = "MAC адрес: " + parts[3];
+            document.getElementById("js-info-time").innerText = "Час: " + parts[4];
 
             let timeParts = parts[4].split(":");
             infoPanelSeconds = parseInt(timeParts[0], 10) * 3600
@@ -454,8 +463,11 @@ async function activateSoftwareUpdate(event) {
 function adjustTimezone(delta) {
     currentTimezone += delta;
 
-    if (currentTimezone > 12) currentTimezone = -12;
-    if (currentTimezone < -12) currentTimezone = 12;
+    if (currentTimezone > 12)
+        currentTimezone = -12;
+
+    if (currentTimezone < -12)
+        currentTimezone = 12;
 
     document.getElementById("js-timezone-value").innerText = currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
 
@@ -594,10 +606,16 @@ function sendTimerPauseControl() {
 function sendTimerStart() {
     let seconds = getTimerDurationSeconds();
 
-    if (seconds === 0) return;
+    if (seconds === 0)
+        return;
 
     document.getElementById("js-timer-pause-control").innerHTML = "&#9646;&#9646; Пауза";
     sendServerRequest("status=start&duration=" + seconds + "&workMode=timer", false);
 }
+
+if (document.readyState === "complete")
+    initializeApp();
+else
+    window.addEventListener("load", initializeApp);
 
 /* END OF MAIN mainScript.js FILE */

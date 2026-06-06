@@ -26,22 +26,23 @@ bool autoUpdateTime(bool force_update=false);
 bool isDaylightSavingPeriod(time_t epoch_val=-1);
 
 void setup() {
-#ifdef  RTC_INFO_MESSAGES
-  Serial.begin(115200); // Serial monitor
-#endif
-
+  WiFi.disconnect();
   WiFi.persistent(false);
   WiFi.setAutoReconnect(false);
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
   wifi_country_t country_settings = { "EU", 1, 13, WIFI_COUNTRY_POLICY_MANUAL };
   wifi_set_country(&country_settings);
 
+#ifdef  RTC_INFO_MESSAGES
+  Serial.begin(115200); // Serial monitor
+  Serial.println("\n\n");
+#endif
+
   pinMode(LED_PIN, OUTPUT);
   initializeModuleRTC(); // Initial function
   initializeFileSystem(); // Initial function
   initializeServers(); // Initial function
   daylight_saving_active = isDaylightSavingPeriod();
-  networkReconnect(); // Additional function
 
 #ifdef  GPS_MODULE
   gpsSerial.begin(GPS_BAUD_RATE); // Start the GPS connection through SoftwareSerial library
@@ -58,12 +59,14 @@ void setup() {
 #endif
 
   tm1637.setBrightness(display_brightness); // Set brightness of the 7-digit display (TM1637)
-  WiFi.softAP(ESP_SSID, ESP_PASS, (WiFi.status() == WL_CONNECTED ? WiFi.channel() : 1), 0, 1); // Set ESP access point
+  initializeSoftAP(); // Initial function
+  radio_settle_until_ms = millis() + RADIO_SETTLE_PERIOD;
 
   apConnectHandler = WiFi.onSoftAPModeStationConnected(
     [](const WiFiEventSoftAPModeStationConnected&) {
       ap_station_associated = true;
       last_http_activity_ms = millis();
+
 #ifdef  RTC_INFO_MESSAGES
       Serial.println(F("\n=== Device connected to softAP ==="));
 #endif
@@ -71,11 +74,21 @@ void setup() {
 
   apDisconnectHandler = WiFi.onSoftAPModeStationDisconnected(
     [](const WiFiEventSoftAPModeStationDisconnected&) {
+      evictStaleStations();
       ap_station_associated = false;
+      radio_settle_until_ms = millis() + RADIO_SETTLE_PERIOD;
+
 #ifdef  RTC_INFO_MESSAGES
-      Serial.println(F("Device disconnected from softAP"));
+      Serial.println(F("\n=== Device disconnected from softAP ==="));
 #endif
   });
+
+  delay(RADIO_SETTLE_PERIOD);
+
+  if (networkReconnect() == WL_CONNECTED) { // Additional function
+    autoUpdateTime(true); // Additional function
+    displayClockJustUpdated(false); // Additional function
+  };
 }
 
 void loop() {
@@ -87,8 +100,10 @@ void loop() {
   if (second_now != last_second) {
     if (work_mode_is_timer)
       timerCountdown(); // Additional function
-    else
-      autoUpdateTime(); // Additional function
+    else {
+      if (autoUpdateTime())
+        displayClockJustUpdated(false);
+    }
 
     visualizeOnDisplay(); // Additional function
 

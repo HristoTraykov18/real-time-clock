@@ -84,17 +84,23 @@ void initializeServers() {
     Serial.println(F("Initializing UDP for NTP"));
 #endif
   }
-  server.on("/", handleWebInterface); // 192.168.4.1
+
+  const char* header_keys[] = { "Range" };
+  const size_t header_keys_count = 1;
+
+  server.collectHeaders(header_keys, header_keys_count);
+  server.on("/", handleWebInterface); // 192.168.4.1 & IP in connected network
   server.on("/info", sendClockInfo);
   server.on("/additional-settings", sendAdditionalSettings);
   server.on("/delete-creds", handleDeleteCreds);
   server.on("/timeout", handleSessionTimeout);
   server.on("/extend", handleExtendSession);
   server.on("/activate-update", handleActivateSoftwareUpdate);
-  server.on("/neonLogoIcon.ico", [] () { streamFileToServer("/neonLogoIcon.ico", "image/x-icon"); });
-  server.on("/mainStyle.css", [] () { streamFileToServer("/mainStyle.css", "text/css"); });
-  server.on("/mainScript.js", [] () { streamFileToServer("/mainScript.js", "text/javascript"); });
-  server.on("/settings", [] () { streamFileToServer("/espSettings.xml", "text/xml"); });
+  server.on("/body.html", [] () { streamFileToClient("/body.html", "text/html"); });
+  server.on("/neonLogoIcon.ico", [] () { streamFileToClient("/neonLogoIcon.ico", "image/x-icon"); });
+  server.on("/mainStyle.css", [] () { streamFileToClient("/mainStyle.css", "text/css"); });
+  server.on("/mainScript.js", [] () { streamFileToClient("/mainScript.js", "text/javascript"); });
+  server.on("/settings", [] () { streamFileToClient("/espSettings.xml", "text/xml"); });
   server.on("/m", handleDeviceMonitoring);
   server.begin();
 
@@ -103,12 +109,16 @@ void initializeServers() {
   const char *UPDATE_PASS = "m%O0gsLKOkDl";
 
   httpUpdater.setup(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS);
-  softwareUpdateServer.onNotFound([UPDATE_PATH] () {
-    softwareUpdateServer.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/", true);
-    softwareUpdateServer.send(302, "text/plain", "");
-  });
+
 #ifdef  RTC_INFO_MESSAGES
   Serial.println(F("Web server started"));
   Serial.println(F("Software update server configured (not started)"));
 #endif
+}
+
+void initializeSoftAP() {
+  char buf[128];
+  const char* network_data[5];
+  loadNetworkInfo(buf, sizeof(buf), network_data);
+  WiFi.softAP(ESP_SSID, ESP_PASS, (network_data[3] ? atoi(network_data[3]) : 1), 0, 1); // Set ESP access point
 }

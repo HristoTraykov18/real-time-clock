@@ -1,32 +1,44 @@
 
 // _____________________________________________ Web interface handling functions _____________________________________________ //
+
+static char response_buf[256]; // 256 is enough to keep the longest response message
+
 void handleWebInterface() {
-  if (server.hasArg("workMode"))
-    editWorkMode(server.arg("workMode").c_str());
-  if (server.arg("timeSyncMode") == "wifi")
-    handleWifiTimeSync(server.arg("ssid"));
+  const char* response = nullptr;
+  const String& time_sync_mode = server.arg("timeSyncMode");
+  const String& daylight_saving = server.arg("daylightSavingEnabled");
+  const String& work_mode = server.arg("workMode");
+
+  if (work_mode.length() > 0)
+    editWorkMode(work_mode.c_str());
+
+  if (time_sync_mode == "wifi")
+    response = handleWifiTimeSync(server.arg("ssid"));
 #ifdef  GPS_MODULE
-  else if (server.arg("timeSyncMode") == "gps") {
+  else if (time_sync_mode == "gps") {
     activateGPS(); // GPS module function
-    sendWebpageResponse("Часовникът ще се свери чрез GPS");
+    response = "Часовникът ще се свери чрез GPS";
     editTimeSyncMode("gps");
     autoUpdateTime(true);
   }
 #endif
-  else if (server.arg("timeSyncMode") == "js")
-    handleManualTimeSync();
-  else if (server.hasArg("daylightSavingEnabled")) {
-    editDaylightSavingEnabled(server.arg("daylightSavingEnabled").c_str());
-    sendWebpageResponse("Промените са запазени");
+  else if (time_sync_mode == "js")
+    response = handleManualTimeSync();
+  else if (daylight_saving.length() > 0) {
+    editDaylightSavingEnabled(daylight_saving.c_str());
+    response = "Промените са запазени";
   }
   else if (server.hasArg("autoBrightnessControl"))
-    handleBrightnessControl();
+    response = handleBrightnessControl();
   else if (server.hasArg("status") && work_mode_is_timer)
-    handleTimerControl();
-  else if (server.arg("timeSyncMode") == "gps")
-    sendWebpageResponse("Часовникът няма инсталиран GPS модул");
+    response = handleTimerControl();
+  else if (time_sync_mode == "gps")
+    response = "Часовникът няма инсталиран GPS модул";
   else
-    streamFileToServer("/index.html", "text/html"); // Show main page at the begining
+    streamFileToClient("/index.html", "text/html"); // Show main page at the begining
+
+  if (response)
+    sendWebpageResponse(response);
 
   if (server.hasArg("timezoneHoursOffset"))
     editTimezoneOffset(server.arg("timezoneHoursOffset").c_str());
@@ -53,20 +65,25 @@ void handleActivateSoftwareUpdate() {
 #endif
   }
 
-  sendWebpageResponse("ok");
+  sendWebpageResponse("OK");
 }
 
 // --------------------------------------------- Handle brightness change synchronization --------------------------------------------- //
-void handleBrightnessControl() {
-  if (server.arg("autoBrightnessControl") == "false") {
-    editManualBrightness(server.arg("manualBrightnessLevel").c_str());
-    display_brightness = server.arg("manualBrightnessLevel").toInt();
+const char* handleBrightnessControl() {
+  const String& auto_brightness_control = server.arg("autoBrightnessControl");
+
+  if (auto_brightness_control == "false") {
+    const String& manual_brightness_level = server.arg("manualBrightnessLevel");
+
+    editManualBrightness(manual_brightness_level.c_str());
+    display_brightness = manual_brightness_level.toInt();
   }
   else
     display_brightness = DEFAULT_BRIGHTNESS;
 
-  editAutoBrightness(server.arg("autoBrightnessControl").c_str());
-  sendWebpageResponse("Промените са запазени");
+  editAutoBrightness(auto_brightness_control.c_str());
+
+  return "Настройката за яркост е запазена!";
 }
 
 // ----------------------------------------- Extend the current session to prevent timeout ----------------------------------------- //
@@ -77,58 +94,80 @@ void handleExtendSession() {
 
 // ----------------------------------------- Handle deletion of saved network credentials ----------------------------------------- //
 void handleDeleteCreds() {
-  if (LittleFS.exists("creds.txt")) {
+  const bool had_creds = LittleFS.exists("creds.txt");
+  sendWebpageResponse(had_creds ? "Запазената мрежа е изтрита!" : "Няма запазена мрежа!");
+
+  if (had_creds) {
     LittleFS.remove("creds.txt");
-    sendWebpageResponse("Запазената мрежа е изтрита!");
     WiFi.disconnect(true);
   }
-  else
-    sendWebpageResponse("Няма запазена мрежа!");
 }
 
 // ------------------------------------------------ Handle device monitoring requests ------------------------------------------------ //
 void handleDeviceMonitoring() {
-  sendWebpageResponse(("Max free block size: " + String(ESP.getMaxFreeBlockSize()) + "\nCurrent Free Heap: " + \
-    String(ESP.getFreeHeap()) + "\nHeap fragmentation: " + String(ESP.getHeapFragmentation())).c_str());
+  snprintf(response_buf, sizeof(response_buf), 
+    "Max free block size: %u\nCurrent Free Heap: %u\nHeap fragmentation: %u", 
+    (unsigned) ESP.getMaxFreeBlockSize(),
+    (unsigned) ESP.getFreeHeap(),
+    (unsigned) ESP.getHeapFragmentation());
+  sendWebpageResponse(response_buf);
 }
 
 // ----------------------------------------------- Handle manual time synchronization ----------------------------------------------- //
-void handleManualTimeSync() {
-  if (networkReconnect()) {
-    if (autoUpdateTime(true))
-      sendWebpageResponse(("Часовникът е свързан с мрежа " + WiFi.SSID() + ".\nУспешно сверяване през Интернет!").c_str());
-    else
-      sendWebpageResponse(("Часовникът е свързан с мрежа " + WiFi.SSID() + ".\nНеуспешно сверяване през Интернет. Моля опитайте отново!").c_str());
+const char* handleManualTimeSync() {
+  char ssid_buf[33]; // Max SSID len (32) + NUL = 33
+  currentSsid(ssid_buf);
+
+  if (networkReconnect() == WL_CONNECTED) {
+    if (autoUpdateTime(true)) {
+      snprintf(response_buf, sizeof(response_buf),
+        "Часовникът е свързан с мрежа %s.\nУспешно сверяване през Интернет.", ssid_buf);
+      displayClockJustUpdated(false);
+    }
+    else {
+      snprintf(response_buf, sizeof(response_buf),
+        "Часoвникът е свързан с мрежа %s.\nНеуспешно сверяване през Интернет. Моля опитайте отново!", ssid_buf);
+    }
   }
   else {
     manualTimeUpdate();
 
-    if (LittleFS.exists("creds.txt"))
-      sendWebpageResponse(("Неуспешно свързване със запаметената мрежа " + WiFi.SSID() + "!\nЧасовникът се свери автоматично от устройството Ви.").c_str());
-    else
-      sendWebpageResponse("Часовникът се свери автоматично от устройството Ви.");
+    if (LittleFS.exists("creds.txt")) {
+      snprintf(response_buf, sizeof(response_buf),
+        "Неуспешно свързване със запаметената мрежа %s!\nЧасовникът се свери автоматично от устройството Ви.", ssid_buf);
+    }
+    else {
+      snprintf(response_buf, sizeof(response_buf),
+        "Часoвникът се свери автоматично от устройството Ви.");
+    }
   }
+
+  return response_buf;
 }
 
 // ----------------------------------------- Handle timer start / pause / restart controls ----------------------------------------- //
-void handleTimerControl() {
-  if (server.arg("status") == "start") {
+const char* handleTimerControl() {
+  const String& status_val = server.arg("status");
+
+  if (status_val == "start") {
     editTimerDuration(server.arg("duration").c_str());
-    sendWebpageResponse("Таймерът е стартиран!");
+
+    return "Таймерът е стартиран!";
   }
-  else if (server.arg("status") == "pause") {
+  else if (status_val == "pause") {
     timer_millis_offset = millis() - timer_millis;
     timer_status = 0;
-    sendWebpageResponse("Таймерът е паузиран!");
+
+    return "Таймерът е паузиран!";
   }
-  else if (server.arg("status") == "resume") {
+  else if (status_val == "resume") {
     timer_millis = millis() - timer_millis_offset;
     timer_status = 1;
-    sendWebpageResponse("Таймерът е рестартиран!");
+
+    return "Таймерът е рестартиран!";
   }
-  else {
-    sendWebpageResponse("Невалидна команда за таймер");
-  }
+  else
+    return "Невалидна команда за таймер";
 }
 
 // ---------------------------------------------- Handle user inactivity timeout ---------------------------------------------- //
@@ -138,38 +177,56 @@ void handleSessionTimeout() {
 }
 
 // ----------------------------------------- Handle time synchronization throught Wi-Fi ----------------------------------------- //
-void handleWifiTimeSync(const String& ssid) {
+const char* handleWifiTimeSync(const String& ssid) {
+  const char* response = nullptr;
+  char ssid_buf[33]; // Max SSID len (32) + NUL = 33
+  currentSsid(ssid_buf);
+
   if (WiFi.status() == WL_CONNECTED) {
-    if (ssid == WiFi.SSID()) {
-      if (autoUpdateTime(true))
-        sendWebpageResponse(("Часовникът вече е свързан с мрежа " + ssid + ".\nУспешна актуализация на времето през Интернет!").c_str());
-      else
-        sendWebpageResponse(("Часовникът вече е свързан с мрежа " + ssid + ".\nНеуспешна актуализация на времето, моля опитайте отново!").c_str());
+    if (currentSsidEquals(ssid.c_str())) {
+      if (autoUpdateTime(true)) {
+        snprintf(response_buf, sizeof(response_buf),
+          "Часовникът вече е свързан с мрежа %s.\nУспешна актуализация на времето през Интернет!", ssid_buf);
+        displayClockJustUpdated(false);
+      }
+      else {
+        snprintf(response_buf, sizeof(response_buf),
+          "Часовникът вече е свързан с мрежа %s.\nНеуспешна актуализация на времето, моля опитайте отново!", ssid_buf);
+      }
+
+      response = response_buf;
     }
-    else if (ssid != "" && (server.arg("pass")).length() > 7) {
-      validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
-    }
+    else if (ssid != "" && (server.arg("pass")).length() > 7)
+      response = validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
     else {
-      if (autoUpdateTime(true))
-        sendWebpageResponse(("Настоящата мрежа е " + WiFi.SSID() + "\nУспешна актуализация на времето през Интернет!").c_str());
-      else
-        sendWebpageResponse(("Настоящата мрежа е " + WiFi.SSID() + "\nНеуспешна актуализация на времето, моля опитайте отново!").c_str());
+      if (autoUpdateTime(true)) {
+        snprintf(response_buf, sizeof(response_buf),
+          "Настоящата мрежа е %s\nУспешна актуализация на времето през Интернет!", ssid_buf);
+        displayClockJustUpdated(false);
+      }
+      else {
+        snprintf(response_buf, sizeof(response_buf),
+          "Настоящата мрежа е %s\nНеуспешна актуализация на времето, моля опитайте отново!", ssid_buf);
+      }
     }
+
+    response = response_buf;
   }
-  else if (ssid != "" && (server.arg("pass")).length() > 7) {
-    validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
-  }
+  else if (ssid != "" && (server.arg("pass")).length() > 7)
+    response = validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
 #ifdef  GPS_MODULE
   else if (set_time_with_gps)
-    sendWebpageResponse("Промените са запазени!");
+    response = "Промените са запазени!";
 #endif
   else
-    sendWebpageResponse("Моля въведете име и парола на мрежата!");
+    response = "Моля въведете име и парола на мрежата!";
 
 #ifdef  GPS_MODULE
   gps_connect_attempts_left = 0;
 #endif
   editTimeSyncMode("wifi");
+
+  return response;
 }
 
 void sendClockInfo() {
@@ -183,16 +240,18 @@ void sendClockInfo() {
   }
 
   uint8_t mac_raw[6];
-  char mac_buf[18];
+  char mac_buf[18]; // XX:XX:XX:XX:XX:XX + NUL = 18
   WiFi.macAddress(mac_raw); // Gets the 6 raw bytes
   snprintf(mac_buf, sizeof(mac_buf), "%02X:%02X:%02X:%02X:%02X:%02X", 
           mac_raw[0], mac_raw[1], mac_raw[2], mac_raw[3], mac_raw[4], mac_raw[5]);
 
   DateTime now = rtc.now();
   char response[90];
+  char ssid_buf[33];
+  currentSsid(ssid_buf);
 
   snprintf(response, sizeof(response), "%s|%s%d|%s|%s|%02d:%02d:%02d",
-           is_connected ? WiFi.SSID().c_str() : "-",
+           is_connected ? ssid_buf : "-",
            is_connected ? "" : "-",
            rssi,
            ip_buf,
@@ -209,12 +268,9 @@ void sendClockInfo() {
 }
 
 void sendAdditionalSettings() {
-  char timezone_buf[1];
-  itoa(timezone, timezone_buf, 10);
-
-  char response[8];
-  snprintf(response, sizeof(response), "%s|%s",
-           timezone_buf,
+  char response[16];
+  snprintf(response, sizeof(response), "%d|%s",
+           timezone,
            LittleFS.exists("creds.txt") ? "true" : "false");
 
   server.send(200, "text/plain", response);
@@ -235,25 +291,122 @@ void sendWebpageResponse(const char *webpage_response) {
 #endif
 }
 
-void streamFileToServer(const char *filename, const char *filestream_format) {
+void streamFileToClient(const char *filename, const char *content_type) {
   File data_file = LittleFS.open(filename, "r");
-  server.streamFile(data_file, filestream_format);
-  data_file.close();
+  const size_t file_size  = data_file.size();
+  size_t range_start = 0;
+  size_t range_end = (file_size > 0) ? file_size - 1 : 0;
+  bool is_partial = false;
 
-  last_http_activity_ms = millis();
-}
+  // Parse "Range: bytes=START-" or "Range: bytes=START-END"
+  if (server.hasHeader("Range")) {
+    const String& r = server.header("Range");
+    int eq   = r.indexOf('=');
+    int dash = (eq > 0) ? r.indexOf('-', eq + 1) : -1;
 
-void validateNetworkInput(const String& ssid, const String& pass, const String& is_hidden) {
-  if (networkIsInRange(ssid) || is_hidden == "true") {
-    if (connectClockToNetwork(ssid, pass, is_hidden == "true")) {
-      if (autoUpdateTime(true))
-        sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + "\nУспешна актуализация на времето през Интернет").c_str());
-      else
-        sendWebpageResponse(("Часовникът се свърза с мрежа " + ssid + "\nНеуспешна актуализация на времето, моля опитайте отново!").c_str());
+    if (dash > eq) {
+      range_start = r.substring(eq + 1, dash).toInt();
+      const String& end_str = r.substring(dash + 1);
+
+      if (end_str.length() > 0)
+        range_end = end_str.toInt();
+
+      is_partial = true;
     }
-    else
-      sendWebpageResponse("Времето за опит за свързване изтече. Проверете името и паролата.");
+
+    if (range_start >= file_size || range_end >= file_size || range_start > range_end) {
+      char cr_buf[40];
+      snprintf(cr_buf, sizeof(cr_buf), "bytes */%u", (unsigned) file_size);
+
+      server.sendHeader("Content-Range", cr_buf);
+      server.send(416, "text/plain", "");
+      data_file.close();
+
+#ifdef RTC_INFO_MESSAGES
+      Serial.println(F("Range not satisfiable!"));
+#endif
+
+      return;
+    }
+  }
+
+  server.sendHeader("Accept-Ranges", "bytes");
+
+  const size_t length = range_end - range_start + 1;
+  size_t sent = 0;
+
+  if (is_partial) {
+    data_file.seek(range_start);
+
+    char cr_buf[64];
+    snprintf(cr_buf, sizeof(cr_buf), "bytes %u-%u/%u", (unsigned) range_start, (unsigned) range_end, (unsigned) file_size);
+
+    server.sendHeader("Content-Range", cr_buf);
+    server.setContentLength(length);
+    server.send(206, content_type, "");
+
+    WiFiClient client = server.client();
+    uint8_t buf[256];
+    size_t remaining = length;
+
+    while (remaining > 0 && client.connected()) {
+      size_t chunk = (remaining < sizeof(buf)) ? remaining : sizeof(buf);
+      int read = data_file.read(buf, chunk);
+
+      if (read <= 0)
+        break;
+
+      size_t wrote = client.write(buf, read);
+      sent += wrote;
+
+      if (wrote < (size_t)read)
+        break;
+
+      remaining -= read;
+    }
   }
   else
-    sendWebpageResponse(("Мрежата " + ssid + " не е в обхват").c_str());
+    sent = server.streamFile(data_file, content_type);
+
+  data_file.close();
+  last_http_activity_ms = millis();
+
+#ifdef RTC_INFO_MESSAGES
+  if (sent != length) {
+    Serial.print(F("Incomplete stream: "));
+    Serial.print(filename);
+    Serial.print(F(" "));
+    Serial.print(sent);
+    Serial.print(F("/"));
+    Serial.println(length);
+  }
+#endif
+}
+
+const char* validateNetworkInput(const String& ssid, const String& pass, const String& is_hidden) {
+  if (is_hidden == "true" || networkIsInRange(ssid.c_str())) {
+    wl_status_t connection_status = connectClockToNetwork(ssid.c_str(), pass.c_str(), is_hidden == "true");
+
+    if (connection_status == WL_CONNECTED) {
+      if (autoUpdateTime(true)) {
+        snprintf(response_buf, sizeof(response_buf),
+          "Часовникът се свърза с мрежа %s\nУспешна актуализация на времето през Интернет",
+          ssid.c_str());
+        displayClockJustUpdated(false);
+      }
+      else {
+        snprintf(response_buf, sizeof(response_buf),
+          "Часовникът се свърза с мрежа %s\nНеуспешна актуализация на времето, моля опитайте отново!",
+          ssid.c_str());
+      }
+    }
+    else if (connection_status == WL_WRONG_PASSWORD)
+      return "Грешна парола!\nМоля опитайте отново.";
+    else
+      snprintf(response_buf, sizeof(response_buf), "Неуспешно свързване с мрежа %s", ssid.c_str());
+  }
+  else
+    snprintf(response_buf, sizeof(response_buf), "Мрежата %s не е в обхват, или е скрита", ssid.c_str());
+
+  return response_buf;
 }

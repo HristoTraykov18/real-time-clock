@@ -58,6 +58,7 @@ const PROGMEM char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>"
 const uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
 const uint8_t UPDATE_HOUR = 3; // Request time from NTP server at 3:00 in the morning
 const unsigned long AP_CONNECTION_TIMEOUT = 610000UL; // Inactivity timeout duration for clients connected to the ESP
+const unsigned long RADIO_SETTLE_PERIOD = 5000UL;
 
 uint8_t display_brightness = DEFAULT_BRIGHTNESS;
 uint8_t last_display_brightness = DEFAULT_BRIGHTNESS;
@@ -70,6 +71,7 @@ int16_t timer_duration = 0; // Remaining timer duration in seconds
 unsigned long timer_millis = 0; // millis() timestamp of when the current timer-second began (or when resume was called)
 unsigned long timer_millis_offset = 0; // ms already elapsed within the current second at the moment of pause
 unsigned long last_http_activity_ms = 0; // Updated on every HTTP request
+unsigned long radio_settle_until_ms = 0;
 
 bool display_time = true; // If false, show temperature
 bool auto_brightness = true; // Used for brightness module
