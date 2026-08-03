@@ -1,8 +1,7 @@
+// TemperatureModule.cpp
+#include "TemperatureModule.h"
 
-// _______________________________________________ Temperature module functions _____________________________________________ //
 
-#ifdef  TEMPERATURE_MODULE
-// ---------------------------------------- Print the current temperature to the TM1637 --------------------------------------- //
 void printCurrentTemperature() {
   if (display_state_duration == 4) {
     temperatureSensor.requestTemperatures();
@@ -58,7 +57,7 @@ void printCurrentTemperature() {
   }
 }
 
-// ------------------------------------- Print the current time or temperature to the TM1637 ------------------------------------- //
+
 void printCurrentTimeOrTemperature() {
   // Get actual time, update dots, flash if someone connects once per second to save CPU power
   if (display_time) {
@@ -71,6 +70,5 @@ void printCurrentTimeOrTemperature() {
     }
   }
   else
-    printCurrentTemperature(); // Temperature module function
+    printCurrentTemperature();
 }
-#endif

@@ -1,10 +1,7 @@
+// BrightnessModule.cpp
+#include "BrightnessModule.h"
 
-// _________________________________________________ Light sensitivity module functions _______________________________________________ //
 
-#ifdef  LIGHT_SENSITIVITY_MODULE
-int light_sensor_value;
-
-// ------------------------------------- Change the brightness of the clock depending on the light ------------------------------------ //
 void autoSetBrightness() {
   if (auto_brightness && blink_count == 0) {
     last_display_brightness = display_brightness;
@@ -19,11 +16,10 @@ void autoSetBrightness() {
     else
       display_brightness = 6;
 
-#ifdef  RTC_INFO_MESSAGES
-    Serial.print(F("Light sensor value: "));
-    Serial.print(light_sensor_value);
-    Serial.print(F(", "));
-#endif
+    if constexpr (DEBUG_MESSAGES) {
+      Serial.print(F("Light sensor value: "));
+      Serial.print(light_sensor_value);
+      Serial.print(F(", "));
+    }
   }
 }
-#endif
