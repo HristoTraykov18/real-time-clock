@@ -9,7 +9,7 @@
 // LittleFS version 1.5.2
 // TM1637 library is edited
 // RTClib version 2.1.4
-// DallasTemperature version 3.9.0
+// DallasTemperature version 4.0.6
 
 #include "Globals.h" // Global definitions, constants, variables, and core library imports
 
@@ -40,6 +40,7 @@ void setup() {
     gpsSerial.begin(GPS_BAUD_RATE); // Start the GPS connection through SoftwareSerial library
 
   if constexpr (HAS_TEMPERATURE_MODULE) {
+    temperatureSensor.begin(); // Enumerate the 1-Wire bus. Required before reading by index
     temperatureSensor.requestTemperatures();
     current_temperature = temperatureSensor.getTempCByIndex(0);
   }
