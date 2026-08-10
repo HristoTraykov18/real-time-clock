@@ -7,9 +7,11 @@ reworked to contain only the code the NEON.BG Real Time Clock software actually 
 ## What is included
 
 - `DateTime` — broken-down date/time value (range: 1 Jan 2000 – 31 Dec 2099)
-  - `DateTime(year, month, day, hour, minute, second)` constructor and copy constructor
+  - `DateTime(year, month, day, hour, minute, second)`, `DateTime(unix_timestamp)` and copy constructor
   - `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`
   - `dayOfTheWeek()` — ranges from 0 to 6 inclusive with 0 being 'Sunday'
+  - `unixtime()` — seconds since 1970-01-01, the converse of `DateTime(unix_timestamp)`.
+    Together with the matching constructor it allows date safe time arithmetic
 - `RTC_I2C` — internal I2C base class (BCD helpers, register read/write)
 - `RTC_DS3231` — the only supported chip
   - `begin()`, `adjust()`, `now()`, `dowToDS3231()`
@@ -19,7 +21,7 @@ reworked to contain only the code the NEON.BG Real Time Clock software actually 
 - All other RTC drivers: `RTC_DS1307`, `RTC_PCF8523`, `RTC_PCF8563`, `RTC_Millis`, `RTC_Micros`
 - The `TimeSpan` class and all `DateTime` arithmetic / comparison operators
 - `DateTime` string handling: `toString()`, `timestamp()`, ISO 8601 and
-  `__DATE__` / `__TIME__` constructors, `unixtime()`, `secondstime()`, `isValid()`,
+  `__DATE__` / `__TIME__` constructors, `secondstime()`, `isValid()`,
   `twelveHour()`, `isPM()`
 - DS3231 extras: alarms, square wave / 32K output control, `getTemperature()`, `lostPower()`
 

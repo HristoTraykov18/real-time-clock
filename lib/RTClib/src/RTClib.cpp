@@ -100,6 +100,61 @@ static uint16_t date2days(uint16_t y, uint8_t m, uint8_t d) {
 
 /**************************************************************************/
 /*!
+    @brief  Given a number of days, hours, minutes, and seconds, return the
+   total seconds
+    @param days Days
+    @param h Hours
+    @param m Minutes
+    @param s Seconds
+    @return Number of seconds total
+*/
+/**************************************************************************/
+static uint32_t time2ulong(uint16_t days, uint8_t h, uint8_t m, uint8_t s) {
+  return ((days * 24UL + h) * 60 + m) * 60 + s;
+}
+
+/**************************************************************************/
+/*!
+    @brief  Constructor from
+        [Unix time](https://en.wikipedia.org/wiki/Unix_time).
+
+    This builds a DateTime from an integer specifying the number of seconds
+    elapsed since the epoch: 1970-01-01 00:00:00.
+
+    @see The `unixtime()` method is the converse of this constructor.
+
+    @param t Time elapsed in seconds since 1970-01-01 00:00:00.
+*/
+/**************************************************************************/
+DateTime::DateTime(uint32_t t) {
+  t -= SECONDS_FROM_1970_TO_2000; // bring to 2000 timestamp from 1970
+
+  ss = t % 60;
+  t /= 60;
+  mm = t % 60;
+  t /= 60;
+  hh = t % 24;
+  uint16_t days = t / 24;
+  uint8_t leap;
+  for (yOff = 0;; ++yOff) {
+    leap = yOff % 4 == 0;
+    if (days < 365U + leap)
+      break;
+    days -= 365 + leap;
+  }
+  for (m = 1; m < 12; ++m) {
+    uint8_t daysPerMonth = pgm_read_byte(daysInMonth + m - 1);
+    if (leap && m == 2)
+      ++daysPerMonth;
+    if (days < daysPerMonth)
+      break;
+    days -= daysPerMonth;
+  }
+  d = days + 1;
+}
+
+/**************************************************************************/
+/*!
     @brief  Constructor from (year, month, day, hour, minute, second).
     @warning If the provided parameters are not valid (e.g. 31 February),
            the constructed DateTime will be invalid.
@@ -142,4 +197,23 @@ DateTime::DateTime(const DateTime &copy)
 uint8_t DateTime::dayOfTheWeek() const {
   uint16_t day = date2days(yOff, m, d);
   return (day + 6) % 7; // Jan 1, 2000 is a Saturday, i.e. returns 6
+}
+
+/**************************************************************************/
+/*!
+    @brief  Return Unix time: seconds since 1 Jan 1970.
+
+    @see The `DateTime::DateTime(uint32_t)` constructor is the converse of
+        this method.
+
+    @return Number of seconds since 1970-01-01 00:00:00.
+*/
+/**************************************************************************/
+uint32_t DateTime::unixtime(void) const {
+  uint32_t t;
+  uint16_t days = date2days(yOff, m, d);
+  t = time2ulong(days, hh, mm, ss);
+  t += SECONDS_FROM_1970_TO_2000; // seconds from 1970 to 2000
+
+  return t;
 }

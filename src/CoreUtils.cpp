@@ -11,38 +11,32 @@ bool autoUpdateTime(bool force_update) {
         return true;
     }
 
-    if (daylight_saving_enabled && !force_update) {
-      DateTime nowDst = rtc.now();
-      uint8_t temp_hour = nowDst.hour();
-      daylightSavingChange(temp_hour);
-
-      if (nowDst.hour() != temp_hour)
-        rtc.adjust(DateTime(nowDst.year(), nowDst.month(), nowDst.day(), temp_hour, nowDst.minute(), nowDst.second()));
-    }
+    if (daylight_saving_enabled && !force_update)
+      daylightSavingChange();
   }
 
   return false;
 }
 
 
-void daylightSavingChange(uint8_t &hour_now) {
-  // Apply +1h (March) or -1h (October) exactly once per transition.
-  bool is_daylight_saving_period = isDaylightSavingPeriod();
+void daylightSavingChange() {
+  // Apply +1h (March) or -1h (October) exactly once per transition
+  const bool is_daylight_saving_period = daylight_saving_enabled && isDaylightSavingPeriod();
+
+  if (is_daylight_saving_period == daylight_saving_active)
+    return;
+
+  DateTime now = rtc.now();
+
+  // Shift through the Unix timestamp so the calendar day, month and year roll over correctly
+  rtc.adjust(DateTime(is_daylight_saving_period ? now.unixtime() + 3600UL
+                                                : now.unixtime() - 3600UL));
+
+  daylight_saving_active = is_daylight_saving_period;
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("DST Active: "));
-    Serial.println(daylight_saving_active);
-    Serial.print(F("DST Period: "));
-    Serial.println(is_daylight_saving_period);
-  }
-
-  if (!daylight_saving_active && is_daylight_saving_period) {
-    hour_now += 1;
-    daylight_saving_active = true;
-  }
-  else if (daylight_saving_active && !is_daylight_saving_period) {
-    hour_now -= 1;
-    daylight_saving_active = false;
+    Serial.print(F("DST offset "));
+    Serial.println(is_daylight_saving_period ? F("applied (+1h)") : F("removed (-1h)"));
   }
 }
 
@@ -139,13 +133,16 @@ bool isDaylightSavingPeriod(time_t epoch_val) {
     day_now   = now.day();
     hour_now  = now.hour();
 
+    if (daylight_saving_active && hour_now > 0)
+       hour_now -= 1;
+
     if (month_now > 3 && month_now < 10)
       return true;
     else
       last_sunday_date = getLastSundayDate(now);
   }
   else { // Derive date/time from the provided Unix timestamp
-    struct tm *t = localtime(&epoch_val);
+    struct tm *t = gmtime(&epoch_val); // The offset is already contained in the timestamp
     month_now = t->tm_mon + 1; // tm_mon is 0-based
     day_now   = t->tm_mday;
     hour_now  = t->tm_hour;
@@ -158,8 +155,8 @@ bool isDaylightSavingPeriod(time_t epoch_val) {
     }
   }
 
-  if ((month_now == 3 && (day_now > last_sunday_date || (day_now == last_sunday_date && hour_now >= 3))) || // March: DST active after 3:00 of last Sunday
-      (month_now == 10 && (day_now < last_sunday_date || (day_now == last_sunday_date && hour_now < 3)))) // October: DST active before 3:00 of last Sunday
+  if ((month_now == 3 && (day_now > last_sunday_date || (day_now == last_sunday_date && hour_now >= UPDATE_HOUR))) || // March: DST active after 3:00 of last Sunday
+      (month_now == 10 && (day_now < last_sunday_date || (day_now == last_sunday_date && hour_now < UPDATE_HOUR - 1)))) // October: DST active before 2:00 standard time (3:00 displayed) of last Sunday
     return true;
 
   return false;
@@ -184,7 +181,7 @@ void manualTimeUpdate() {
   rtc.adjust(DateTime(current_time[0], current_time[1] + 1, current_time[2],
                       current_time[3], current_time[4], current_time[5]));
 
-  daylight_saving_active = isDaylightSavingPeriod();
+  daylight_saving_active = daylight_saving_enabled && isDaylightSavingPeriod();
 }
 
 

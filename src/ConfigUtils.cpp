@@ -1,5 +1,6 @@
 // ConfigUtils.cpp
 #include "ConfigUtils.h"
+#include "CoreUtils.h"
 
 
 void editAutoBrightness(const char new_value[]) {
@@ -14,6 +15,7 @@ void editDaylightSavingEnabled(const char new_value[]) {
   if (daylight_saving_enabled != (strcmp(new_value, "true") == 0)) {
     editSettingsFile(new_value, 0);
     daylight_saving_enabled = !daylight_saving_enabled;
+    daylightSavingChange(); // Core Utils
   }
 }
 

@@ -34,7 +34,8 @@ void setup() {
   initializeModuleRTC(); // Core Utils
   initializeFileSystem(); // Core Utils
   initializeServers(); // Server Utils
-  daylight_saving_active = isDaylightSavingPeriod();
+
+  daylight_saving_active = daylight_saving_enabled && isDaylightSavingPeriod();
 
   if constexpr (HAS_GPS_MODULE)
     gpsSerial.begin(GPS_BAUD_RATE); // Start the GPS connection through SoftwareSerial library

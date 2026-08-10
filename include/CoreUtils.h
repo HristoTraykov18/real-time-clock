@@ -21,10 +21,10 @@
 bool autoUpdateTime(bool force_update = false);
 
 /**
- * @brief Shifts the provided hour value by +/-1 hour depending on the active Daylight Saving Time switch.
- * @param hour_now Reference variable to the hour variable that needs modifying.
+ * @brief Applies or removes the one hour Daylight Saving Time offset on the RTC, at most once per transition.
+ * Does nothing when the currently applied offset already matches the Daylight Saving Time period.
  */
-void daylightSavingChange(uint8_t &hour_now);
+void daylightSavingChange();
 
 /**
  * @brief Parses the XML configuration file stored on the filesystem to load system settings.

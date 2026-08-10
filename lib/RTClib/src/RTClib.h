@@ -21,6 +21,10 @@
 #include <Adafruit_I2CDevice.h>
 #include <Arduino.h>
 
+/** Constants */
+#define SECONDS_FROM_1970_TO_2000                                              \
+  946684800 ///< Unixtime for 2000-01-01 00:00:00, useful for initialization
+
 /**************************************************************************/
 /*!
     @brief  Simple general-purpose date/time class (no TZ / DST / leap
@@ -39,6 +43,7 @@
 /**************************************************************************/
 class DateTime {
 public:
+  DateTime(uint32_t t);
   DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour = 0,
            uint8_t min = 0, uint8_t sec = 0);
   DateTime(const DateTime &copy);
@@ -75,6 +80,9 @@ public:
   uint8_t second() const { return ss; }
 
   uint8_t dayOfTheWeek() const;
+
+  /* 32-bit times as seconds since 1970-01-01. */
+  uint32_t unixtime(void) const;
 
 protected:
   uint8_t yOff; ///< Year offset from 2000

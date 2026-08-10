@@ -532,17 +532,18 @@ bool updateTimeFromNTP() {
   time_t epoch = secs_since_1900 - 2208988800UL + (timezone * 3600L) + 1;
 
   // DST offset
-  if (daylight_saving_enabled && isDaylightSavingPeriod(epoch))
+  const bool dst_applied = daylight_saving_enabled && isDaylightSavingPeriod(epoch);
+
+  if (dst_applied)
     epoch += 3600;
 
-  struct tm *current_time = localtime(&epoch);
+  struct tm *current_time = gmtime(&epoch); // The offset is already contained in the timestamp
   current_time->tm_year += 1900; // Year is calculated from 1900 to now, so set to current year
 
   rtc.adjust(DateTime(current_time->tm_year, current_time->tm_mon + 1, current_time->tm_mday,
                       current_time->tm_hour, current_time->tm_min, current_time->tm_sec));
 
-  daylight_saving_active = isDaylightSavingPeriod();
-
+  daylight_saving_active = dst_applied;
   connected_to_ntp = true;
 
   return true;
