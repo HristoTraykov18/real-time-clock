@@ -59,7 +59,6 @@ void printCurrentTemperature() {
 
 
 void printCurrentTimeOrTemperature() {
-  // Get actual time, update dots, flash if someone connects once per second to save CPU power
   if (display_time) {
     printCurrentTime();
     display_state_duration--;

@@ -1,5 +1,6 @@
-Real_Time_Clock/Real_Time_Clock_Compile
+Real_Time_Clock_Compile
 last_id.txt
 venv
 .pio
 .vscode
+__pycache__

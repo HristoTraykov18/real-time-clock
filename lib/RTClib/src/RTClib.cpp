@@ -77,6 +77,9 @@ uint8_t RTC_I2C::read_register(uint8_t reg) {
 const uint8_t daysInMonth[] PROGMEM = {31, 28, 31, 30, 31, 30,
                                        31, 31, 30, 31, 30};
 
+/** Unixtime for 2000-01-01 00:00:00, the base of the internal representation */
+constexpr uint32_t SECONDS_FROM_1970_TO_2000 = 946684800;
+
 /**************************************************************************/
 /*!
     @brief  Given a date, return number of days since 2000/01/01,
@@ -177,16 +180,6 @@ DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
   mm = min;
   ss = sec;
 }
-
-/**************************************************************************/
-/*!
-    @brief  Copy constructor.
-    @param copy DateTime to copy.
-*/
-/**************************************************************************/
-DateTime::DateTime(const DateTime &copy)
-    : yOff(copy.yOff), m(copy.m), d(copy.d), hh(copy.hh), mm(copy.mm),
-      ss(copy.ss) {}
 
 /**************************************************************************/
 /*!

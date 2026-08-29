@@ -1,7 +1,7 @@
 /**
  * @file TemperatureModule.h
  * @author Hristo Traykov (hristotraykov98@gmail.com)
- * @brief Handles reading and formatting temperature values for display outputs.
+ * @brief Temperature module functions.
  * @version 1.0
  * @date 2026-05-25
  * @copyright Copyright (c) 2026. Licensed under the MIT License.

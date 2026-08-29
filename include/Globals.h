@@ -43,7 +43,7 @@ constexpr uint8_t DIO     = D5; // Display data input
 constexpr uint8_t LED_PIN = 16; // Integrated LED
 
 /* ----------------------------------- Constants and variables ----------------------------------- */
-constexpr const bool DEBUG_MESSAGES = true; // Set to true to enable debug serial messages throughout the code
+constexpr bool DEBUG_MESSAGES = true; // Set to true to enable debug serial messages throughout the code
 constexpr const char* ESP_SSID = "Test"; // ESP soft access point name | CHANGE NUMBER FOR EACH DEVICE!
 constexpr const char* ESP_PASS = "Test1234"; // ESP soft access point password
 constexpr const char* EU_NTP_SERVER_1 = "0.europe.pool.ntp.org"; // NTP pool for IP addresses
@@ -54,10 +54,10 @@ constexpr const char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode
                                    "</manualBrightnessLevel>", "</timezoneHoursOffset>", "</workMode>",
                                    "</timerDuration>" };
 
-constexpr const uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
-constexpr const uint8_t UPDATE_HOUR = 3; // Request time from NTP server at 3:00 in the morning
-constexpr const unsigned long AP_CONNECTION_TIMEOUT = 610000UL; // Inactivity timeout duration for clients connected to the ESP
-constexpr const unsigned long RADIO_SETTLE_PERIOD = 5000UL; // Grace period for the Wi-Fi radio to settle after softAP events
+constexpr uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
+constexpr uint8_t UPDATE_HOUR = 3; // Request time from NTP server at 3:00 in the morning
+constexpr unsigned long AP_CONNECTION_TIMEOUT = 610000UL; // Inactivity timeout duration for clients connected to the ESP
+constexpr unsigned long RADIO_SETTLE_PERIOD = 5000UL; // Grace period for the Wi-Fi radio to settle after softAP events
 
 inline uint8_t display_brightness = DEFAULT_BRIGHTNESS;
 inline uint8_t last_display_brightness = DEFAULT_BRIGHTNESS;
@@ -114,75 +114,53 @@ inline bool SDA_READ() { return ((GPI & (1 << SDA)) != 0); }
     constexpr bool HAS_BRIGHTNESS_MODULE = true;
 #else
 /* ------------------------------------- NO BRIGHTNESS MODULE ------------------------------------- */
+    void autoSetBrightness();
+
     constexpr bool HAS_BRIGHTNESS_MODULE = false;
 /* ----------------------------------------------------------------------------------------------- */
 #endif
 
+/**
+ * @brief Acquisition state of the GPS module.
+ * Disabled  - GPS is not the selected time source, the serial line is not read.
+ * Searching - GPS is selected and an acquisition window is open, but no usable fix yet.
+ * Locked    - a valid fix newer than GPS_MAX_FIX_AGE is available.
+ * TimedOut  - no fix for GPS_ACQUISITION_TIMEOUT, the module is treated as unreachable.
+ */
+enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
 
 #ifdef  GPS_MODULE
 /* ------------------------------------- GPS MODULE SPECIFIC ------------------------------------- */
     #include <TinyGPS++.h>
     #include "GPSModule.h"
 
-    constexpr int GPS_RX = D7; // TX from GPS module
-    constexpr int GPS_TX = D8; // RX from GPS module
+    constexpr int GPS_RX = D7; // ESP receives from the GPS module's TX pin
+    constexpr int GPS_TX = D8; // ESP transmits to the GPS module's RX pin
 
-    constexpr int GPS_BAUD_RATE = 4800;
-    inline uint8_t gps_connect_attempts_left = 180;
+    constexpr int GPS_BAUD_RATE = 9600;
+    constexpr uint8_t GPS_MAX_CONNECT_ATTEMPTS = 10;
+    constexpr unsigned long GPS_ACQUISITION_TIMEOUT = 180000UL; // Time allowed to acquire a fix before falling back
+    constexpr unsigned long GPS_MAX_FIX_AGE = 2000UL; // A fix that was not refreshed within this window is stale
+
     inline bool set_time_with_gps = false;
+    inline unsigned long gps_search_started_ms = 0; // millis() timestamp of the current acquisition window
 
     inline TinyGPSPlus gps;
     inline SoftwareSerial gpsSerial(GPS_RX, GPS_TX);
+    inline GpsState gps_state = GpsState::Disabled;
 
     constexpr bool HAS_GPS_MODULE = true;
 /* ----------------------------------------------------------------------------------------------- */
 #else
 /* ---------------------------------------- NO GPS MODULE ---------------------------------------- */
-    // Nested GPS library mocks, binding and dummy functionality
-    struct DummyGPSDate {
-        int year() { return 1970; }
-        int month() { return 1; }
-        int day() { return 1; }
-    };
-    struct DummyGPSTime {
-        int hour() { return 0; }
-        int minute() { return 0; }
-        int second() { return 0; }
-    };
-    struct DummyLocation {
-        double lng() { return 0.0; }
-        double lat() { return 0.0; }
-    };
-    struct DummyAltitude { double meters() { return 0.0; } };
-    struct DummySatellites { uint32_t value() { return 0; } };
+    constexpr uint8_t GPS_MAX_CONNECT_ATTEMPTS = 10;
 
-    using TinyGPSDate = DummyGPSDate;
-    using TinyGPSTime = DummyGPSTime;
-
-    struct DummyGPSPlus {
-        DummyGPSDate date;
-        DummyGPSTime time;
-        DummyLocation location;
-        DummyAltitude altitude;
-        DummySatellites satellites;
-
-        void encode(char c) {}
-    };
-    struct DummySoftwareSerial {
-        void begin(uint32_t baud) {}
-        bool available() { return false; }
-        int read() { return -1; }
-    };
-
-    constexpr int GPS_RX = 0; // TX from GPS module
-    constexpr int GPS_TX = 0; // RX from GPS module
-
-    constexpr int GPS_BAUD_RATE = 4800;
-    inline uint8_t gps_connect_attempts_left;
     inline bool set_time_with_gps = false;
 
-    inline DummySoftwareSerial gpsSerial;
-    inline DummyGPSPlus gps;
+    GpsState gpsState();
+    void activateGPS();
+    void serviceGPS();
+    bool updateTimeFromGPS();
 
     constexpr bool HAS_GPS_MODULE = false;
 /* ----------------------------------------------------------------------------------------------- */
@@ -209,6 +187,7 @@ inline bool SDA_READ() { return ((GPI & (1 << SDA)) != 0); }
 #else
 /* ------------------------------------ NO TEMPERATURE MODULE ------------------------------------ */
     struct DummyTemperatureSensor {
+        void begin() {}
         void requestTemperatures() {}
         int8_t getTempCByIndex(int index) { return 0; }
     };
@@ -217,13 +196,8 @@ inline bool SDA_READ() { return ((GPI & (1 << SDA)) != 0); }
     inline int8_t current_temperature;
     inline int8_t display_state_duration;
 
+    void printCurrentTimeOrTemperature();
+
     constexpr bool HAS_TEMPERATURE_MODULE = false;
 /* ----------------------------------------------------------------------------------------------- */
 #endif
-
-/* ----------- Unconditional declarations (visible in every build) ----------- */
-void autoSetBrightness();
-void activateGPS();
-bool updateTimeFromGPS(TinyGPSDate &d, TinyGPSTime &t);
-void printCurrentTimeOrTemperature();
-/* --------------------------------------------------------------------------- */

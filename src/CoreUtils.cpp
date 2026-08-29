@@ -2,6 +2,23 @@
 #include "CoreUtils.h"
 
 
+void applyTimeUpdate(time_t standard_epoch, bool updated_from_gps) {
+  const bool dst_applied = daylight_saving_enabled && isDaylightSavingPeriod(standard_epoch);
+
+  if (dst_applied)
+    standard_epoch += 3600;
+
+  rtc.adjust(DateTime((uint32_t)standard_epoch));
+  daylight_saving_active = dst_applied;
+  displayClockJustUpdated(updated_from_gps);
+
+  if constexpr (DEBUG_MESSAGES) {
+    Serial.print(updated_from_gps ? F("Time updated from GPS") : F("Time updated from NTP server"));
+    Serial.println(dst_applied ? F(" (+1h DST)\n") : F("\n"));
+  }
+}
+
+
 bool autoUpdateTime(bool force_update) {
   DateTime now = rtc.now();
 
@@ -108,14 +125,14 @@ void initializeFileSystem() {
 
 
 void initializeModuleRTC() {
-  tm1637.setBrightness(DEFAULT_BRIGHTNESS); // Set default brightness
+  tm1637.setBrightness(DEFAULT_BRIGHTNESS);
   tm1637.showNumber(8888, 32); // Test all segments
 
   while (!rtc.begin()) { // If the RTC is not found do not boot
     if constexpr (DEBUG_MESSAGES)
       Serial.println(F("\nInitializing RTC"));
 
-    resetRTC(); // Sometimes the RTC becomes unsynchronised while switching power source - reset it
+    resetRTC(); // Sometimes the RTC becomes unsynchronized while switching power source - reset it
   }
 
   while (rtc.now().hour() > 23 || rtc.now().minute() > 59 || rtc.now().second() > 59) {
@@ -142,17 +159,15 @@ bool isDaylightSavingPeriod(time_t epoch_val) {
       last_sunday_date = getLastSundayDate(now);
   }
   else { // Derive date/time from the provided Unix timestamp
-    struct tm *t = gmtime(&epoch_val); // The offset is already contained in the timestamp
-    month_now = t->tm_mon + 1; // tm_mon is 0-based
-    day_now   = t->tm_mday;
-    hour_now  = t->tm_hour;
+    DateTime epoch_dt((uint32_t)epoch_val); // The offset is already contained in the timestamp
+    month_now = epoch_dt.month();
+    day_now   = epoch_dt.day();
+    hour_now  = epoch_dt.hour();
 
     if (month_now > 3 && month_now < 10)
       return true;
-    else {
-      DateTime epochDt(t->tm_year + 1900, month_now, day_now, hour_now, t->tm_min, t->tm_sec);
-      last_sunday_date = getLastSundayDate(epochDt);
-    }
+    else
+      last_sunday_date = getLastSundayDate(epoch_dt);
   }
 
   if ((month_now == 3 && (day_now > last_sunday_date || (day_now == last_sunday_date && hour_now >= UPDATE_HOUR))) || // March: DST active after 3:00 of last Sunday
@@ -251,7 +266,7 @@ void printRemainingTime() {
 
 
 void resetRTC() {
-  digitalWrite(LED_PIN, HIGH);
+  digitalWrite(LED_PIN, LOW);
   delay(250);
 
   pinMode(SDA, INPUT_PULLUP);
@@ -272,7 +287,7 @@ void resetRTC() {
   if constexpr (DEBUG_MESSAGES)
     Serial.println(F("RTC reset"));
 
-  digitalWrite(LED_PIN, LOW);
+  digitalWrite(LED_PIN, HIGH);
   delay(250);
 }
 
@@ -297,50 +312,11 @@ void timerCountdown() {
 
 
 bool updateTime() {
-  bool time_updated = false;
-
   if constexpr (HAS_GPS_MODULE) {
-    if (set_time_with_gps) { // Check if time should be updated through GPS module
-      if (gps_connect_attempts_left > 0) {
-        unsigned long startMillis = millis();
-
-        while (millis() - startMillis < 1000 && gps.satellites.value() == 0) {
-          while (gpsSerial.available()) {
-            gps.encode(gpsSerial.read());
-          }
-        }
-
-        if (gps.satellites.value() != 0)
-          time_updated = updateTimeFromGPS(gps.date, gps.time); // GPS module function
-
-        if constexpr (DEBUG_MESSAGES) {
-          Serial.print(F("Could not get time from GPS. Tries left: "));
-          Serial.println(--gps_connect_attempts_left);
-        }
-      }
-      else { // In case of timeout detatchInterrupt and try updating the time from NTP
-        detachInterrupt(digitalPinToInterrupt(GPS_RX));
-        networkReconnect();
-        time_updated = updateTimeFromNTP();
-      }
-    }
-    else { // In case of time update from NTP
-      detachInterrupt(digitalPinToInterrupt(GPS_RX));
-      networkReconnect();
-      time_updated = updateTimeFromNTP();
-    }
-  }
-  else {
-    networkReconnect();
-    time_updated = updateTimeFromNTP();
+    if (set_time_with_gps && gpsState() != GpsState::TimedOut)
+      return updateTimeFromGPS(); // GPS module function
   }
 
-  if constexpr (DEBUG_MESSAGES) {
-    if (time_updated)
-      Serial.println(F("Time updated from NTP server\n"));
-    else
-      Serial.println(F("\nCould not update time from NTP server\n"));
-  }
-
-  return time_updated;
+  networkReconnect(); // Network Utils
+  return updateTimeFromNTP(); // Network Utils
 }

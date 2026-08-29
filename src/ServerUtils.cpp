@@ -6,6 +6,15 @@
 static char response_buf[256]; // 256 is enough to keep the longest response message
 
 
+const char* createReply(const char* prefix, const char* ssid, bool time_updated) {
+  snprintf(response_buf, sizeof(response_buf), "%s %s.\n%s", prefix, ssid,
+           time_updated ? "Успешна актуализация на времето през Интернет!"
+                        : "Неуспешна актуализация на времето, моля опитайте отново!");
+
+  return response_buf;
+}
+
+
 void handleActivateSoftwareUpdate() {
   if (!software_update_server_active) {
     softwareUpdateServer.begin();
@@ -64,33 +73,46 @@ void handleExtendSession() {
 }
 
 
+const char* handleGPSTimeSync() {
+  if constexpr (HAS_GPS_MODULE) {
+    editTimeSyncMode("gps");
+    uint8_t attempt = 0;
+
+    while (attempt < GPS_MAX_CONNECT_ATTEMPTS) {
+      serviceGPS();
+
+      if (autoUpdateTime(true))
+        return "Успешно сверяване през GPS.";
+
+      attempt++;
+      delay(500);
+    }
+
+    return "Неуспешно сверяване през GPS.\nУверете се, че часовникът е на открито и опитайте отново.";
+  }
+  else
+    return "Часовникът няма инсталиран GPS модул.";
+}
+
+
 const char* handleManualTimeSync() {
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
   currentSsid(ssid_buf);
 
-  if (networkReconnect() == WL_CONNECTED) {
-    if (autoUpdateTime(true)) {
-      snprintf(response_buf, sizeof(response_buf),
-        "Часовникът е свързан с мрежа %s.\nУспешно сверяване през Интернет.", ssid_buf);
-      displayClockJustUpdated();
-    }
-    else {
-      snprintf(response_buf, sizeof(response_buf),
-        "Часoвникът е свързан с мрежа %s.\nНеуспешно сверяване през Интернет. Моля опитайте отново!", ssid_buf);
-    }
-  }
-  else {
-    manualTimeUpdate();
+  if (networkReconnect() == WL_CONNECTED)
+    return createReply("Часовникът е свързан с мрежа", ssid_buf, autoUpdateTime(true));
 
-    if (LittleFS.exists("creds.txt")) {
-      snprintf(response_buf, sizeof(response_buf),
-        "Неуспешно свързване със запаметената мрежа %s!\nЧасовникът се свери автоматично от устройството Ви.", ssid_buf);
-    }
-    else {
-      snprintf(response_buf, sizeof(response_buf),
-        "Часoвникът се свери автоматично от устройството Ви.");
-    }
-  }
+  if (set_time_with_gps)
+    return handleGPSTimeSync();
+
+  manualTimeUpdate();
+
+  if (!LittleFS.exists("creds.txt"))
+    return "Часовникът се свери автоматично от устройството Ви.";
+
+  snprintf(response_buf, sizeof(response_buf),
+    "Неуспешно свързване със запаметената мрежа %s!\n"
+    "Часовникът се свери автоматично от устройството Ви.", ssid_buf);
 
   return response_buf;
 }
@@ -138,21 +160,13 @@ void handleWebInterface() {
 
   if (time_sync_mode == "wifi")
     response = handleWifiTimeSync(server.arg("ssid"));
-  else if (time_sync_mode == "gps") {
-    if constexpr (HAS_GPS_MODULE) {
-      activateGPS(); // GPS module function
-      response = "Часовникът ще се свери чрез GPS";
-      editTimeSyncMode("gps");
-      autoUpdateTime(true);
-    }
-    else
-      response = "Часовникът няма инсталиран GPS модул";
-  }
+  else if (time_sync_mode == "gps")
+    response = handleGPSTimeSync();
   else if (time_sync_mode == "js")
     response = handleManualTimeSync();
   else if (daylight_saving.length() > 0) {
     editDaylightSavingEnabled(daylight_saving.c_str());
-    response = "Промените са запазени";
+    response = "Промените са запазени.";
   }
   else if (server.hasArg("autoBrightnessControl"))
     response = handleBrightnessControl();
@@ -180,49 +194,26 @@ void handleWebInterface() {
 
 
 const char* handleWifiTimeSync(const String& ssid) {
-  const char* response = nullptr;
+  const char* response;
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
   currentSsid(ssid_buf);
 
-  if (WiFi.status() == WL_CONNECTED) {
-    if (currentSsidEquals(ssid.c_str())) {
-      if (autoUpdateTime(true)) {
-        snprintf(response_buf, sizeof(response_buf),
-          "Часовникът вече е свързан с мрежа %s.\nУспешна актуализация на времето през Интернет!", ssid_buf);
-        displayClockJustUpdated();
-      }
-      else {
-        snprintf(response_buf, sizeof(response_buf),
-          "Часовникът вече е свързан с мрежа %s.\nНеуспешна актуализация на времето, моля опитайте отново!", ssid_buf);
-      }
+  const bool has_new_credentials = ssid != "" && (server.arg("pass")).length() > 7;
 
-      response = response_buf;
-    }
-    else if (ssid != "" && (server.arg("pass")).length() > 7)
+  if (WiFi.status() != WL_CONNECTED) {
+    if (has_new_credentials)
       response = validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
-    else {
-      if (autoUpdateTime(true)) {
-        snprintf(response_buf, sizeof(response_buf),
-          "Настоящата мрежа е %s\nУспешна актуализация на времето през Интернет!", ssid_buf);
-        displayClockJustUpdated();
-      }
-      else {
-        snprintf(response_buf, sizeof(response_buf),
-          "Настоящата мрежа е %s\nНеуспешна актуализация на времето, моля опитайте отново!", ssid_buf);
-      }
-    }
-
-    response = response_buf;
+    else if (set_time_with_gps)
+      response = "Промените са запазени.";
+    else
+      response = "Моля въведете име и парола на мрежата!";
   }
-  else if (ssid != "" && (server.arg("pass")).length() > 7)
+  else if (currentSsidEquals(ssid.c_str()))
+    response = createReply("Часовникът вече е свързан с мрежа", ssid_buf, autoUpdateTime(true));
+  else if (has_new_credentials)
     response = validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
-  else if (HAS_GPS_MODULE && set_time_with_gps)
-    response = "Промените са запазени!";
   else
-    response = "Моля въведете име и парола на мрежата!";
-
-  if constexpr (HAS_GPS_MODULE)
-    gps_connect_attempts_left = 0;
+    response = createReply("Настоящата мрежа е", ssid_buf, autoUpdateTime(true));
 
   editTimeSyncMode("wifi");
 
@@ -468,25 +459,23 @@ const char* validateNetworkInput(const String& ssid, const String& pass, const S
     wl_status_t connection_status = connectClockToNetwork(ssid.c_str(), pass.c_str(), is_hidden == "true");
 
     if (connection_status == WL_CONNECTED) {
-      if (autoUpdateTime(true)) {
+      if (autoUpdateTime(true))
         snprintf(response_buf, sizeof(response_buf),
-          "Часовникът се свърза с мрежа %s\nУспешна актуализация на времето през Интернет",
+          "Часовникът се свърза с мрежа %s.\nУспешна актуализация на времето през Интернет!",
           ssid.c_str());
-        displayClockJustUpdated();
-      }
       else {
         snprintf(response_buf, sizeof(response_buf),
-          "Часовникът се свърза с мрежа %s\nНеуспешна актуализация на времето, моля опитайте отново!",
+          "Часовникът се свърза с мрежа %s.\nНеуспешна актуализация на времето, моля опитайте отново!",
           ssid.c_str());
       }
     }
     else if (connection_status == WL_WRONG_PASSWORD)
       return "Грешна парола!\nМоля опитайте отново.";
     else
-      snprintf(response_buf, sizeof(response_buf), "Неуспешно свързване с мрежа %s", ssid.c_str());
+      snprintf(response_buf, sizeof(response_buf), "Неуспешно свързване с мрежа %s.", ssid.c_str());
   }
   else
-    snprintf(response_buf, sizeof(response_buf), "Мрежата %s не е в обхват, или е скрита", ssid.c_str());
+    snprintf(response_buf, sizeof(response_buf), "Мрежата %s не е в обхват, или е скрита.", ssid.c_str());
 
   return response_buf;
 }

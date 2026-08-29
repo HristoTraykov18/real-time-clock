@@ -218,27 +218,33 @@ function showStatusPopup(popupText) {
 }
 
 function submitManualTime() {
-    let submitData = "timeSyncMode=js&currentTime=";
+    let submitData = "workMode=rtc&timeSyncMode=js&currentTime=";
     let currentDate = new Date();
     submitData += Array(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 
                         currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
-    submitData += "&workMode=" + getActiveWorkMode();
 
     sendServerRequest(submitData);
 }
 
 function submitNetworkRequest(event) {
     event.preventDefault();
-    let networkInputs = document.getElementsByClassName("main-settings-input");
-    let submitData = "ssid=" + networkInputs[0].value;
+    let timeSyncMode = document.getElementById("js-time-sync-mode");
+    let submitData = "workMode=rtc";
 
-    submitData += "&pass=" + networkInputs[1].value;
+    if (!timeSyncMode.checked) {
+        sendServerRequest("&timeSyncMode=gps");
+
+        return;
+    }
+
     submitData += "&timeSyncMode=wifi";
+
+    let networkInputs = document.getElementsByClassName("main-settings-input");
+    submitData += "&ssid=" + networkInputs[0].value;
+    submitData += "&pass=" + networkInputs[1].value;
 
     submitData += "&isHiddenNetwork=";
     submitData += document.getElementsByName("hiddenNetwork")[0].checked;
-
-    submitData += "&workMode=" + getActiveWorkMode();
 
     sendServerRequest(submitData);
 }
@@ -300,12 +306,7 @@ function togglePasswordVisibility() {
 function toggleTimeSyncMode() {
     let timeSyncMode = document.getElementById("js-time-sync-mode");
     let submitData = "timeSyncMode=";
-
-    if (timeSyncMode.checked)
-        submitData += "wifi";
-    else
-        submitData += "gps";
-
+    submitData += timeSyncMode.checked ? "wifi" : "gps";
     sendServerRequest(submitData);
 }
 
@@ -354,7 +355,7 @@ function displayDisconnectedState(panelId) {
     document.getElementById(panelId + "-info").style.display = "none";
     document.getElementById(panelId + "-loader").style.display = "none";
     document.getElementById(panelId + "-disconnected").style.display = "flex";
-    document.getElementById(panelId + "-title").innerText = "Моля проверете дали сте свързани с часовника!";
+    document.getElementById(panelId + "-title").innerText = "Моля проверете, дали сте свързани с часовника!";
 }
 
 async function openSidePanel(panelId, title, fetchUrl, closeFn, onSuccess) {
@@ -593,10 +594,10 @@ function sendTimerPauseControl() {
     let pauseControlBtn = document.getElementById("js-timer-pause-control");
 
     if (!timerIsRunning) {
-        sendServerRequest("status=pause&workMode=timer", false);
+        sendServerRequest("workMode=timer&status=pause", false);
         pauseControlBtn.innerHTML = "&#8635; Продължи";
     } else {
-        sendServerRequest("status=resume&workMode=timer", false);
+        sendServerRequest("workMode=timer&status=resume", false);
         pauseControlBtn.innerHTML = "&#9646;&#9646; Пауза";
     }
 
@@ -610,7 +611,7 @@ function sendTimerStart() {
         return;
 
     document.getElementById("js-timer-pause-control").innerHTML = "&#9646;&#9646; Пауза";
-    sendServerRequest("status=start&duration=" + seconds + "&workMode=timer", false);
+    sendServerRequest("workMode=timer&status=start&duration=" + seconds, false);
 }
 
 if (document.readyState === "complete")

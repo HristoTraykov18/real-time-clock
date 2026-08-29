@@ -1,6 +1,8 @@
 // NetworkUtils.cpp
 #include "NetworkUtils.h"
 
+constexpr uint8_t NTP_PACKET_SIZE = 48; // Fixed by the NTP specification
+
 
 void checkForUserConnection() {
   bool counted = WiFi.softAPgetStationNum() > 0;
@@ -220,9 +222,9 @@ void initializeSoftAP() {
 }
 
 
-bool loadNetworkInfo(char* buf, size_t buf_size, const char* fields[5]) {
+bool loadNetworkInfo(char* buf, size_t buf_size, const char* data[5]) {
   for (uint8_t i = 0; i < 5; i++)
-    fields[i] = nullptr;
+    data[i] = nullptr;
 
   if (!LittleFS.exists("creds.txt")) return false;
 
@@ -238,13 +240,13 @@ bool loadNetworkInfo(char* buf, size_t buf_size, const char* fields[5]) {
   buf[n] = '\0';
 
   // Walk buf, replacing '\n' with '\0' to terminate each field in place.
-  fields[0] = buf;
+  data[0] = buf;
   uint8_t j = 1;
 
   for (int i = 0; i < n && j < 5; i++) {
     if (buf[i] == '\n') {
       buf[i] = '\0';
-      fields[j++] = &buf[i + 1];
+      data[j++] = &buf[i + 1];
     }
   }
 
@@ -415,6 +417,62 @@ bool parseBssid(const char* s, uint8_t* bssid) {
 }
 
 
+bool readTimestamp(uint32_t &secs_since_1900) {
+  constexpr uint32_t NTP_MIN_VALID_SECONDS = 2208988800UL + 1577836800UL; // Reject anything before 2020
+
+  if (!WiFi.hostByName(EU_NTP_SERVER_1, time_server_ip)) {
+    if constexpr (DEBUG_MESSAGES)
+      Serial.println(F("NTP DNS resolution failed"));
+
+    return false;
+  }
+
+  while (udp.parsePacket() > 0) // Discard anything left over from a previous attempt
+    while (udp.available()) udp.read();
+
+  if (!getPacketLength(time_server_ip)) return false;
+
+  if (udp.remoteIP() != time_server_ip) {
+    if constexpr (DEBUG_MESSAGES)
+      Serial.println(F("NTP response from unexpected source discarded"));
+
+    return false;
+  }
+
+  if constexpr (DEBUG_MESSAGES)
+    Serial.println(F("\nNTP response received"));
+
+  byte packet_buffer[NTP_PACKET_SIZE];
+
+  if (udp.read(packet_buffer, NTP_PACKET_SIZE) != NTP_PACKET_SIZE) return false;
+
+  // Validate protocol network_data
+  const uint8_t li = (packet_buffer[0] >> 6) & 0x03;
+  const uint8_t mode = packet_buffer[0] & 0x07;
+  const uint8_t stratum = packet_buffer[1];
+
+  if (li == 3 || mode != 4 || stratum == 0 || stratum > 15) {
+    if constexpr (DEBUG_MESSAGES) {
+      Serial.print(F("NTP packet rejected: LI="));
+      Serial.print(li);
+      Serial.print(F(" | mode="));
+      Serial.print(mode);
+      Serial.print(F(" | stratum="));
+      Serial.println(stratum);
+    }
+
+    return false;
+  }
+
+  secs_since_1900 = ((uint32_t) packet_buffer[40] << 24) |
+                    ((uint32_t) packet_buffer[41] << 16) |
+                    ((uint32_t) packet_buffer[42] << 8)  |
+                     (uint32_t) packet_buffer[43];
+
+  return secs_since_1900 >= NTP_MIN_VALID_SECONDS;
+}
+
+
 void saveNetworkInfo(const char *network_name, const char* network_pass, const char* is_hidden,
                      uint8_t channel, const uint8_t* bssid) {
 
@@ -449,7 +507,6 @@ void sendPacket(IPAddress& address) {
   if constexpr (DEBUG_MESSAGES)
     Serial.println(F("Preparing NTP packet"));
 
-  const uint8_t NTP_PACKET_SIZE = 48;
   byte packet_buffer[NTP_PACKET_SIZE];
 
   // Initialize values needed to form NTP request (see URL above for details on the packets)
@@ -462,7 +519,7 @@ void sendPacket(IPAddress& address) {
   packet_buffer[14]  = 49;
   packet_buffer[15]  = 52;
 
-  // All NTP fields have values, send a packet requesting a timestamp
+  // All NTP data have values, send a packet requesting a timestamp
   udp.beginPacket(address, 123); // NTP requests are to port 123
   udp.write(packet_buffer, NTP_PACKET_SIZE);
   udp.endPacket();
@@ -473,78 +530,17 @@ void sendPacket(IPAddress& address) {
 
 
 bool updateTimeFromNTP() {
-  if (!WiFi.hostByName(EU_NTP_SERVER_1, time_server_ip)) {
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("NTP DNS resolution failed"));
+  constexpr uint32_t SECONDS_1900_TO_1970 = 2208988800UL; // 70 years, the NTP to Unix epoch offset
 
+  uint32_t secs_since_1900 = 0;
+
+  if (!readTimestamp(secs_since_1900))
     return false;
-  }
 
-  while (udp.parsePacket() > 0)
-    while (udp.available()) udp.read();
-
-  if (!getPacketLength(time_server_ip)) return false;
-
-  if (udp.remoteIP() != time_server_ip) {
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("NTP response from unexpected source discarded"));
-
-    return false;
-  }
-
-  if constexpr (DEBUG_MESSAGES)
-    Serial.println(F("\nNTP response received"));
-
-  const uint8_t NTP_PACKET_SIZE = 48;
-  byte packet_buffer[NTP_PACKET_SIZE];
-  int read_count = udp.read(packet_buffer, NTP_PACKET_SIZE);
-
-  if (read_count != NTP_PACKET_SIZE) return false;
-
-  // Validate protocol network_data
-  uint8_t li = (packet_buffer[0] >> 6) & 0x03;
-  uint8_t mode = packet_buffer[0] & 0x07;
-  uint8_t stratum = packet_buffer[1];
-
-  if (li == 3 || mode != 4 || stratum == 0 || stratum > 15) {
-    if constexpr (DEBUG_MESSAGES) {
-      Serial.print(F("NTP packet rejected: LI="));
-      Serial.print(li);
-      Serial.print(F(" | mode="));
-      Serial.print(mode);
-      Serial.print(F(" | stratum="));
-      Serial.println(stratum);
-    }
-
-    return false;
-  }
-
-  unsigned long secs_since_1900 =
-    ((unsigned long) packet_buffer[40] << 24) |
-    ((unsigned long) packet_buffer[41] << 16) |
-    ((unsigned long) packet_buffer[42] << 8)  |
-     (unsigned long) packet_buffer[43];
-
-  if (secs_since_1900 == 0) return false;
-  if (secs_since_1900 < 2208988800UL + 1577836800UL) return false;
-
-  // Unix time starts on Jan 1 1970. In seconds, 70 years is 2208988800. Add one second to compensate calculation delay
-  time_t epoch = secs_since_1900 - 2208988800UL + (timezone * 3600L) + 1;
-
-  // DST offset
-  const bool dst_applied = daylight_saving_enabled && isDaylightSavingPeriod(epoch);
-
-  if (dst_applied)
-    epoch += 3600;
-
-  struct tm *current_time = gmtime(&epoch); // The offset is already contained in the timestamp
-  current_time->tm_year += 1900; // Year is calculated from 1900 to now, so set to current year
-
-  rtc.adjust(DateTime(current_time->tm_year, current_time->tm_mon + 1, current_time->tm_mday,
-                      current_time->tm_hour, current_time->tm_min, current_time->tm_sec));
-
-  daylight_saving_active = dst_applied;
   connected_to_ntp = true;
+
+  // Add one second to compensate calculation delay
+  applyTimeUpdate(secs_since_1900 - SECONDS_1900_TO_1970 + (timezone * 3600L) + 1);
 
   return true;
 }

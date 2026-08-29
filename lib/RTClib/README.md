@@ -7,7 +7,7 @@ reworked to contain only the code the NEON.BG Real Time Clock software actually 
 ## What is included
 
 - `DateTime` — broken-down date/time value (range: 1 Jan 2000 – 31 Dec 2099)
-  - `DateTime(year, month, day, hour, minute, second)`, `DateTime(unix_timestamp)` and copy constructor
+  - `DateTime(year, month, day, hour, minute, second)` and `DateTime(unix_timestamp)` constructors
   - `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`
   - `dayOfTheWeek()` — ranges from 0 to 6 inclusive with 0 being 'Sunday'
   - `unixtime()` — seconds since 1970-01-01, the converse of `DateTime(unix_timestamp)`.

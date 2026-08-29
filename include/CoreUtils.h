@@ -1,7 +1,8 @@
 /**
  * @file CoreUtils.h
  * @author Hristo Traykov (hristotraykov98@gmail.com)
- * @brief Core utility functions of the Smart Clock
+ * @brief Core utility functions for handling time updates, 
+ * daylight saving adjustments, RTC initialization and timer functionality.
  * @version 1.0
  * @date 2026-05-25
  * @copyright Copyright (c) 2026. Licensed under the MIT License.
@@ -14,11 +15,20 @@
 #include "NetworkUtils.h"
 
 /**
- * @brief Automatically checks and triggers a time sync operation up to 5 times at a specific hour.
- * @param force_update Set to true to bypass scheduled hour checks and execute immediately.
- * @return true if time sync succeeded, false otherwise.
+ * @brief Triggers a time sync operation up to 5 times at a specific hour or on web UI request.
+ * @param force_update Bypasses scheduled hour check if set to true.
+ * @return bool true if time sync succeeded.
  */
 bool autoUpdateTime(bool force_update = false);
+
+/**
+ * @brief Updates the RTC time via provided timestamp.
+ * Applies the daylight saving offset, keeps daylight_saving_active in sync,
+ * and plays time update animation.
+ * @param standard_epoch Local standard time as a Unix timestamp, without a daylight saving offset.
+ * @param updated_from_gps Set to true when the timestamp came from the GPS module.
+ */
+void applyTimeUpdate(time_t standard_epoch, bool updated_from_gps = false);
 
 /**
  * @brief Applies or removes the one hour Daylight Saving Time offset on the RTC, at most once per transition.
@@ -27,7 +37,7 @@ bool autoUpdateTime(bool force_update = false);
 void daylightSavingChange();
 
 /**
- * @brief Parses the XML configuration file stored on the filesystem to load system settings.
+ * @brief Loads system settings by parsing the XML configuration file stored on the ESP filesystem.
  */
 void getInitialClockSettings();
 
@@ -44,24 +54,24 @@ uint8_t getLastSundayDate(DateTime &now);
 void initializeFileSystem();
 
 /**
- * @brief Initialized hardware lines for the I2C real-time clock, verifying valid time state.
+ * @brief Initializes I2C bus for the DS3231 module, verifying valid time state.
  */
 void initializeModuleRTC();
 
 /**
  * @brief Checks whether a given timestamp or current time falls into the Daylight Saving Time period.
- * @param epoch_val Pass a specific Unix timestamp, or leave empty (-1) to fetch fresh data from the RTC.
- * @return true if currently in the DST window, false if standard time.
+ * @param epoch_val Local standard time as a Unix timestamp, or -1 to evaluate the current RTC time.
+ * @return bool true if currently in the DST window.
  */
 bool isDaylightSavingPeriod(time_t epoch_val = -1);
 
 /**
- * @brief Parses a comma-separated text string provided by a client browser to manually update the RTC.
+ * @brief Parses a comma-separated text string provided by the web UI to manually update the RTC.
  */
 void manualTimeUpdate();
 
 /**
- * @brief Executes standard hardware pin pulling routines to force a standard bus cycle reset on I2C lines.
+ * @brief Triggers an RTC DS3231 module reset via the I2C bus.
  */
 void resetRTC();
 
@@ -71,7 +81,9 @@ void resetRTC();
 void timerCountdown();
 
 /**
- * @brief Evaluates hardware flags and updates internal time references via GPS serial or NTP network requests.
- * @return true if time data was successfully acquired, formatted, and pushed to the RTC.
+ * @brief Requests a time update from the selected source.
+ * GPS is used when it's the selected mode, the module is installed and has not timed out,
+ * otherwise time is updated from NTP.
+ * @return bool true if time data was successfully acquired and pushed to the RTC.
  */
 bool updateTime();

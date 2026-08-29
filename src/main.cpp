@@ -31,14 +31,17 @@ void setup() {
   }
 
   pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
   initializeModuleRTC(); // Core Utils
   initializeFileSystem(); // Core Utils
   initializeServers(); // Server Utils
 
   daylight_saving_active = daylight_saving_enabled && isDaylightSavingPeriod();
 
-  if constexpr (HAS_GPS_MODULE)
-    gpsSerial.begin(GPS_BAUD_RATE); // Start the GPS connection through SoftwareSerial library
+  if constexpr (HAS_GPS_MODULE) {
+    if (set_time_with_gps)
+      activateGPS(); // GPS module function
+  }
 
   if constexpr (HAS_TEMPERATURE_MODULE) {
     temperatureSensor.begin(); // Enumerate the 1-Wire bus. Required before reading by index
@@ -76,25 +79,25 @@ void setup() {
 
   delay(RADIO_SETTLE_PERIOD);
 
-  if (networkReconnect() == WL_CONNECTED) { // Network Utils
+  if (networkReconnect() == WL_CONNECTED) // Network Utils
     autoUpdateTime(true); // Core Utils
-    displayClockJustUpdated(); // Display Utils
-  };
 }
 
 void loop() {
   server.handleClient();
   if (software_update_server_active) softwareUpdateServer.handleClient();
+
+  if constexpr (HAS_GPS_MODULE)
+    serviceGPS(); // GPS module function
+
   yield();
   second_now = rtc.now().second();
 
   if (second_now != last_second) {
     if (work_mode_is_timer)
       timerCountdown(); // Core Utils
-    else {
-      if (autoUpdateTime())
-        displayClockJustUpdated();
-    }
+    else
+      autoUpdateTime(); // Core Utils
 
     visualizeOnDisplay(); // Display Utils
 
