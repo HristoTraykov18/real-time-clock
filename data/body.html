@@ -4,10 +4,10 @@
         <div id="js-rtc-menu-button" class="option-button active-tab-button">Часовник</div>
         <div id="js-timer-menu-button" class="option-button inactive-tab-button">Таймер</div>
       </div>
-      <form>
+      <form id="js-main-form">
         <div class="form-content">
           <div class="panels-wrapper">
-            <svg class="logo-svg" viewBox="0 0 1195 1195" xmlns="https://www.w3.org/2000/svg">
+            <svg class="logo-svg" viewBox="0 0 1195 1195" xmlns="http://www.w3.org/2000/svg">
                 <g transform="translate(0, 1195) scale(0.1, -0.1)" stroke="none">
                     <path d="M9772 11935 c-35 -8 -98 -31 -140 -52 -144 -70 -194 -131 -958 -1141
                     -379 -503 -773 -1025 -876 -1160 -258 -340 -298 -422 -298 -614 0 -111 17
@@ -41,14 +41,14 @@
             </svg>
             <!-- RTC PANEL -->
             <div id="js-main-settings" class="content active-content">
-              <p class="message">Моля въведете име и парола на мрежата за връзка</p>
+              <p class="message">Изберете мрежа от списъка</p>
               <div id="js-info-panel" class="side-panel">
                 <div id="js-info-button" class="side-panel-button">&#x2139;</div>
                 <div class="side-panel-content">
                   <p id="js-info-panel-title" class="side-panel-row">Информация за часовника</p>
                   <div id="js-info-panel-loader" class="loader side-panel-loader"></div>
-                  <div id="js-info-panel-disconnected" class="side-panel-disconnected">
-                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="side-panel-disconnected-icon">
+                  <div id="js-info-panel-disconnected" class="disconnected-indicator">
+                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="disconnected-indicator-icon">
                       <polygon points="50,5 95,85 5,85" fill="none" stroke="var(--red)" stroke-width="6" stroke-linejoin="round"/>
                       <text x="50" y="73" text-anchor="middle" fill="var(--red)" font-size="52" font-weight="bold" font-family="Verdana, Arial, sans-serif">!</text>
                     </svg>
@@ -71,8 +71,8 @@
                 <div class="side-panel-content">
                   <p id="js-additional-settings-title" class="side-panel-row">Допълнителни настройки</p>
                   <div id="js-additional-settings-loader" class="loader side-panel-loader"></div>
-                  <div id="js-additional-settings-disconnected" class="side-panel-disconnected">
-                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="side-panel-disconnected-icon">
+                  <div id="js-additional-settings-disconnected" class="disconnected-indicator">
+                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="disconnected-indicator-icon">
                       <polygon points="50,5 95,85 5,85" fill="none" stroke="var(--red)" stroke-width="6" stroke-linejoin="round"/>
                       <text x="50" y="73" text-anchor="middle" fill="var(--red)" font-size="52" font-weight="bold" font-family="Verdana, Arial, sans-serif">!</text>
                     </svg>
@@ -93,14 +93,30 @@
                   </div>
                 </div>
               </div>
-              <div>
-                <input type="text" class="main-settings-input" name="ssid" size="12" placeholder="Име на мрежа">
+              <div id="js-network-list-wrapper" class="fading-section">
+                <div class="network-list-header">
+                  <span>Мрежи в обхват</span>
+                  <button type="button" id="js-network-refresh" class="network-refresh-btn">&#8635;</button>
+                </div>
+                <div id="js-network-list-loader" class="loader side-panel-loader"></div>
+                <div id="js-network-list-rows" class="network-list-rows"></div>
+                <div id="js-network-list-disconnected" class="disconnected-indicator">
+                  <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="disconnected-indicator-icon">
+                    <polygon points="50,5 95,85 5,85" fill="none" stroke="var(--red)" stroke-width="6" stroke-linejoin="round"/>
+                    <text x="50" y="73" text-anchor="middle" fill="var(--red)" font-size="52" font-weight="bold" font-family="Verdana, Arial, sans-serif">!</text>
+                  </svg>
+                </div>
               </div>
+              <div id="js-manual-input-wrapper" class="fading-section hidden">
+                <div>
+                  <input type="text" class="main-settings-input" name="ssid" size="12" placeholder="Име на мрежа">
+                </div>
               <div class="password-field">
-                <input type="password" id="js-pass-input" class="main-settings-input" name="pass" size="12" placeholder="Парола">
+                <input type="password" id="js-pass-input" name="pass" size="12"
+                  class="main-settings-input" placeholder="Парола" autocomplete="off">
                 <span id="js-password-button-container">
                   <svg id="js-show-password-button" class="password-field-button" viewBox="0 0 24 24"
-                    xmlns="https://www.w3.org/2000/svg">
+                    xmlns="http://www.w3.org/2000/svg">
                     <path d="M12,7c-2.48,0-4.5,2.02-4.5,4.5S9.52,16,12,16s4.5-2.02,
                     4.5-4.5S14.48,7,12,7z M12,14.2c-1.49,0-2.7-1.21-2.7-2.7 c0-1.49,
                     1.21-2.7,2.7-2.7s2.7,1.21,2.7,2.7C14.7,12.99,13.49,14.2,12,14.2z"/>
@@ -110,7 +126,7 @@
                     5.5C19.17,14.87,15.79,17,12,17z"/>
                   </svg>
                   <svg id="js-hide-password-button" class="password-field-button" viewBox="0 0 24 24"
-                    xmlns="https://www.w3.org/2000/svg">
+                    xmlns="http://www.w3.org/2000/svg">
                     <path d="M10.58,7.25l1.56,1.56c1.38,0.07,2.47,1.17,2.54,
                     2.54l1.56,1.56C16.4,12.47,16.5,12,16.5,11.5C16.5,9.02,
                     14.48,7,12,7 C11.5,7,11.03,7.1,10.58,7.25z"/>
@@ -128,8 +144,9 @@
                   </svg>
                 </span>
               </div>
-              <div class="button-container">
-                <input type="submit" class="button-red submit-button" value="Свързване">
+                <div class="button-container">
+                  <input type="submit" class="button-red submit-button" value="Свързване">
+                </div>
               </div>
               <div>
                 <div>Метод за сверяване:</div>
@@ -150,7 +167,7 @@
                   <span class="checkbox-box"></span>
                 </label>
                 <label class="checkbox-label">
-                  <div>Страна с лятна времева зона</div>
+                  <div>Автоматично сверяване спрямо лятно часово време</div>
                   <input type="checkbox" id="js-daylight-saving" class="hidden-element" name="daylightSaving">
                   <span class="checkbox-box"></span>
                 </label>
@@ -220,6 +237,51 @@
         <div class="button-container">
           <div id="js-continue-session-button" class="js-close-popup-button button-red">Удължи сесия</div>
         </div>
+      </div>
+      <div class="popup-background"></div>
+    </div>
+    <div id="js-network-popup-container" class="popup-container">
+      <div class="popup popup-network">
+        <p id="js-network-popup-title" class="message"></p>
+        <form id="js-network-popup-form">
+          <div class="password-field">
+            <input type="password" id="js-popup-pass-input" name="pass" size="16"
+              class="main-settings-input" placeholder="Парола" autocomplete="off">
+            <span id="js-popup-password-btn-container">
+              <svg id="js-popup-show-password-button" class="password-field-button" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M12,7c-2.48,0-4.5,2.02-4.5,4.5S9.52,16,12,16s4.5-2.02,
+                4.5-4.5S14.48,7,12,7z M12,14.2c-1.49,0-2.7-1.21-2.7-2.7 c0-1.49,
+                1.21-2.7,2.7-2.7s2.7,1.21,2.7,2.7C14.7,12.99,13.49,14.2,12,14.2z"/>
+                <path d="M12,4C7,4,2.73,7.11,1,11.5C2.73,15.89,7,19,12,
+                19s9.27-3.11,11-7.5C21.27,7.11,17,4,12,4z M12,17 c-3.79,
+                0-7.17-2.13-8.82-5.5C4.83,8.13,8.21,6,12,6s7.17,2.13,8.82,
+                5.5C19.17,14.87,15.79,17,12,17z"/>
+              </svg>
+              <svg id="js-popup-hide-password-button" class="password-field-button" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M10.58,7.25l1.56,1.56c1.38,0.07,2.47,1.17,2.54,
+                2.54l1.56,1.56C16.4,12.47,16.5,12,16.5,11.5C16.5,9.02,
+                14.48,7,12,7 C11.5,7,11.03,7.1,10.58,7.25z"/>
+                <path d="M12,6c3.79,0,7.17,2.13,8.82,5.5c-0.64,1.32-1.56,
+                2.44-2.66,3.33l1.42,1.42c1.51-1.26,2.7-2.89,3.43-4.74 C21.27,7.11,
+                17,4,12,4c-1.4,0-2.73,0.25-3.98,0.7L9.63,6.3C10.4,6.12,11.19,6,12,6z"/>
+                <path d="M16.43,15.93l-1.25-1.25l-1.27-1.27l-3.82-3.82L8.82,8.32L7.57,
+                7.07L6.09,5.59L3.31,2.81L1.89,4.22l2.53,2.53 C2.92,8.02,1.73,9.64,1,
+                11.5C2.73,15.89,7,19,12,19c1.4,0,2.73-0.25,3.98-0.7l4.3,
+                4.3l1.41-1.41l-3.78-3.78L16.43,15.93z M11.86,
+                14.19c-1.38-0.07-2.47-1.17-2.54-2.54L11.86,14.19z M12,17c-3.79,
+                0-7.17-2.13-8.82-5.5c0.64-1.32,1.56-2.44,2.66-3.33 l1.91,1.91C7.6,
+                10.53,7.5,11,7.5,11.5c0,2.48,2.02,4.5,4.5,4.5c0.5,0,0.97-0.1,
+                1.42-0.25l0.95,0.95C13.6,16.88,12.81,17,12,17z"/>
+              </svg>
+            </span>
+          </div>
+          <div class="button-container popup-btn-row">
+            <button type="submit" id="js-network-connect-btn" class="button-red button-red-medium">Свързване</button>
+            <button type="button" id="js-network-cancel-btn" class="button-red button-red-medium">Отказ</button>
+          </div>
+        </form>
       </div>
       <div class="popup-background"></div>
     </div>

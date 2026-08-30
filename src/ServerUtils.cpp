@@ -85,7 +85,7 @@ const char* handleGPSTimeSync() {
         return "Успешно сверяване през GPS.";
 
       attempt++;
-      delay(500);
+      delay(GPS_CONNECT_ATTEMPT_DELAY);
     }
 
     return "Неуспешно сверяване през GPS.\nУверете се, че часовникът е на открито и опитайте отново.";
@@ -99,11 +99,11 @@ const char* handleManualTimeSync() {
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
   currentSsid(ssid_buf);
 
-  if (networkReconnect() == WL_CONNECTED)
-    return createReply("Часовникът е свързан с мрежа", ssid_buf, autoUpdateTime(true));
-
   if (set_time_with_gps)
     return handleGPSTimeSync();
+
+  if (networkReconnect() == WL_CONNECTED)
+    return createReply("Часовникът е свързан с мрежа", ssid_buf, autoUpdateTime(true));
 
   manualTimeUpdate();
 
@@ -195,27 +195,32 @@ void handleWebInterface() {
 
 const char* handleWifiTimeSync(const String& ssid) {
   const char* response;
+  const bool has_new_credentials = ssid != "" && (server.arg("pass")).length() > 7;
+  const bool time_sync_was_gps = set_time_with_gps;
+
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
   currentSsid(ssid_buf);
-
-  const bool has_new_credentials = ssid != "" && (server.arg("pass")).length() > 7;
+  editTimeSyncMode("wifi");
 
   if (WiFi.status() != WL_CONNECTED) {
     if (has_new_credentials)
       response = validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
-    else if (set_time_with_gps)
+    else if (time_sync_was_gps)
       response = "Промените са запазени.";
     else
       response = "Моля въведете име и парола на мрежата!";
   }
   else if (currentSsidEquals(ssid.c_str()))
     response = createReply("Часовникът вече е свързан с мрежа", ssid_buf, autoUpdateTime(true));
-  else if (has_new_credentials)
+  else if (has_new_credentials) {
+    WiFi.disconnect(true);
     response = validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
+
+    if (WiFi.status() != WL_CONNECTED)
+      networkReconnect();
+  }
   else
     response = createReply("Настоящата мрежа е", ssid_buf, autoUpdateTime(true));
-
-  editTimeSyncMode("wifi");
 
   return response;
 }
@@ -234,6 +239,7 @@ void initializeServers() {
   server.on("/", handleWebInterface); // 192.168.4.1 & IP in connected network
   server.on("/info", sendClockInfo);
   server.on("/additional-settings", sendAdditionalSettings);
+  server.on("/networks", sendNetworksList);
   server.on("/delete-creds", handleDeleteCreds);
   server.on("/timeout", handleSessionTimeout);
   server.on("/extend", handleExtendSession);
@@ -328,9 +334,8 @@ void sendNetworksList() {
     n = WiFi.scanComplete();
   }
 
-  // No cached result available - fall back to a blocking scan
   if (n < 0)
-    n = WiFi.scanNetworks(false, false);
+    n = WiFi.scanNetworks();
 
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, "text/plain", "");
@@ -344,7 +349,6 @@ void sendNetworksList() {
 
   server.sendContent("");           // End chunked transfer
   WiFi.scanDelete();                // Free scan memory
-  WiFi.scanNetworks(true, false);   // Pre-scan for next refresh request
 
   if constexpr (DEBUG_MESSAGES) {
     Serial.print(F("Networks sent: "));
@@ -470,7 +474,9 @@ const char* validateNetworkInput(const String& ssid, const String& pass, const S
       }
     }
     else if (connection_status == WL_WRONG_PASSWORD)
-      return "Грешна парола!\nМоля опитайте отново.";
+      snprintf(response_buf, sizeof(response_buf), "Грешна парола!\nМоля опитайте отново.");
+    else if (connection_status == WL_NO_SSID_AVAIL)
+      snprintf(response_buf, sizeof(response_buf), "Мрежата %s не е в обхват.", ssid.c_str());
     else
       snprintf(response_buf, sizeof(response_buf), "Неуспешно свързване с мрежа %s.", ssid.c_str());
   }

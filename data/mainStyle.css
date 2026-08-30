@@ -113,6 +113,10 @@ form {
     left: 50%;
     margin-top: calc(var(--loader-size) / -2);
     margin-left: calc(var(--loader-size) / -2);
+    width: 110px;
+    height: 120px;
+    min-width: 110px;
+    min-height: 120px;
 }
 .loader {
     width: var(--loader-size);
@@ -236,8 +240,8 @@ fieldset {
     word-break: break-word;
 }
 .side-panel-loader {
-    width: calc(var(--loader-size) * 0.5);
-    height: calc(var(--loader-size) * 0.5);
+    width: calc(var(--loader-size) * 0.75);
+    height: calc(var(--loader-size) * 0.75);
     position: absolute;
     top: 50%;
     left: 50%;
@@ -245,25 +249,34 @@ fieldset {
     border-bottom: 7px solid #0000;
     border-top: 7px solid #0000;
     border-right: 7px solid var(--red);
-    margin-top: calc((var(--loader-size) * 0.5) / -2);
-    margin-left: calc((var(--loader-size) * 0.5) / -2);
+    margin-top: calc((var(--loader-size) * 0.75) / -2);
+    margin-left: calc((var(--loader-size) * 0.75) / -2);
 }
 .side-panel-loader::before, .side-panel-loader::after { inset: -6px; }
-.side-panel-disconnected {
+.disconnected-indicator {
     display: none;
+    align-items: center;
+    justify-content: center;
+}
+/* Side panel context: absolute-centered over the content area */
+.side-panel-content .disconnected-indicator {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -25%);
     width: 40%;
     height: 50%;
-    align-items: center;
-    justify-content: center;
 }
-.side-panel-disconnected-icon {
+/* Network list context: fills the same height as .network-list-rows */
+#js-network-list-wrapper .disconnected-indicator {
+    height: 130px;
+    width: 100%;
+}
+.disconnected-indicator-icon {
     width: 100%;
     height: 100%;
 }
+#js-network-list-wrapper .disconnected-indicator-icon { height: 90%; }
 /* ------------------- Additional settings panel specifics ------------------- */
 #js-additional-settings { top: calc(70px + var(--side-panel-button-size) + 6px); }
 #js-additional-settings-button { align-items: center; }
@@ -284,12 +297,127 @@ fieldset {
 /* ---------------------------------------------------------------------- */
 
 /* ------------------- Auto settings ------------------- */
+
+/* ------------------- Collapsible fade animation ------------------- */
+.fading-section {
+    overflow: hidden;
+    transition: opacity var(--animation-speed) ease;
+    height: 25vh;
+    opacity: 1;
+}
+.fading-section.hidden {
+    max-height: 0;
+    opacity: 0;
+}
+/* ------------------------------------------------------------------- */
+
+/* ------------------- Network list ------------------- */
+#js-network-list-wrapper {
+    position: relative;
+    border: 2px solid rgba(0,0,0,0.75);
+    border-radius: 10px;
+    margin: 5px auto;
+    width: 75vw;
+    background-color: rgba(0,0,0,0.25);
+    padding-bottom: 10px;
+}
+.network-list-header {
+    display: flex;
+    padding: 6px 10px;
+    background-color: var(--pale-purple);
+    position: relative;
+    border-bottom: 2px solid rgba(0,0,0,0.75);
+    cursor: default;
+}
+.network-list-header > span {
+    flex: 1;
+    text-align: center;
+}
+.network-refresh-btn {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    -webkit-transition: transform var(--animation-speed);
+    transition: transform var(--animation-speed);
+}
+.network-refresh-btn:hover { transform: rotate(360deg); }
+.network-list-rows {
+    height: 160px;
+    overflow-y: auto;
+}
+.network-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 2px solid rgba(0,0,0,0.75);
+    -webkit-transition: background-color var(--animation-speed);
+    transition: background-color var(--animation-speed);
+    -webkit-user-select: none;
+    user-select: none;
+}
+.network-row:hover { background-color: rgba(0,0,0,0.5); }
+.network-row:hover { background-color: var(--pale-purple); }
+.network-ssid {
+    width: 80%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    font-size: 14px;
+    font-weight: bold;
+}
+.wifi-signal-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+}
+.network-list-empty {
+    padding: 20px 10px;
+    text-align: center;
+    cursor: default;
+}
+/* ----------------------------------------------------- */
+
+/* ------------------- Network popup specifics ------------------- */
+.popup-network { text-align: center; }
+#js-popup-password-btn-container {
+    position: absolute;
+    right: 10px;
+    width: var(--password-field-button-size);
+    height: var(--password-field-button-size);
+    border-radius: 4px;
+    display: flex;
+    cursor: pointer;
+}
+#js-popup-password-btn-container:active { background-color: gray; }
+#js-popup-hide-password-button { opacity: 0; }
+.popup-btn-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 4px 0 10px;
+}
+.popup-btn-row .button-red-medium {
+    width: auto;
+    min-width: 110px;
+    margin-top: 0;
+}
+
 .password-field {
     position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
-    align-self: center;
+    width: fit-content;
+    margin: 5px auto;
 }
 #js-password-button-container, .password-field-button {
     position: absolute;
@@ -297,7 +425,7 @@ fieldset {
     height: var(--password-field-button-size);
 }
 #js-password-button-container {
-    right: 10px;
+    right: 8px;
     border-radius: 4px;
     display: flex;
     cursor: pointer;
@@ -313,7 +441,7 @@ fieldset {
 /* -------- Switch buttons and checkboxes -------- */
 .checkbox-container {
     margin: 10px auto;
-    width: 60%;
+    width: 75%;
 }
 .checkbox-label, .checkbox-slider-label { /* Contains daylight saving text and checkbox */
     display: flex;
@@ -328,7 +456,7 @@ fieldset {
 .checkbox-label {
     flex-direction: column;
     justify-content: center;
-    margin: 10px 0px;
+    margin: 15px 0px;
 }
 .checkbox-label div { margin-left: 25px; }
 .checkbox-label:active {
@@ -385,7 +513,7 @@ fieldset {
     margin: 0 5px;
     width: 55px;
     background-color: var(--red);
-    border-radius: 10px;
+    border-radius: 15px;
 }
 .checkbox-slider, .checkbox-slider::after {
     width: 20px;
@@ -496,14 +624,10 @@ fieldset {
     border-radius: 4px;
     box-shadow: 0px 0px 2px #000;
 }
-.button-red-small:hover {
-    border: 2px solid #000;
-    box-shadow: 0px 0px 2px #000;
-}
 .button-red-small:active { background-color: var(--dark-blue); }
 .button-red-medium {
-    font-size: 16px;
-    padding: 5px 8px;
+    font-size: 18px;
+    padding: 6px 8px;
     border-radius: 10px;
     width: 90%;
     margin-top: 8px;
@@ -539,14 +663,10 @@ fieldset {
     box-shadow: 0px 0px 3px #000;
     transform: translate(-50%, -80%);
 }
-.popup-big { top: 0px; }
-.popup p {
-    width: 99%;
-    margin: 10px auto;
-}
 .popup .message {
+    width: 99%;
+    margin: 10px auto 20px auto;
     font-size: 18px;
-    margin-bottom: 20px;
 }
 #js-popup-button { width: 30%; }
 .hidden-element {
@@ -626,17 +746,19 @@ fieldset {
     body { background-color: white; }
     header { padding: 1% 0px; }
     header, .main-container { width: 35%; }
-    form {
+    #js-main-form {
         border-bottom-left-radius: 10px;
         border-bottom-right-radius: 10px;
         min-height: 550px;
     }
     .message { margin: 5px auto; }
+    .network-list-header > span { flex: 1; }
     .main-settings-input {
         padding: 5px 10px;
         margin: 10px auto;
     }
-    /* --------------------------------------------------------- */
+    .fading-section { height:30vh; }
+    #js-network-list-wrapper { width: 75%; }
 
     /* ----------------------- Side panel ----------------------- */
     .side-panel { width: 350px;}
@@ -645,7 +767,7 @@ fieldset {
     /* ---------------------------------------------------------- */
 
     /* -------- Radio buttons and checkboxes -------- */
-    .checkbox-container { width: 55%; }
+    .checkbox-container { width: 65%; }
     .checkbox-label div { margin-right: 25px; }
     .checkbox-box {
         width: 20px;
@@ -672,8 +794,9 @@ fieldset {
 
     .popup {
         width: 40%;
-        top: 35%;
+        top: 40%;
     }
+    .button-red-medium { font-size: 18px; }
 }
 
 /* END OF MAIN mainStyle.css FILE */

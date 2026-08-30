@@ -1,7 +1,7 @@
 
 // Real time clock software
 // Developed by Hristo Traykov, NEON.BG (Sofia)
-// Current version 1.10.x
+// Current version 1.11.x
 // DO NOT FORGET TO SETUP PROPERLY IN TOOLS
 // USE FLOAT FIRMWARE
 //
@@ -75,6 +75,14 @@ void setup() {
 
       if constexpr (DEBUG_MESSAGES)
         Serial.println(F("\n=== Device disconnected from softAP ==="));
+  });
+
+  staDisconnectHandler = WiFi.onStationModeDisconnected(
+    [](const WiFiEventStationModeDisconnected& event) {
+      sta_disconnect_count++;
+
+      if constexpr (DEBUG_MESSAGES)
+        Serial.println(F("\n=== ESP disconnected from STA ==="));
   });
 
   delay(RADIO_SETTLE_PERIOD);

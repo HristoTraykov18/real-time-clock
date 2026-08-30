@@ -1,12 +1,15 @@
 const SLIDERS_THUMB_DIAMETER = 25;
 const INACTIVITY_TIMEOUT_MS = 600000;
-const INACTIVITY_WARNING_SECONDS = 30;
+const INACTIVITY_WARNING_MS = 30000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 10000;
+const NETWORK_REQUEST_TIMEOUT_MS = 20000;
+
+// SSID of the row the user tapped, carried into the password popup
+let selectedNetworkSSID = "";
 
 
-function initializeApp () { // Add event listeners for the javascript functionalities
-    let configLoaded = requestConfig();
-
-    document.getElementsByTagName("form")[0].addEventListener("submit", submitNetworkRequest);
+async function initializeApp () { // Add event listeners for the javascript functionalities
+    document.getElementById("js-main-form").addEventListener("submit", submitNetworkRequest);
     document.getElementById("js-time-sync-mode").addEventListener("click", toggleTimeSyncMode);
     document.getElementById("js-daylight-saving").addEventListener("click", toggleDaylightSaving);
     document.getElementById("js-password-button-container").addEventListener("click", togglePasswordVisibility);
@@ -14,6 +17,24 @@ function initializeApp () { // Add event listeners for the javascript functional
     // Tab switching
     document.getElementById("js-rtc-menu-button").addEventListener("click", function() { switchTab("rtc"); submitManualTime(); });
     document.getElementById("js-timer-menu-button").addEventListener("click", function() { switchTab("timer"); });
+
+    // Networks list and password popup
+    document.getElementById("js-network-list-rows").addEventListener("click", function(event) {
+        const row = event.target.closest(".network-row");
+        if (row) showNetworkPopup(row.dataset.ssid);
+    });
+    document.getElementById("js-network-refresh").addEventListener("click", function(event) {
+        event.stopPropagation();
+        requestNetworks();
+    });
+
+    document.getElementsByName("hiddenNetwork")[0].addEventListener("change", toggleHiddenNetworkMode);
+    document.getElementById("js-network-popup-form").addEventListener("submit", function(event) {
+        event.preventDefault();
+        connectToSelectedNetwork();
+    });
+    document.getElementById("js-network-cancel-btn").addEventListener("click", closeNetworkPopup);
+    document.getElementById("js-popup-password-btn-container").addEventListener("click", togglePopupPasswordVisibility);
 
     // Info panel
     document.getElementById("js-info-button").addEventListener("click", openInfoPanel);
@@ -71,8 +92,14 @@ function initializeApp () { // Add event listeners for the javascript functional
         });
     }
 
-    if (configLoaded && getActiveWorkMode() === "rtc")
-        submitManualTime();
+    toggleLoader();
+    let shouldSyncTime = false;
+    [shouldSyncTime] = await Promise.all([requestConfig(), requestNetworks()]);
+
+    if (shouldSyncTime)
+        await submitManualTime(false);
+
+    toggleLoader();
 };
 
 // Inactivity timeout functionality
@@ -82,15 +109,16 @@ let sessionDisconnected = false;
 
 function inactivityTick() {
     if (sessionDisconnected) return;
-    let remainingSeconds = Math.ceil((inactivityDeadline - Date.now()) / 1000);
+    let remainingMs = Math.ceil(inactivityDeadline - Date.now());
 
-    if (remainingSeconds <= 0) {
+    if (remainingMs <= 0) {
         timeoutForInactivity();
         return;
     }
-    if (remainingSeconds <= INACTIVITY_WARNING_SECONDS) {
+
+    if (remainingMs <= INACTIVITY_WARNING_MS) {
         document.getElementById("js-timeout-popup-message").innerText =
-            "Устройството Ви ще бъде разкачено от мрежата на часовника, поради неактивност след: " + remainingSeconds + " секунди";
+            "Устройството Ви ще бъде разкачено от мрежата на часовника, поради неактивност след: " + Math.trunc(remainingMs / 1000) + " секунди";
         document.getElementById("js-timeout-popup-container").classList.add("show-popup");
     }
 }
@@ -109,15 +137,176 @@ function timeoutForInactivity() {
     clearInterval(inactivityTicker);
     sendServerRequest("", false, "/timeout");
     document.getElementById("js-timeout-popup-container").classList.remove("show-popup");
-    document.getElementsByClassName("js-close-popup-button")[0].addEventListener("click", function() { window.location.reload(); });
 }
 // --------------------------------
+
+// Networks list and popup functionality
+function connectToSelectedNetwork() {
+    let submitData = "ssid=" + selectedNetworkSSID;
+    submitData += "&pass=" + document.getElementById("js-popup-pass-input").value;
+    submitData += "&timeSyncMode=wifi";
+    submitData += "&isHiddenNetwork=false";
+    submitData += "&workMode=" + getActiveWorkMode();
+
+    document.getElementById("js-network-popup-container").classList.remove("show-popup");
+    resetNetworkPopupPassword();
+    sendServerRequest(submitData);
+}
+
+function closeNetworkPopup() {
+    document.getElementById("js-network-popup-container").classList.remove("show-popup");
+    resetNetworkPopupPassword();
+}
+
+function renderNetworkRows(responseText) {
+    let listElement = document.getElementById("js-network-list-rows");
+    listElement.innerHTML = "";
+
+    let lines = responseText.trim().split("\n");
+
+    if (lines.length === 0 || (lines.length === 1 && lines[0] === "")) {
+        listElement.innerHTML = '<div class="network-list-empty">Няма видими мрежи в обхват</div>';
+
+        return;
+    }
+
+    for (const line of lines) {
+        // The SSID itself may contain "|", so the signal strength is taken from the last one
+        let separatorIndex = line.lastIndexOf("|");
+
+        if (separatorIndex === -1)
+            continue;
+
+        let ssid = line.substring(0, separatorIndex).trim();
+
+        if (!ssid)
+            continue;
+
+        let rssi = parseInt(line.substring(separatorIndex + 1).trim(), 10);
+        let row = document.createElement("div");
+        row.className = "network-row";
+        row.dataset.ssid = ssid;
+
+        let ssidElement = document.createElement("span");
+        ssidElement.className = "network-ssid";
+        ssidElement.textContent = ssid; // textContent, so an SSID can never inject markup
+
+        let iconWrapper = document.createElement("span");
+        iconWrapper.innerHTML = wifiSignalSVG(rssi);
+
+        row.appendChild(ssidElement);
+        row.appendChild(iconWrapper);
+        listElement.appendChild(row);
+    }
+}
+
+async function requestNetworks() {
+    let listElement = document.getElementById("js-network-list-rows");
+    let loaderElement = document.getElementById("js-network-list-loader");
+    let headerElement = document.querySelector("#js-network-list-wrapper .network-list-header > span");
+
+    // Back to the normal state before every request
+    listElement.style.display = "none";
+    document.getElementById("js-network-list-disconnected").style.display = "none";
+    headerElement.innerText = "Мрежи в обхват";
+    loaderElement.style.display = "block";
+
+    try {
+        const response = await fetchWithTimeout("/networks", {});
+        loaderElement.style.display = "none";
+
+        if (!response.ok) {
+            showNetworkListDisconnected();
+            return;
+        }
+
+        listElement.style.display = "";
+        renderNetworkRows(await response.text());
+    } catch {
+        loaderElement.style.display = "none";
+        showNetworkListDisconnected();
+    }
+}
+
+function resetNetworkPopupPassword() {
+    document.getElementById("js-popup-pass-input").value = "";
+    document.getElementById("js-popup-pass-input").type = "password";
+    document.getElementById("js-popup-show-password-button").style.opacity = "1";
+    document.getElementById("js-popup-hide-password-button").style.opacity = "0";
+}
+
+function showNetworkListDisconnected() {
+    document.getElementById("js-network-list-rows").style.display = "none";
+    document.getElementById("js-network-list-disconnected").style.display = "flex";
+    document.querySelector("#js-network-list-wrapper .network-list-header > span").innerText =
+        "Моля свържете се с мрежата на часовника";
+}
+
+function showNetworkPopup(ssid) {
+    selectedNetworkSSID = ssid;
+    document.getElementById("js-network-popup-title").innerText = "Въведете парола за " + ssid;
+    resetNetworkPopupPassword();
+    document.getElementById("js-network-popup-container").classList.add("show-popup");
+}
+
+function toggleHiddenNetworkMode() {
+    let isHidden = document.getElementsByName("hiddenNetwork")[0].checked;
+
+    document.getElementById("js-network-list-wrapper").classList.toggle("hidden", isHidden);
+    document.getElementById("js-manual-input-wrapper").classList.toggle("hidden", !isHidden);
+    document.getElementsByClassName("message")[0].innerText =
+        isHidden ? "Моля въведете име и парола" : "Моля изберете мрежа от списъка";
+
+    if (!isHidden) requestNetworks();
+}
+
+function togglePopupPasswordVisibility() {
+    let passInput = document.getElementById("js-popup-pass-input");
+    let showPasswordButton = document.getElementById("js-popup-show-password-button");
+    let hidePasswordButton = document.getElementById("js-popup-hide-password-button");
+
+    if (passInput.type === "password") {
+        passInput.type = "text";
+        showPasswordButton.style.opacity = "0";
+        hidePasswordButton.style.opacity = "1";
+    } else {
+        passInput.type = "password";
+        showPasswordButton.style.opacity = "1";
+        hidePasswordButton.style.opacity = "0";
+    }
+
+    passInput.focus();
+}
+
+// Inline SVG for the signal strength indicator of a row
+function wifiSignalSVG(rssi) {
+    let activeArcs;
+
+    if      (rssi > -55) activeArcs = 3;
+    else if (rssi > -65) activeArcs = 2;
+    else if (rssi > -75) activeArcs = 1;
+    else                 activeArcs = 0;
+
+    const active = "white";
+    const inactive = "rgba(255,255,255,0.25)";
+    const c1 = activeArcs >= 1 ? active : inactive;
+    const c2 = activeArcs >= 2 ? active : inactive;
+    const c3 = activeArcs >= 3 ? active : inactive;
+
+    return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="wifi-signal-icon">
+        <circle cx="12" cy="20.5" r="1.8" fill="white"/>
+        <path d="M 9.2 17 A 3.6 3.6 0 0 1 14.8 17" stroke="${c1}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <path d="M 6.2 14 A 6.6 6.6 0 0 1 17.8 14" stroke="${c2}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <path d="M 3.2 11 A 9.6 9.6 0 0 1 20.8 11" stroke="${c3}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    </svg>`;
+}
+// -------------------------------------
 
 function closePopup(clickedButton) {
     clickedButton.parentNode.parentNode.parentNode.classList.remove("show-popup");
 }
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -137,8 +326,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
 
 async function requestConfig() {
     try {
-        const response = await fetch("/settings");
-        if (!response.ok) return;
+        const response = await fetchWithTimeout("/settings");
+        if (!response.ok) return false;
         const xmlDoc = new DOMParser().parseFromString(await response.text(), "text/xml");
 
         // Daylight saving checkbox
@@ -187,8 +376,12 @@ async function requestConfig() {
             document.getElementById("js-timer-minutes").textContent = String(m).padStart(2, "0");
             document.getElementById("js-timer-seconds").textContent = String(s).padStart(2, "0");
         }
+
+        return getActiveWorkMode() === "rtc";
     } catch {
-        showStatusPopup("Неуспешно зареждане на конфигурацията на часовника.\nМоля проверете дали сте свързани и опитайте отново!");
+        showStatusPopup("Неуспешно зареждане на конфигурацията на часовника.\nМоля проверете дали сте свързани с мрежата му и опитайте отново!");
+
+        return false;
     };
 }
 
@@ -199,7 +392,7 @@ async function sendServerRequest(params, loader = true, route = '/') {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
             body: params
-        }, 20000);
+        }, NETWORK_REQUEST_TIMEOUT_MS);
 
         if (loader) toggleLoader();
 
@@ -217,22 +410,22 @@ function showStatusPopup(popupText) {
     document.getElementById("js-popup-message").innerText = popupText;
 }
 
-function submitManualTime() {
+async function submitManualTime(loader = true) {
     let submitData = "workMode=rtc&timeSyncMode=js&currentTime=";
     let currentDate = new Date();
-    submitData += Array(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 
+    submitData += Array(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(),
                         currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
 
-    sendServerRequest(submitData);
+    await sendServerRequest(submitData, loader);
 }
 
 function submitNetworkRequest(event) {
     event.preventDefault();
     let timeSyncMode = document.getElementById("js-time-sync-mode");
-    let submitData = "workMode=rtc";
+    let submitData = "workMode=" + getActiveWorkMode();
 
     if (!timeSyncMode.checked) {
-        sendServerRequest("&timeSyncMode=gps");
+        sendServerRequest("timeSyncMode=gps");
 
         return;
     }
@@ -355,7 +548,7 @@ function displayDisconnectedState(panelId) {
     document.getElementById(panelId + "-info").style.display = "none";
     document.getElementById(panelId + "-loader").style.display = "none";
     document.getElementById(panelId + "-disconnected").style.display = "flex";
-    document.getElementById(panelId + "-title").innerText = "Моля проверете, дали сте свързани с часовника!";
+    document.getElementById(panelId + "-title").innerText = "Моля свържете се с мрежата на часовника";
 }
 
 async function openSidePanel(panelId, title, fetchUrl, closeFn, onSuccess) {

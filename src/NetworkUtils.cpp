@@ -33,6 +33,8 @@ void checkForUserConnection() {
 
 wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hidden,
                                   uint8_t channel, const uint8_t* bssid) {
+  const uint16_t POLL_INTERVAL_MS = 10;
+  const uint16_t CONNECT_TIMEOUT_MS = bssid ? 7500UL : 18000UL;
   wl_status_t status = WiFi.status();
 
   if (status == WL_CONNECTED && currentSsidEquals(ssid)) {
@@ -45,6 +47,8 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
 
     return status;
   }
+
+  const uint16_t prev_disconnect_count = sta_disconnect_count;
 
   WiFi.begin(ssid, pass, channel, bssid);
   yield();
@@ -63,9 +67,9 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
     Serial.println();
   }
 
-  const uint16_t CONNECT_ATTEMPT_DELAY = bssid ? 80 : 130;
+  const unsigned long started_ms = millis();
 
-  for (uint16_t i = 0; i < CONNECT_ATTEMPT_DELAY; i++) {
+  while (millis() - started_ms < CONNECT_TIMEOUT_MS) {
     status = WiFi.status();
 
     if (status == WL_CONNECTED) {
@@ -80,7 +84,10 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
     }
 
     // Unrecoverable statuses
-    if (status == WL_WRONG_PASSWORD || status == WL_NO_SSID_AVAIL) {
+    if (status != WL_CONNECTED && sta_disconnect_count != prev_disconnect_count) {
+      if (status != WL_WRONG_PASSWORD)
+        status = WL_NO_SSID_AVAIL;
+
       if constexpr (DEBUG_MESSAGES) {
         Serial.print(F("\nConnection attempt stopped. Wi-Fi status "));
         Serial.println(status);
@@ -89,17 +96,14 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
       break;
     }
 
-    if constexpr (DEBUG_MESSAGES) {
-      if (i % 10 == 0)
-        Serial.print(F("."));
-    }
-
-    delay(CONNECT_ATTEMPT_DELAY);
-    yield();
+    delay(POLL_INTERVAL_MS);
   }
 
-  if constexpr (DEBUG_MESSAGES)
-    Serial.println();
+  if constexpr (DEBUG_MESSAGES) {
+    Serial.print(F("Connect attempt duration: "));
+    Serial.print(millis() - started_ms);
+    Serial.println(F(" ms"));
+  }
 
   return status;
 }
@@ -318,7 +322,7 @@ bool networkIsInRange(const char* ssid) {
     Serial.println(ssid);
   }
 
-  int8_t number_of_networks = WiFi.scanNetworks(false, true);
+  int8_t number_of_networks = WiFi.scanNetworks();
 
   bool in_range = false;
 

@@ -83,6 +83,7 @@ inline bool daylight_saving_active;
 inline bool work_mode_is_timer = false; // false = RTC mode, true = Timer mode
 inline bool software_update_server_active = false; // true when the OTA update server is listening
 inline volatile bool ap_station_associated = false; // Set/Cleared by SoftAP events
+inline volatile uint16_t sta_disconnect_count = 0; // Bumped by every STA disconnect event
 
 // ---------------- Objects ---------------- //
 inline IPAddress time_server_ip; // NTP server ip container
@@ -94,6 +95,7 @@ inline ESP8266WebServer softwareUpdateServer(1394);
 inline ESP8266HTTPUpdateServer httpUpdater;
 inline WiFiEventHandler apConnectHandler; // Keeps the softAP station connected event subscription alive
 inline WiFiEventHandler apDisconnectHandler; // Keeps the softAP station disconnected event subscription alive
+inline WiFiEventHandler staDisconnectHandler; // Keeps the STA disconnect event subscription alive
 /* ----------------------------------------- */
 
 // --- Used when the RTC becomes unsynchronised --- //
@@ -138,7 +140,8 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     constexpr int GPS_TX = D8; // ESP transmits to the GPS module's RX pin
 
     constexpr int GPS_BAUD_RATE = 9600;
-    constexpr uint8_t GPS_MAX_CONNECT_ATTEMPTS = 10;
+    constexpr uint8_t GPS_MAX_CONNECT_ATTEMPTS = 20;
+    constexpr uint8_t GPS_CONNECT_ATTEMPT_DELAY = 250;
     constexpr unsigned long GPS_ACQUISITION_TIMEOUT = 180000UL; // Time allowed to acquire a fix before falling back
     constexpr unsigned long GPS_MAX_FIX_AGE = 2000UL; // A fix that was not refreshed within this window is stale
 
