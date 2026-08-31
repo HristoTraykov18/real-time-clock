@@ -165,6 +165,43 @@ class SetupApp:
 
         return frame, display
 
+    def launch_terminal_task(self, title, arguments):
+        """ Run a PlatformIO command in its own terminal and lock the action buttons until it closes. """
+        if self.pio_command is None:  # Kept once found, looked up again while it is missing
+            self.pio_command = find_platformio()
+
+        if self.pio_command is None:
+            self.status.show("PlatformIO Core was not found\nInstall it, or add pio to PATH")
+
+            return False
+
+        self.running_process = spawn_terminal(title, self.pio_command + arguments)
+        self.set_action_buttons_enabled(False)
+        self.watch_running_process()
+
+        return True
+
+    def run_monitor(self):
+        """
+        Open a serial monitor terminal for the selected environment.
+        Reads the repository platformio.ini, so the compile folder does not have to be prepared
+        """
+        self.status.clear()
+        environment = self.selected_env.get()
+
+        if not environment:
+            self.status.show("No PlatformIO environment selected")
+
+            return
+
+        if not self.launch_terminal_task(
+                "Serial Monitor",
+                ["device", "monitor", "-d", os.path.abspath("."), "-e", environment]):
+            return
+
+        self.status += f"Serial Monitor Started for {environment}"
+        self.status.show()
+
     def run_platformio(self, title, *targets):
         """ Launch PlatformIO against the compile folder in a terminal that waits to be closed """
         self.status.clear()
@@ -182,22 +219,13 @@ class SetupApp:
 
             return
 
-        if self.pio_command is None:  # Kept once found, looked up again while it is missing
-            self.pio_command = find_platformio()
-
-        if self.pio_command is None:
-            self.status.show("PlatformIO Core was not found\nInstall it, or add pio to PATH")
-
-            return
-
-        command = self.pio_command + ["run", "-d", compile_path, "-e", environment]
+        arguments = ["run", "-d", compile_path, "-e", environment]
 
         for target in targets:
-            command += ["-t", target]
+            arguments += ["-t", target]
 
-        self.running_process = spawn_terminal(title, command)
-        self.set_action_buttons_enabled(False)
-        self.watch_running_process()
+        if not self.launch_terminal_task(title, arguments):
+            return
 
         self.status += f"{title} started for {environment}"
         self.status.show()
@@ -218,9 +246,9 @@ class SetupApp:
 
     def set_app_widgets(self):
         """ Create widgets in the application """
-        cb = tk.Checkbutton(self.root, text="RTC info messages",
+        cb = tk.Checkbutton(self.root, text="RTC Info Messages",
                             variable=self.is_production_setup, onvalue=0, offvalue=1)
-        self.cb_edit_id = tk.Checkbutton(self.root, text="Edit clock ID",
+        self.cb_edit_id = tk.Checkbutton(self.root, text="Edit Clock ID",
                                          variable=self.is_edit_id, command=self.toggle_edit_id)
         self.id_frame, self.id_display = self.create_stepper_row(
             "Clock ID:", "-----", 6, self.adjust_clock_id)
@@ -228,17 +256,17 @@ class SetupApp:
             "Timezone offset:", "+2", 4, self.adjust_timezone)
 
         env_label = tk.Label(self.root,
-                             text="Select PlatformIO environment\n(sets the build flags and the RTC modules)")
+                             text="Select PlatformIO Environment\n(Sets the Build Flags and the RTC Modules)")
         self.env_combobox = ttk.Combobox(self.root, textvariable=self.selected_env, width=26,
                                          state="readonly", values=self.environments)
 
-        self.set_files_button = tk.Button(self.root, text="Set files",
+        self.set_files_button = tk.Button(self.root, text="Set Files",
                                           width=10, command=self.set_files)
         self.action_buttons.append(self.set_files_button)
 
         firmware_label = tk.Label(self.root, text="Firmware")
         firmware_frame = tk.Frame(self.root)
-        filesystem_label = tk.Label(self.root, text="File system")
+        filesystem_label = tk.Label(self.root, text="File System")
         filesystem_frame = tk.Frame(self.root)
 
         # PlatformIO build commands, buttons are greyed out while a terminal is open
@@ -252,12 +280,16 @@ class SetupApp:
             button.pack(side=tk.LEFT, padx=3)
             self.action_buttons.append(button)
 
+        debugging_label = tk.Label(self.root, text="Debugging")
+        monitor_button = tk.Button(self.root, text="Start Monitor", width=12, command=self.run_monitor)
+        self.action_buttons.append(monitor_button)
         self.status = StatusArea(self.root)
 
         for element in [cb, self.cb_edit_id, timezone_frame, env_label,
                         self.env_combobox, self.set_files_button,
                         firmware_label, firmware_frame, filesystem_label,
-                        filesystem_frame, self.status]:
+                        filesystem_frame, debugging_label, monitor_button,
+                        self.status]:
             element.pack(pady=3)
 
         self.env_combobox.focus()
