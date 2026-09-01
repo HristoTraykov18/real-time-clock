@@ -31,6 +31,14 @@ void editManualBrightness(const char new_value[]) {
 void editSettingsFile(const char new_value[], uint8_t tags_id) {
   char buf[512]; // Enough to keep the entire file content
   File f = LittleFS.open("/espSettings.xml", "r");
+
+  if (!f) {
+    if constexpr (DEBUG_MESSAGES)
+      Serial.println(F("Edit settings: could not open espSettings.xml for reading"));
+
+    return;
+  }
+
   size_t len = f.read((uint8_t*)buf, sizeof(buf) - 1);
   f.close();
   buf[len] = '\0';
@@ -48,6 +56,14 @@ void editSettingsFile(const char new_value[], uint8_t tags_id) {
   if (!value_end) return;
 
   f = LittleFS.open("/espSettings.xml", "w");
+
+  if (!f) {
+    if constexpr (DEBUG_MESSAGES)
+      Serial.println(F("Edit settings: could not open espSettings.xml for writing"));
+
+    return;
+  }
+
   f.write((uint8_t*)buf, value_start - buf);  // Everything before the value
   f.write((uint8_t*)new_value, strlen(new_value));  // The new value
   f.write((uint8_t*)value_end, len - (value_end - buf));  // Closing tag onwards

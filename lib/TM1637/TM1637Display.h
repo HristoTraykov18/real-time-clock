@@ -39,9 +39,9 @@ public:
   //! @param pin_DIO - The number of the digital pin connected to the DIO pin of the module
   //! @param bit_delay - The delay, in microseconds, between bit transition on the serial
   //!                   bus connected to the display
-  //! @param reversed_digit_logic Value true reverses the segments of each digit, false displays the
+  //! @param reverse_digit_logic Value true reverses the segments of each digit, false displays the
   //!        numbers normaly
-  TM1637Display(uint8_t pin_CLK, uint8_t pin_DIO, unsigned int bit_delay = DEFAULT_BIT_DELAY, bool reversed_digit_logic = false);
+  TM1637Display(uint8_t pin_CLK, uint8_t pin_DIO, unsigned int bit_delay = DEFAULT_BIT_DELAY, bool reverse_digit_logic = false);
 
   //! Sets the brightness of the display.
   //!

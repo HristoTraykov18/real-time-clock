@@ -32,7 +32,7 @@ void setup() {
 
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
-  initializeModuleRTC(); // Core Utils
+  initializePeripherals(); // Core Utils
   initializeFileSystem(); // Core Utils
   initializeServers(); // Server Utils
 
@@ -81,8 +81,11 @@ void setup() {
     [](const WiFiEventStationModeDisconnected& event) {
       sta_disconnect_count++;
 
-      if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("\n=== ESP disconnected from STA ==="));
+      if constexpr (DEBUG_MESSAGES) {
+        Serial.print(F("\n=== ESP STA disconnected from "));
+        Serial.print(event.ssid);
+        Serial.println(F(" ==="));
+      }
   });
 
   delay(RADIO_SETTLE_PERIOD);

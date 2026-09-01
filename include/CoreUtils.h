@@ -54,9 +54,9 @@ uint8_t getLastSundayDate(DateTime &now);
 void initializeFileSystem();
 
 /**
- * @brief Initializes I2C bus for the DS3231 module, verifying valid time state.
+ * @brief Tests all display segments and initializes I2C bus for the DS3231 module.
  */
-void initializeModuleRTC();
+void initializePeripherals();
 
 /**
  * @brief Checks whether a given timestamp or current time falls into the Daylight Saving Time period.

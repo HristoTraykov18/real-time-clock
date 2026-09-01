@@ -195,7 +195,8 @@ void handleWebInterface() {
 
 const char* handleWifiTimeSync(const String& ssid) {
   const char* response;
-  const bool has_new_credentials = ssid != "" && (server.arg("pass")).length() > 7;
+  const String& pass = server.arg("pass");
+  const bool has_new_credentials = ssid != "" && pass.length() > 7;
   const bool time_sync_was_gps = set_time_with_gps;
 
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
@@ -204,7 +205,7 @@ const char* handleWifiTimeSync(const String& ssid) {
 
   if (WiFi.status() != WL_CONNECTED) {
     if (has_new_credentials)
-      response = validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
+      response = validateNetworkInput(ssid, pass, server.arg("isHiddenNetwork"));
     else if (time_sync_was_gps)
       response = "Промените са запазени.";
     else
@@ -214,7 +215,7 @@ const char* handleWifiTimeSync(const String& ssid) {
     response = createReply("Часовникът вече е свързан с мрежа", ssid_buf, autoUpdateTime(true));
   else if (has_new_credentials) {
     WiFi.disconnect(true);
-    response = validateNetworkInput(ssid, server.arg("pass"), server.arg("isHiddenNetwork"));
+    response = validateNetworkInput(ssid, pass, server.arg("isHiddenNetwork"));
 
     if (WiFi.status() != WL_CONNECTED)
       networkReconnect();
@@ -227,7 +228,7 @@ const char* handleWifiTimeSync(const String& ssid) {
 
 
 void initializeServers() {
-  while (!udp.begin(2390)) {
+  if (udp.begin(2390)) {
     if constexpr (DEBUG_MESSAGES)
       Serial.println(F("Initializing UDP for NTP"));
   }
@@ -368,6 +369,18 @@ void sendWebpageResponse(const char *webpage_response) {
 
 void streamFileToClient(const char *filename, const char *content_type) {
   File data_file = LittleFS.open(filename, "r");
+
+  if (!data_file) {
+    server.send(404, "text/plain", "");
+
+    if constexpr (DEBUG_MESSAGES) {
+      Serial.print(F("Could not open "));
+      Serial.println(filename);
+    }
+
+    return;
+  }
+
   const size_t file_size  = data_file.size();
   size_t range_start = 0;
   size_t range_end = (file_size > 0) ? file_size - 1 : 0;

@@ -61,6 +61,14 @@ void daylightSavingChange() {
 void getInitialClockSettings() {
   char buf[512];
   File f = LittleFS.open("/espSettings.xml", "r");
+
+  if (!f) {
+    if constexpr (DEBUG_MESSAGES)
+      Serial.println(F("Initial settings: could not open espSettings.xml"));
+
+    return;
+  }
+
   size_t len = f.read((uint8_t*)buf, sizeof(buf) - 1);
   f.close();
   buf[len] = '\0';
@@ -124,15 +132,15 @@ void initializeFileSystem() {
 }
 
 
-void initializeModuleRTC() {
+void initializePeripherals() {
   tm1637.setBrightness(DEFAULT_BRIGHTNESS);
-  tm1637.showNumber(8888, 32); // Test all segments
+  tm1637.showNumber(8888, 32);
 
   while (!rtc.begin()) { // If the RTC is not found do not boot
     if constexpr (DEBUG_MESSAGES)
       Serial.println(F("\nInitializing RTC"));
 
-    resetRTC(); // Sometimes the RTC becomes unsynchronized while switching power source - reset it
+    resetRTC(); // The RTC may unsynchronize while switching power source - reset it
   }
 
   while (rtc.now().hour() > 23 || rtc.now().minute() > 59 || rtc.now().second() > 59) {
