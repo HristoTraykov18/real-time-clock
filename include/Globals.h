@@ -56,6 +56,8 @@ constexpr const char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode
 
 constexpr uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
 constexpr uint8_t UPDATE_HOUR = 3; // Request time from NTP server at 3:00 in the morning
+constexpr uint8_t GPS_MAX_CONNECT_ATTEMPTS = 20;
+constexpr uint8_t GPS_CONNECT_ATTEMPT_DELAY = 250;
 constexpr unsigned long AP_CONNECTION_TIMEOUT = 610000UL; // Inactivity timeout duration for clients connected to the ESP
 constexpr unsigned long RADIO_SETTLE_PERIOD = 5000UL; // Grace period for the Wi-Fi radio to settle after softAP events
 
@@ -140,8 +142,6 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     constexpr int GPS_TX = D8; // ESP transmits to the GPS module's RX pin
 
     constexpr int GPS_BAUD_RATE = 9600;
-    constexpr uint8_t GPS_MAX_CONNECT_ATTEMPTS = 20;
-    constexpr uint8_t GPS_CONNECT_ATTEMPT_DELAY = 250;
     constexpr unsigned long GPS_ACQUISITION_TIMEOUT = 180000UL; // Time allowed to acquire a fix before falling back
     constexpr unsigned long GPS_MAX_FIX_AGE = 2000UL; // A fix that was not refreshed within this window is stale
 
@@ -156,8 +156,6 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
 /* ----------------------------------------------------------------------------------------------- */
 #else
 /* ---------------------------------------- NO GPS MODULE ---------------------------------------- */
-    constexpr uint8_t GPS_MAX_CONNECT_ATTEMPTS = 10;
-
     inline bool set_time_with_gps = false;
 
     GpsState gpsState();
@@ -192,7 +190,7 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     struct DummyTemperatureSensor {
         void begin() {}
         void requestTemperatures() {}
-        int8_t getTempCByIndex(int index) { return 0; }
+        int8_t getTempCByIndex(int index) { index = 0; return index; }
     };
 
     inline DummyTemperatureSensor temperatureSensor;

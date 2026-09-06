@@ -360,7 +360,7 @@ wl_status_t networkReconnect() {
   wl_status_t connection_status = WiFi.status();
 
   if (connection_status != WL_CONNECTED) {
-    char buf[128]; // SSID (32) + pass (64) + is_hidden (5) + channel (2) + BSSID (17) + 4 linesep = 120
+    char buf[128]; // SSID (32) + pass (64) + is_hidden (5) + channel (2) + BSSID (17) + 4 linesep = 124
     const char* network_data[5];
 
     if (!loadNetworkInfo(buf, sizeof(buf), network_data)) {
