@@ -120,7 +120,7 @@ void loop() {
       Serial.println(WiFi.softAPgetStationNum());
     }
 
-    checkForUserConnection(); // Network Utils
+    checkForClientConnection(); // Network Utils
     manageStaReconnect(); // Network Utils
   }
 }

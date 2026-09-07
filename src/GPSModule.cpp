@@ -1,6 +1,8 @@
 // GPSModule.cpp
 #include "GPSModule.h"
 
+static unsigned long gps_search_started_ms = 0; // millis() timestamp of the current acquisition window
+
 /* ------------------------------------ Private helpers ------------------------------------ */
 
 /**

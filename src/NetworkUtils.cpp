@@ -3,26 +3,28 @@
 
 constexpr uint8_t NTP_PACKET_SIZE = 48; // Fixed by the NTP specification
 
+static bool client_connected = false; // Active connection to the ESP network
 
-void checkForUserConnection() {
+
+void checkForClientConnection() {
   bool counted = WiFi.softAPgetStationNum() > 0;
   bool http_live = (millis() - last_http_activity_ms) < AP_CONNECTION_TIMEOUT;
   bool present = ap_station_associated && counted && http_live;
 
-  if (present && !active_connection) {
-    someone_just_connected = true;
-    active_connection = true;
+  if (present && !client_connected) {
+    display_client_connected = true;
+    client_connected = true;
   }
-  else if (!present && active_connection) {
-    someone_just_connected = false;
-    active_connection = false;
+  else if (!present && client_connected) {
+    display_client_connected = false;
+    client_connected = false;
 
     if (software_update_server_active) {
       softwareUpdateServer.stop();
       software_update_server_active = false;
 
       if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("[checkForUserConnection] OTA update server stopped"));
+        Serial.println(F("[checkForClientConnection] OTA update server stopped"));
     }
 
     if (counted)
@@ -427,6 +429,7 @@ bool parseBssid(const char* s, uint8_t* bssid) {
 
 bool readTimestamp(uint32_t &secs_since_1900) {
   constexpr uint32_t NTP_MIN_VALID_SECONDS = 2208988800UL + 1577836800UL; // Reject anything before 2020
+  IPAddress time_server_ip;
 
   if (!WiFi.hostByName(EU_NTP_SERVER_1, time_server_ip)) {
     if constexpr (DEBUG_MESSAGES)

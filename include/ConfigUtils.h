@@ -32,9 +32,9 @@ void editManualBrightness(const char new_value[]);
 /**
  * @brief Modifies the RTC configuration file in the ESP filesystem.
  * @param new_value Integer value formatted as string.
- * @param tags_id Numerical ID identifier referencing specific matching XML target tags.
+ * @param id Identifies which setting to rewrite. Indexes SETTING_TAGS.
  */
-void editSettingsFile(const char new_value[], uint8_t tags_id);
+void editSettingsFile(const char new_value[], SettingId id);
 
 /**
  * @brief Updates the time synchronization mode between GPS or NTP server

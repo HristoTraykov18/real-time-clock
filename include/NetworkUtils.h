@@ -16,7 +16,7 @@
 /**
  * @brief Checks if a station is connected to the access point of the ESP and controls the OTA server lifespan.
  */
-void checkForUserConnection();
+void checkForClientConnection();
 
 /**
  * @brief Initializes connection requests to local area access points.

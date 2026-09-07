@@ -77,17 +77,17 @@ void getInitialClockSettings() {
   f.close();
   buf[len] = '\0';
 
-  uint8_t tagsCount = sizeof(START_TAGS) / sizeof(START_TAGS[0]);
   char val[16]; // Longest stored value is "3600" or "false" - 5 chars; 16 is generous
 
-  for (uint8_t i = 0; i < tagsCount; i++) {
-    char *p = strstr(buf, START_TAGS[i]);
+  for (uint8_t i = 0; i < (uint8_t)SettingId::Count; i++) {
+    const SettingTag& tag = SETTING_TAGS[i];
+    char *p = strstr(buf, tag.start);
 
     if (!p) continue;
 
-    p += strlen(START_TAGS[i]);
+    p += strlen(tag.start);
 
-    char *end = strstr(p, END_TAGS[i]);
+    char *end = strstr(p, tag.end);
     if (!end) continue;
 
     size_t val_len = end - p;
@@ -97,21 +97,22 @@ void getInitialClockSettings() {
     memcpy(val, p, val_len);
     val[val_len] = '\0';
 
-    switch (i) {
-      case 0: daylight_saving_enabled = strcmp(val, "true") == 0; break;
-      case 1:
+    switch ((SettingId)i) {
+      case SettingId::DaylightSavingEnabled: daylight_saving_enabled = strcmp(val, "true") == 0; break;
+      case SettingId::TimeSyncMode:
         if constexpr (HAS_GPS_MODULE)
           set_time_with_gps = strcmp(val, "gps") == 0;
         break;
-      case 2: auto_brightness = strcmp(val, "true") == 0; break;
-      case 3:
+      case SettingId::AutoBrightness: auto_brightness = strcmp(val, "true") == 0; break;
+      case SettingId::ManualBrightness:
         display_brightness = atoi(val);
 
         if (!auto_brightness) last_display_brightness = display_brightness;
         break;
-      case 4: timezone = atoi(val); break;
-      case 5: work_mode_is_timer = strcmp(val, "timer") == 0; break;
-      case 6: timer_duration = atoi(val); break;
+      case SettingId::TimezoneOffset: timezone = atoi(val); break;
+      case SettingId::WorkMode: work_mode_is_timer = strcmp(val, "timer") == 0; break;
+      case SettingId::TimerDuration: timer_duration = atoi(val); break;
+      case SettingId::Count: break; // Prevent missing enum cases warning
     }
   }
 }

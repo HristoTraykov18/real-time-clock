@@ -49,12 +49,35 @@ constexpr const char* ESP_PASS = "Test1234"; // ESP soft access point password
 constexpr const char* SETTINGS_FILE = "/espSettings.xml";
 constexpr const char* CREDS_FILE = "/creds.txt";
 constexpr const char* EU_NTP_SERVER_1 = "0.europe.pool.ntp.org"; // NTP pool for IP addresses
-constexpr const char* START_TAGS[] = { "<daylightSavingEnabled>", "<timeSyncMode>", "<autoBrightnessControl>",
-                                     "<manualBrightnessLevel>", "<timezoneHoursOffset>", "<workMode>",
-                                     "<timerDuration>" };
-constexpr const char* END_TAGS[] = { "</daylightSavingEnabled>", "</timeSyncMode>", "</autoBrightnessControl>",
-                                   "</manualBrightnessLevel>", "</timezoneHoursOffset>", "</workMode>",
-                                   "</timerDuration>" };
+
+struct SettingTag {
+  const char* start;
+  const char* end;
+};
+
+enum class SettingId : uint8_t {
+  DaylightSavingEnabled,
+  TimeSyncMode,
+  AutoBrightness,
+  ManualBrightness,
+  TimezoneOffset,
+  WorkMode,
+  TimerDuration,
+  Count
+};
+
+constexpr SettingTag SETTING_TAGS[] = {
+  { "<daylightSavingEnabled>",  "</daylightSavingEnabled>"  },
+  { "<timeSyncMode>",           "</timeSyncMode>"           },
+  { "<autoBrightnessControl>",  "</autoBrightnessControl>"  },
+  { "<manualBrightnessLevel>",  "</manualBrightnessLevel>"  },
+  { "<timezoneHoursOffset>",    "</timezoneHoursOffset>"    },
+  { "<workMode>",               "</workMode>"               },
+  { "<timerDuration>",          "</timerDuration>"          }
+};
+
+static_assert(sizeof(SETTING_TAGS) / sizeof(SETTING_TAGS[0]) == (size_t)SettingId::Count,
+              "SETTING_TAGS must have exactly one entry per SettingId");
 
 constexpr uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
 constexpr uint8_t UPDATE_HOUR = 3; // Request time from NTP server at 3:00 in the morning
@@ -76,12 +99,9 @@ inline unsigned long timer_millis_offset = 0; // ms already elapsed within the c
 inline unsigned long last_http_activity_ms = 0; // Updated on every HTTP request
 inline unsigned long radio_settle_until_ms = 0; // millis() timestamp until which station reconnect attempts are postponed
 
-inline bool display_time = true; // If false, show temperature
 inline bool auto_brightness = true; // Used for brightness module
-inline bool last_auto_brightness = auto_brightness; // Used for brightness module
 inline bool connected_to_ntp = false;
-inline bool active_connection = false; // Active connection to the ESP network
-inline bool someone_just_connected = false; // Someone just connected to the ESP network
+inline bool display_client_connected = false; // Triggers a TM1637 flashing, when a client connects to the ESP network
 inline bool daylight_saving_enabled; // Daylight saving mode - ON/OFF
 inline bool daylight_saving_active;
 inline bool work_mode_is_timer = false; // false = RTC mode, true = Timer mode
@@ -90,7 +110,6 @@ inline volatile bool ap_station_associated = false; // Set/Cleared by SoftAP eve
 inline volatile uint16_t sta_disconnect_count = 0; // Bumped by every STA disconnect event
 
 // ---------------- Objects ---------------- //
-inline IPAddress time_server_ip; // NTP server ip container
 inline WiFiUDP udp;
 inline RTC_DS3231 rtc;
 inline ESP8266WebServer server(80);
@@ -114,8 +133,6 @@ inline bool SDA_READ() { return ((GPI & (1 << SDA)) != 0); }
 #ifdef  BRIGHTNESS_MODULE
 /* ---------------------------------- BRIGHTNESS MODULE SPECIFIC ---------------------------------- */
     #include "BrightnessModule.h"
-
-    inline int light_sensor_value;
 
     constexpr bool HAS_BRIGHTNESS_MODULE = true;
 #else
@@ -148,7 +165,6 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     constexpr unsigned long GPS_MAX_FIX_AGE = 2000UL; // A fix that was not refreshed within this window is stale
 
     inline bool set_time_with_gps = false;
-    inline unsigned long gps_search_started_ms = 0; // millis() timestamp of the current acquisition window
 
     inline TinyGPSPlus gps;
     inline SoftwareSerial gpsSerial(GPS_RX, GPS_TX);
@@ -182,7 +198,6 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     inline DallasTemperature temperatureSensor(&oneWire); // Object init
 
     inline int8_t current_temperature;
-    inline int8_t display_state_duration = 7; // Duration of the current state of the display. Time is shown for 7 seconds and temperature for 4
 
     constexpr bool HAS_TEMPERATURE_MODULE = true;
 
@@ -197,7 +212,6 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
 
     inline DummyTemperatureSensor temperatureSensor;
     inline int8_t current_temperature;
-    inline int8_t display_state_duration;
 
     void printCurrentTimeOrTemperature();
 

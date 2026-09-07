@@ -5,7 +5,7 @@
 void autoSetBrightness() {
   if (auto_brightness && blink_count == 0) {
     last_display_brightness = display_brightness;
-    light_sensor_value = analogRead(0); // Read from the light sensor
+    const int light_sensor_value = analogRead(0); // Read from the light sensor
 
     if (light_sensor_value <= 50)
       display_brightness = 0;

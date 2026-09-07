@@ -2,12 +2,15 @@
 #include "TemperatureModule.h"
 
 // Raw TM1637 segment patterns, one byte per digit with the bit order 0b0GFEDCBA
-const uint8_t GLYPH_BLANK  = 0x00; // No segments on
-const uint8_t GLYPH_MINUS  = 0x40; // G
-const uint8_t GLYPH_DEGREE = 0x63; // A, B, F, G
-const uint8_t GLYPH_C      = 0x39; // A, D, E, F
-const uint8_t GLYPH_E      = 0x79; // A, D, E, F, G
-const uint8_t GLYPH_R      = 0x50; // E, G
+constexpr uint8_t GLYPH_BLANK  = 0x00; // No segments on
+constexpr uint8_t GLYPH_MINUS  = 0x40; // G
+constexpr uint8_t GLYPH_DEGREE = 0x63; // A, B, F, G
+constexpr uint8_t GLYPH_C      = 0x39; // A, D, E, F
+constexpr uint8_t GLYPH_E      = 0x79; // A, D, E, F, G
+constexpr uint8_t GLYPH_R      = 0x50; // E, G
+
+static int8_t display_state_duration = 7; // Duration of the current state of the display. Time is shown for 7 seconds and temperature for 4
+static bool display_time = true;
 
 
 void printCurrentTemperature() {
@@ -16,43 +19,30 @@ void printCurrentTemperature() {
     current_temperature = temperatureSensor.getTempCByIndex(0);
   }
 
-  uint8_t temperature[] = {0, 0, 0, 0};
+  uint8_t temperature[4];
+  auto setDigits = [&temperature](uint8_t first, uint8_t second, uint8_t third, uint8_t fourth) {
+    temperature[0] = first;
+    temperature[1] = second;
+    temperature[2] = third;
+    temperature[3] = fourth;
+  };
 
-  if (current_temperature == 0) { // Zero case
-    temperature[0] = GLYPH_BLANK;
-    temperature[1] = tm1637.encodeDigit(0);
-    temperature[2] = GLYPH_DEGREE;
-    temperature[3] = GLYPH_C;
-  }
-  else if (current_temperature < 0 && current_temperature > -10) { // Temp less than 0 and more than -10
-    temperature[0] = GLYPH_MINUS;
-    temperature[1] = tm1637.encodeDigit(abs(current_temperature) % 10);
-    temperature[2] = GLYPH_DEGREE;
-    temperature[3] = GLYPH_C;
-  }
-  else if (current_temperature > 99 || current_temperature <= -79) { // Error message from temperature module
-    temperature[0] = GLYPH_E;
-    temperature[1] = GLYPH_R;
-    temperature[2] = GLYPH_R;
-    temperature[3] = tm1637.encodeDigit(2);
-  }
+  if (current_temperature == 0) // Zero case
+    setDigits(GLYPH_BLANK, tm1637.encodeDigit(0), GLYPH_DEGREE, GLYPH_C);
+  else if (current_temperature < 0 && current_temperature > -10) // Temp less than 0 and more than -10
+    setDigits(GLYPH_MINUS, tm1637.encodeDigit(abs(current_temperature) % 10), GLYPH_DEGREE, GLYPH_C);
+  else if (current_temperature > 99 || current_temperature <= -79) // Error message from temperature module
+    setDigits(GLYPH_E, GLYPH_R, GLYPH_R, tm1637.encodeDigit(2));
   else if (current_temperature <= -10) { // Temp less than -10
-    temperature[0] = GLYPH_MINUS;
-    temperature[1] = tm1637.encodeDigit(abs(current_temperature) / 10);
-    temperature[2] = tm1637.encodeDigit(abs(current_temperature) % 10);
-    temperature[3] = GLYPH_DEGREE;
+    const uint8_t abs_temp = abs(current_temperature);
+    setDigits(GLYPH_MINUS, tm1637.encodeDigit(abs_temp / 10), tm1637.encodeDigit(abs_temp % 10), GLYPH_DEGREE);
   }
-  else if (current_temperature > 0 && current_temperature < 10) {
-    temperature[0] = GLYPH_BLANK;
-    temperature[1] = tm1637.encodeDigit(current_temperature % 10);
-    temperature[2] = GLYPH_DEGREE;
-    temperature[3] = GLYPH_C;
-  }
+  else if (current_temperature > 0 && current_temperature < 10)
+    setDigits(GLYPH_BLANK, tm1637.encodeDigit(current_temperature % 10), GLYPH_DEGREE, GLYPH_C);
   else { // Every other case (10 to 99)
-    temperature[0] = tm1637.encodeDigit(current_temperature / 10);
-    temperature[1] = tm1637.encodeDigit(current_temperature % 10);
-    temperature[2] = GLYPH_DEGREE;
-    temperature[3] = GLYPH_C;
+    setDigits(tm1637.encodeDigit(current_temperature / 10),
+              tm1637.encodeDigit(current_temperature % 10),
+              GLYPH_DEGREE, GLYPH_C);
   }
 
   tm1637.setSegments(temperature);

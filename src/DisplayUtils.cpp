@@ -1,15 +1,28 @@
 // DisplayUtils.cpp
 #include "DisplayUtils.h"
 
+// Raw TM1637 segment patterns, one byte per digit with the bit order 0b0GFEDCBA
+constexpr uint8_t GLYPH_BLANK      = 0x00;
+constexpr uint8_t GLYPH_TOP_BOTTOM = 0x09; // A, D
+constexpr uint8_t GLYPH_BOX        = 0x0F; // A, B, C, D
+constexpr uint8_t GLYPH_LEFT_BAR   = 0x30; // E, F
+
+static bool last_auto_brightness = true;
+
 
 void displayClockJustUpdated(bool updated_from_gps) {
   // Effect when the clock time is set
   const uint8_t ANIMATION_LENGTH = 9;
-  const uint8_t TIME_SET_ANIMATION[ANIMATION_LENGTH][4] = {{(SEG_E | SEG_F), 0, 0, 0 }, {(SEG_A | SEG_B | SEG_C | SEG_D), 0, 0, 0},
-    {(SEG_A | SEG_D), (SEG_E | SEG_F), 0, 0}, {(SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D), 0, 0},
-    {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_E | SEG_F), 0}, {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D), 0},
-    {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_E | SEG_F)}, {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_B | SEG_C | SEG_D)},
-    {(SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D), (SEG_A | SEG_D)}
+  const uint8_t TIME_SET_ANIMATION[ANIMATION_LENGTH][4] = {
+    { GLYPH_LEFT_BAR,   GLYPH_BLANK,      GLYPH_BLANK,      GLYPH_BLANK      },
+    { GLYPH_BOX,        GLYPH_BLANK,      GLYPH_BLANK,      GLYPH_BLANK      },
+    { GLYPH_TOP_BOTTOM, GLYPH_LEFT_BAR,   GLYPH_BLANK,      GLYPH_BLANK      },
+    { GLYPH_TOP_BOTTOM, GLYPH_BOX,        GLYPH_BLANK,      GLYPH_BLANK      },
+    { GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM, GLYPH_LEFT_BAR,   GLYPH_BLANK      },
+    { GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM, GLYPH_BOX,        GLYPH_BLANK      },
+    { GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM, GLYPH_LEFT_BAR   },
+    { GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM, GLYPH_BOX        },
+    { GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM, GLYPH_TOP_BOTTOM }
   };
 
   // Animate effect
@@ -29,7 +42,7 @@ void displayClockJustUpdated(bool updated_from_gps) {
 
 
 void flashDisplay() {
-  if (someone_just_connected && blink_count == 0) {
+  if (display_client_connected && blink_count == 0) {
     blink_count = 6;
     last_auto_brightness = auto_brightness;
     last_display_brightness = display_brightness;
@@ -49,11 +62,11 @@ void flashDisplay() {
     blink_count--;
 
     if (blink_count == 0) {
-      someone_just_connected = false;
+      display_client_connected = false;
       auto_brightness = last_auto_brightness;
     }
 
-    if (!someone_just_connected && !connected_to_ntp) {
+    if (!display_client_connected && !connected_to_ntp) {
       blink_count = 0;
       auto_brightness = last_auto_brightness;
       display_brightness = last_display_brightness;
