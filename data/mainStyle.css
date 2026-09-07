@@ -416,9 +416,10 @@ fieldset {
     display: flex;
     justify-content: center;
     align-items: center;
-    width: fit-content;
+    width: 95%;
     margin: 5px auto;
 }
+.password-field input { width: 100%; }
 #js-password-button-container, .password-field-button {
     position: absolute;
     width: var(--password-field-button-size);
