@@ -22,7 +22,7 @@ void checkForUserConnection() {
       software_update_server_active = false;
 
       if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("OTA update server stopped"));
+        Serial.println(F("[checkForUserConnection] OTA update server stopped"));
     }
 
     if (counted)
@@ -41,7 +41,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
     if constexpr (DEBUG_MESSAGES) {
       char ssid_buf[33]; // Max SSID len (32) + NUL = 33
       currentSsid(ssid_buf);
-      Serial.print(F("Already connected to "));
+      Serial.print(F("[connectClockToNetwork] Already connected to "));
       Serial.println(ssid_buf);
     }
 
@@ -54,7 +54,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
   yield();
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("Trying to connect to "));
+    Serial.print(F("[connectClockToNetwork] Trying to connect to "));
     Serial.print(ssid);
 
     if (bssid) {
@@ -76,7 +76,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
       saveNetworkInfo(ssid, pass, is_hidden ? "true" : "false", WiFi.channel(), WiFi.BSSID());
 
       if constexpr (DEBUG_MESSAGES) {
-        Serial.print(F("\nConnected to "));
+        Serial.print(F("\n[connectClockToNetwork] Connected to "));
         Serial.println(ssid);
       }
 
@@ -89,7 +89,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
         status = WL_NO_SSID_AVAIL;
 
       if constexpr (DEBUG_MESSAGES) {
-        Serial.print(F("\nConnection attempt stopped. Wi-Fi status "));
+        Serial.print(F("\n[connectClockToNetwork] Connection attempt stopped. Wi-Fi status "));
         Serial.println(status);
       }
 
@@ -100,7 +100,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
   }
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("Connect attempt duration: "));
+    Serial.print(F("[connectClockToNetwork] Connect attempt duration: "));
     Serial.print(millis() - started_ms);
     Serial.println(F(" ms"));
   }
@@ -148,6 +148,7 @@ void evictStaleStations() {
     si = STAILQ_NEXT(si, next);
 
     if constexpr (DEBUG_MESSAGES) {
+      Serial.print(F("[evictStaleStations] "));
       Serial.print(mac_addr);
       Serial.println(F(" disconnected from softAP due to inactivity"));
     }
@@ -165,7 +166,7 @@ bool fastConnectCacheIsValid(uint8_t channel, const uint8_t* bssid) {
     int8_t number_of_networks = WiFi.scanNetworks(false, true, channel);
 
     if constexpr (DEBUG_MESSAGES) {
-      Serial.print(F("scanNetworks: "));
+      Serial.print(F("[fastConnectCacheIsValid] scanNetworks: "));
       Serial.println(number_of_networks);
     }
 
@@ -230,9 +231,9 @@ bool loadNetworkInfo(char* buf, size_t buf_size, const char* data[5]) {
   for (uint8_t i = 0; i < 5; i++)
     data[i] = nullptr;
 
-  if (!LittleFS.exists("creds.txt")) return false;
+  if (!LittleFS.exists(CREDS_FILE)) return false;
 
-  File f = LittleFS.open("creds.txt", "r");
+  File f = LittleFS.open(CREDS_FILE, "r");
 
   if (!f) return false;
 
@@ -263,7 +264,7 @@ void manageStaReconnect() {
   static bool back_off_active = false;
   static uint8_t back_off_hour = 0;
 
-  if (!LittleFS.exists("creds.txt") ||
+  if (!LittleFS.exists(CREDS_FILE) ||
       ap_station_associated ||
       millis() < radio_settle_until_ms)
       return;
@@ -318,7 +319,7 @@ bool networkIsInRange(const char* ssid) {
     return false;
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("Requested: "));
+    Serial.print(F("[networkIsInRange] Requested: "));
     Serial.println(ssid);
   }
 
@@ -364,8 +365,11 @@ wl_status_t networkReconnect() {
     const char* network_data[5];
 
     if (!loadNetworkInfo(buf, sizeof(buf), network_data)) {
-      if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("No creds.txt file"));
+      if constexpr (DEBUG_MESSAGES) {
+        Serial.print(F("[networkReconnect] No "));
+        Serial.print(CREDS_FILE);
+        Serial.println(F(" file"));
+      }
 
       return connection_status;
     }
@@ -379,14 +383,14 @@ wl_status_t networkReconnect() {
       bssid_ptr = bssid;
     }
 
-    bool is_hidden = strcmp(network_data[2], "true") == 0;
+    bool is_hidden = network_data[2] && strcmp(network_data[2], "true") == 0;
 
     if (bssid_ptr && fastConnectCacheIsValid(channel, bssid_ptr))
       connection_status = connectClockToNetwork(network_data[0], network_data[1], is_hidden, channel, bssid_ptr);
 
     if (connection_status != WL_CONNECTED) {
       if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("Running full Wi-Fi scan"));
+        Serial.println(F("[networkReconnect] Running full Wi-Fi scan"));
 
       connection_status = connectClockToNetwork(network_data[0], network_data[1], is_hidden);
     }
@@ -438,13 +442,13 @@ bool readTimestamp(uint32_t &secs_since_1900) {
 
   if (udp.remoteIP() != time_server_ip) {
     if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("NTP response from unexpected source discarded"));
+      Serial.println(F("[readTimestamp] NTP response from unexpected source discarded"));
 
     return false;
   }
 
   if constexpr (DEBUG_MESSAGES)
-    Serial.println(F("\nNTP response received"));
+    Serial.println(F("\n[readTimestamp] NTP response received"));
 
   byte packet_buffer[NTP_PACKET_SIZE];
 
@@ -457,7 +461,7 @@ bool readTimestamp(uint32_t &secs_since_1900) {
 
   if (li == 3 || mode != 4 || stratum == 0 || stratum > 15) {
     if constexpr (DEBUG_MESSAGES) {
-      Serial.print(F("NTP packet rejected: LI="));
+      Serial.print(F("[readTimestamp] NTP packet rejected: LI="));
       Serial.print(li);
       Serial.print(F(" | mode="));
       Serial.print(mode);
@@ -488,16 +492,34 @@ void saveNetworkInfo(const char *network_name, const char* network_pass, const c
 
   if (n <= 0 || n >= (int)sizeof(buf)) {
     if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("\nSave Network Info: snprintf overflow"));
+      Serial.println(F("\n[saveNetworkInfo] snprintf overflow"));
 
     return;
   }
 
-  File f = LittleFS.open("creds.txt", "w");
+  File current = LittleFS.open(CREDS_FILE, "r");
+
+  if (current) {
+    char stored[sizeof(buf)];
+    const int stored_length = current.read((uint8_t*)stored, sizeof(stored));
+    current.close();
+
+    if (stored_length == n && memcmp(stored, buf, (size_t)n) == 0) {
+      if constexpr (DEBUG_MESSAGES)
+        Serial.println(F("\n[saveNetworkInfo] Network info unchanged, skipping write"));
+
+      return;
+    }
+  }
+
+  File f = LittleFS.open(CREDS_FILE, "w");
 
   if (!f) {
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("\nSave Network Info: Failed to open creds.txt"));
+    if constexpr (DEBUG_MESSAGES) {
+      Serial.print(F("\n[saveNetworkInfo] Failed to open "));
+      Serial.print(CREDS_FILE);
+      Serial.println(F(" for writing"));
+    }
 
     return;
   }
@@ -509,7 +531,7 @@ void saveNetworkInfo(const char *network_name, const char* network_pass, const c
 
 void sendPacket(IPAddress& address) {
   if constexpr (DEBUG_MESSAGES)
-    Serial.println(F("Preparing NTP packet"));
+    Serial.println(F("[sendPacket] Preparing NTP packet"));
 
   byte packet_buffer[NTP_PACKET_SIZE];
 
@@ -529,7 +551,7 @@ void sendPacket(IPAddress& address) {
   udp.endPacket();
 
   if constexpr (DEBUG_MESSAGES)
-    Serial.print(F("NTP packet sent. Waiting response"));
+    Serial.print(F("[sendPacket] NTP packet sent. Waiting response"));
 }
 
 

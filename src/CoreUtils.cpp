@@ -13,6 +13,7 @@ void applyTimeUpdate(time_t standard_epoch, bool updated_from_gps) {
   displayClockJustUpdated(updated_from_gps);
 
   if constexpr (DEBUG_MESSAGES) {
+    Serial.print(F("[applyTimeUpdate] "));
     Serial.print(updated_from_gps ? F("Time updated from GPS") : F("Time updated from NTP server"));
     Serial.println(dst_applied ? F(" (+1h DST)\n") : F("\n"));
   }
@@ -52,7 +53,7 @@ void daylightSavingChange() {
   daylight_saving_active = is_daylight_saving_period;
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("DST offset "));
+    Serial.print(F("[daylightSavingChange] DST offset "));
     Serial.println(is_daylight_saving_period ? F("applied (+1h)") : F("removed (-1h)"));
   }
 }
@@ -60,11 +61,14 @@ void daylightSavingChange() {
 
 void getInitialClockSettings() {
   char buf[512];
-  File f = LittleFS.open("/espSettings.xml", "r");
+  File f = LittleFS.open(SETTINGS_FILE, "r");
 
   if (!f) {
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("Initial settings: could not open espSettings.xml"));
+    if constexpr (DEBUG_MESSAGES) {
+      Serial.print(F("[getInitialClockSettings] Could not open "));
+      Serial.print(SETTINGS_FILE);
+      Serial.println(F(" for reading"));
+    }
 
     return;
   }
@@ -125,7 +129,7 @@ uint8_t getLastSundayDate(DateTime &now) {
 void initializeFileSystem() {
   while (!LittleFS.begin()) {
     if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("Failed to initialize file system"));
+      Serial.println(F("[initializeFileSystem] Failed to initialize file system"));
   }
 
   getInitialClockSettings();
@@ -138,7 +142,7 @@ void initializePeripherals() {
 
   while (!rtc.begin()) { // If the RTC is not found do not boot
     if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("\nInitializing RTC"));
+      Serial.println(F("\n[initializePeripherals] Initializing RTC"));
 
     resetRTC(); // The RTC may unsynchronize while switching power source - reset it
   }
@@ -293,7 +297,7 @@ void resetRTC() {
   }
 
   if constexpr (DEBUG_MESSAGES)
-    Serial.println(F("RTC reset"));
+    Serial.println(F("[resetRTC] RTC reset"));
 
   digitalWrite(LED_PIN, HIGH);
   delay(250);
@@ -313,7 +317,7 @@ void timerCountdown() {
       timer_status = 0; // Stop the timer when it reaches zero
 
       if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("Timer finished"));
+        Serial.println(F("[timerCountdown] Timer finished"));
     }
   }
 }

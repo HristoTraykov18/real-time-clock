@@ -59,7 +59,7 @@ void activateGPS() {
   gps_search_started_ms = millis();
 
   if constexpr (DEBUG_MESSAGES)
-    Serial.println(F("GPS initialized. Searching for fix."));
+    Serial.println(F("[activateGPS] GPS initialized. Searching for fix."));
 }
 
 
@@ -88,7 +88,7 @@ void serviceGPS() {
       gps_state = GpsState::Locked;
 
       if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("GPS fix acquired"));
+        Serial.println(F("[serviceGPS] GPS fix acquired"));
     }
 
     return;
@@ -99,14 +99,14 @@ void serviceGPS() {
     gps_search_started_ms = millis();
 
     if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("GPS fix lost, searching again"));
+      Serial.println(F("[serviceGPS] GPS fix lost, searching again"));
   }
   else if (gps_state == GpsState::Searching &&
            millis() - gps_search_started_ms > GPS_ACQUISITION_TIMEOUT) {
     gps_state = GpsState::TimedOut;
 
     if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("GPS unreachable, falling back to manual updates"));
+      Serial.println(F("[serviceGPS] GPS unreachable, falling back to manual updates"));
   }
 }
 

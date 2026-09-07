@@ -69,7 +69,7 @@ int getPacketLength(IPAddress& address);
 void initializeSoftAP();
 
 /**
- * @brief Reads the stored network information from `creds.txt` into the caller's buffer and data pointers.
+ * @brief Reads the stored network information from `/creds.txt` into the caller's buffer and data pointers.
  * @param buf Destination character buffer that holds the raw file content.
  * @param buf_size Size of the destination buffer in bytes.
  * @param data Array of 5 pointers populated with SSID, password, hidden flag, channel, and BSSID strings.
@@ -90,7 +90,7 @@ void manageStaReconnect();
 bool networkIsInRange(const char* ssid);
 
 /**
- * @brief Reads network credentials stored locally inside `creds.txt` and attempts system re-association.
+ * @brief Reads network credentials stored locally inside `/creds.txt` and attempts system re-association.
  * @return wl_status_t The Wi-Fi status reported after the reconnect attempt.
  */
 wl_status_t networkReconnect();

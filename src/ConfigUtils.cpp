@@ -21,7 +21,8 @@ void editDaylightSavingEnabled(const char new_value[]) {
 
 
 void editManualBrightness(const char new_value[]) {
-  editSettingsFile(new_value, 3);
+  if (display_brightness != atoi(new_value))
+    editSettingsFile(new_value, 3);
 
   if (!auto_brightness)
     last_display_brightness = display_brightness;
@@ -30,11 +31,14 @@ void editManualBrightness(const char new_value[]) {
 
 void editSettingsFile(const char new_value[], uint8_t tags_id) {
   char buf[512]; // Enough to keep the entire file content
-  File f = LittleFS.open("/espSettings.xml", "r");
+  File f = LittleFS.open(SETTINGS_FILE, "r");
 
   if (!f) {
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("Edit settings: could not open espSettings.xml for reading"));
+    if constexpr (DEBUG_MESSAGES) {
+      Serial.print(F("[editSettingsFile] Could not open "));
+      Serial.print(SETTINGS_FILE);
+      Serial.println(F(" for reading"));
+    }
 
     return;
   }
@@ -55,11 +59,14 @@ void editSettingsFile(const char new_value[], uint8_t tags_id) {
 
   if (!value_end) return;
 
-  f = LittleFS.open("/espSettings.xml", "w");
+  f = LittleFS.open(SETTINGS_FILE, "w");
 
   if (!f) {
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("Edit settings: could not open espSettings.xml for writing"));
+    if constexpr (DEBUG_MESSAGES) {
+      Serial.print(F("[editSettingsFile] Could not open "));
+      Serial.print(SETTINGS_FILE);
+      Serial.println(F(" for writing"));
+    }
 
     return;
   }

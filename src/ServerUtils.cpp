@@ -47,11 +47,11 @@ const char* handleBrightnessControl() {
 
 
 void handleDeleteCreds() {
-  const bool had_creds = LittleFS.exists("creds.txt");
+  const bool had_creds = LittleFS.exists(CREDS_FILE);
   sendWebpageResponse(had_creds ? "Запазената мрежа е изтрита!" : "Няма запазена мрежа!");
 
   if (had_creds) {
-    LittleFS.remove("creds.txt");
+    LittleFS.remove(CREDS_FILE);
     WiFi.disconnect(true);
   }
 }
@@ -107,7 +107,7 @@ const char* handleManualTimeSync() {
 
   manualTimeUpdate();
 
-  if (!LittleFS.exists("creds.txt"))
+  if (!LittleFS.exists(CREDS_FILE))
     return "Часовникът се свери автоматично от устройството Ви.";
 
   snprintf(response_buf, sizeof(response_buf),
@@ -230,7 +230,7 @@ const char* handleWifiTimeSync(const String& ssid) {
 void initializeServers() {
   if (udp.begin(2390)) {
     if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("Initializing UDP for NTP"));
+      Serial.println(F("[initializeServers] Initializing UDP for NTP"));
   }
 
   const char* header_keys[] = { "Range" };
@@ -249,7 +249,7 @@ void initializeServers() {
   server.on("/neonLogoIcon.ico", [] () { streamFileToClient("/neonLogoIcon.ico", "image/x-icon"); });
   server.on("/mainStyle.css", [] () { streamFileToClient("/mainStyle.css", "text/css"); });
   server.on("/mainScript.js", [] () { streamFileToClient("/mainScript.js", "text/javascript"); });
-  server.on("/settings", [] () { streamFileToClient("/espSettings.xml", "text/xml"); });
+  server.on("/settings", [] () { streamFileToClient(SETTINGS_FILE, "text/xml"); });
   server.on("/m", handleDeviceMonitoring);
   server.begin();
 
@@ -260,8 +260,8 @@ void initializeServers() {
   httpUpdater.setup(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS);
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.println(F("Web server started"));
-    Serial.println(F("Software update server configured (not started)"));
+    Serial.println(F("[initializeServers] Web server started"));
+    Serial.println(F("[initializeServers] Software update server configured (not started)"));
   }
 }
 
@@ -270,13 +270,13 @@ void sendAdditionalSettings() {
   char response[16];
   snprintf(response, sizeof(response), "%d|%s",
            timezone,
-           LittleFS.exists("creds.txt") ? "true" : "false");
+           LittleFS.exists(CREDS_FILE) ? "true" : "false");
 
   server.send(200, "text/plain", response);
   last_http_activity_ms = millis();
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("Additional settings: "));
+    Serial.print(F("[sendAdditionalSettings] Additional settings: "));
     Serial.println(response);
   }
 }
@@ -315,7 +315,7 @@ void sendClockInfo() {
   last_http_activity_ms = millis();
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("Clock info: "));
+    Serial.print(F("[sendClockInfo] Clock info: "));
     Serial.println(response);
   }
 }
@@ -352,7 +352,7 @@ void sendNetworksList() {
   WiFi.scanDelete();                // Free scan memory
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("Networks sent: "));
+    Serial.print(F("[sendNetworksList] Networks sent: "));
     Serial.println(n);
   }
 }
@@ -362,8 +362,10 @@ void sendWebpageResponse(const char *webpage_response) {
   server.send(200, "text/plain", webpage_response);
   last_http_activity_ms = millis();
 
-  if constexpr (DEBUG_MESSAGES)
+  if constexpr (DEBUG_MESSAGES) {
+    Serial.print(F("[sendWebpageResponse] Response: "));
     Serial.println(webpage_response);
+  }
 }
 
 
@@ -374,7 +376,7 @@ void streamFileToClient(const char *filename, const char *content_type) {
     server.send(404, "text/plain", "");
 
     if constexpr (DEBUG_MESSAGES) {
-      Serial.print(F("Could not open "));
+      Serial.print(F("[streamFileToClient] Could not open "));
       Serial.println(filename);
     }
 
@@ -411,7 +413,7 @@ void streamFileToClient(const char *filename, const char *content_type) {
       data_file.close();
 
       if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("Range not satisfiable!"));
+        Serial.println(F("[streamFileToClient] Range not satisfiable!"));
 
       return;
     }
@@ -460,7 +462,7 @@ void streamFileToClient(const char *filename, const char *content_type) {
 
   if constexpr (DEBUG_MESSAGES) {
     if (sent != length) {
-      Serial.print(F("Incomplete stream: "));
+      Serial.print(F("[streamFileToClient] Incomplete stream: "));
       Serial.print(filename);
       Serial.print(F(" "));
       Serial.print(sent);
