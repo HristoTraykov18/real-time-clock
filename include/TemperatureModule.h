@@ -13,6 +13,11 @@
 #include "DisplayUtils.h"
 
 /**
+ * @brief Enumerates the 1-Wire bus, caches the sensor address and takes the first blocking reading.
+ */
+void initializeTemperatureSensor();
+
+/**
  * @brief Decodes and prints the current temperature reading to the TM1637 display segments.
  */
 void printCurrentTemperature();

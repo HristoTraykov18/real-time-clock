@@ -43,14 +43,8 @@ void setup() {
       activateGPS(); // GPS module function
   }
 
-  if constexpr (HAS_TEMPERATURE_MODULE) {
-    temperatureSensor.begin(); // Enumerate the 1-Wire bus. Required before reading by index
-    temperatureSensor.requestTemperatures();
-    current_temperature = temperatureSensor.getTempCByIndex(0);
-  }
-
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("MAC: "));
+    Serial.print(F("[setup] MAC: "));
     Serial.println(WiFi.macAddress());
   }
 

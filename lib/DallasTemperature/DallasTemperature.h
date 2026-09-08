@@ -63,6 +63,7 @@ public:
     // Setup & Configuration
     void setOneWire(OneWire*);
     void begin(void);
+    void setWaitForConversion(bool flag) { waitForConversion = flag; }
 
     // Device Information
     bool validAddress(const uint8_t*);

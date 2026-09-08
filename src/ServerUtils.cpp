@@ -230,7 +230,7 @@ const char* handleWifiTimeSync(const String& ssid) {
 void initializeServers() {
   if (udp.begin(2390)) {
     if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("[initializeServers] Initializing UDP for NTP"));
+      Serial.println(F("[initializeServers] Initialized UDP port for NTP"));
   }
 
   const char* header_keys[] = { "Range" };

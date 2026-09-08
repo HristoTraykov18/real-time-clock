@@ -27,7 +27,7 @@
 #define SEG_F   0b00100000
 #define SEG_G   0b01000000
 
-#define DEFAULT_BIT_DELAY  100
+#define DEFAULT_BIT_DELAY  50
 
 class TM1637Display {
 

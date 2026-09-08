@@ -197,21 +197,12 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     inline OneWire oneWire(ONE_WIRE_BUS);
     inline DallasTemperature temperatureSensor(&oneWire); // Object init
 
-    inline int8_t current_temperature;
-
     constexpr bool HAS_TEMPERATURE_MODULE = true;
 
 /* ----------------------------------------------------------------------------------------------- */
 #else
 /* ------------------------------------ NO TEMPERATURE MODULE ------------------------------------ */
-    struct DummyTemperatureSensor {
-        void begin() {}
-        void requestTemperatures() {}
-        int8_t getTempCByIndex(int index) { index = 0; return index; }
-    };
-
-    inline DummyTemperatureSensor temperatureSensor;
-    inline int8_t current_temperature;
+    void initializeTemperatureSensor();
 
     void printCurrentTimeOrTemperature();
 

@@ -141,16 +141,17 @@ void initializePeripherals() {
   tm1637.setBrightness(DEFAULT_BRIGHTNESS);
   tm1637.showNumber(8888, 32);
 
-  while (!rtc.begin()) { // If the RTC is not found do not boot
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("\n[initializePeripherals] Initializing RTC"));
-
+  while (!rtc.begin()) // If the RTC is not found do not boot
     resetRTC(); // The RTC may unsynchronize while switching power source - reset it
-  }
 
-  while (rtc.now().hour() > 23 || rtc.now().minute() > 59 || rtc.now().second() > 59) {
+  while (rtc.now().hour() > 23 || rtc.now().minute() > 59 || rtc.now().second() > 59)
     resetRTC();
-  }
+
+  if constexpr (DEBUG_MESSAGES)
+    Serial.println(F("\n[initializePeripherals] RTC initialized"));
+
+  if constexpr (HAS_TEMPERATURE_MODULE)
+    initializeTemperatureSensor(); // Temperature module function
 }
 
 
