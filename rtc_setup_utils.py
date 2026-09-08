@@ -21,7 +21,11 @@ class CompileFolder:
     """
 
     COMPILE_FOLDER = "Real_Time_Clock_Compile"
-    SOURCE_DIRS = ["data", "include", "lib", "src"]
+
+    # Each build owns a set of folders and refreshes only those, so the two never wipe each other
+    FIRMWARE_DIRS = ["include", "lib", "src"]
+    FILESYSTEM_DIRS = ["data"]
+
     DATA_DIR = "data"
     GLOBALS_HEADER = os.path.join("include", "Globals.h")
     SETTINGS_XML = os.path.join("data", "espSettings.xml")
@@ -127,9 +131,12 @@ class CompileFolder:
         """ Path to something inside the compile folder """
         return os.path.join(self.COMPILE_FOLDER, *parts)
 
-    def copy_sources(self):
-        """ Copy every source folder and the PlatformIO configuration into the compile folder """
-        for source_dir in self.SOURCE_DIRS:
+    def copy_sources(self, source_dirs):
+        """
+        Copy the given source folders into the compile folder.
+        The PlatformIO configuration comes along every time, because both builds are run against it
+        """
+        for source_dir in source_dirs:
             destination = self.compiled(source_dir)
 
             if source_dir == self.DATA_DIR:
@@ -140,7 +147,7 @@ class CompileFolder:
                 shutil.copytree(source_dir, destination)
 
         shutil.copy(PROJECT_FILE, self.COMPILE_FOLDER)
-        self.report.append("Sources copied to the compile folder")
+        self.report.append(f"Copied {', '.join(source_dirs)} to the compile folder")
 
     def edit_timezone(self):
         """ Write the selected timezone offset into the copied espSettings.xml """
@@ -203,41 +210,49 @@ class CompileFolder:
 
         self.report.append("Webpage files optimized")
 
-    def prepare(self):
+    def prepare_filesystem(self):
         """
-        Rebuild the compile folder from the repository sources and return the progress lines.
+        Rebuild the `data` folder of the compile copy and return the progress lines.
         Raises on failure, leaving the folder half built. The lines collected before the failure
         stay in `report`, so a caller can still show how far it got
         """
         self.report = []
 
-        self.reset_folder()
-        self.copy_sources()
+        self.reset_folder(self.FILESYSTEM_DIRS)
+        self.copy_sources(self.FILESYSTEM_DIRS)
         self.edit_timezone()
-        self.set_debug_messages()
-        self.set_credentials()
         self.add_addon_content()
         self.minify_webpage_files()
 
         return self.report
 
-    def reset_folder(self):
-        """ Create the compile folder, or empty it, keeping the PlatformIO cache for fast rebuilds """
-        if not os.path.exists(self.COMPILE_FOLDER):
-            os.makedirs(self.COMPILE_FOLDER)
+    def prepare_firmware(self):
+        """
+        Rebuild the `include`, `lib` and `src` folders of the compile copy and return the
+        progress lines. Raises on failure, leaving the folders half built. The lines collected
+        before the failure stay in `report`, so a caller can still show how far it got
+        """
+        self.report = []
 
-            return
+        self.reset_folder(self.FIRMWARE_DIRS)
+        self.copy_sources(self.FIRMWARE_DIRS)
+        self.set_debug_messages()
+        self.set_credentials()
 
-        for entry in os.listdir(self.COMPILE_FOLDER):
-            if entry == ".pio":
-                continue
+        return self.report
 
-            path = self.compiled(entry)
+    def reset_folder(self, source_dirs):
+        """
+        Create the compile folder and drop only the source folders that are about to be rewritten.
+        The PlatformIO cache and the folders owned by the other build are left untouched
+        """
+        os.makedirs(self.COMPILE_FOLDER, exist_ok=True)
+
+        for source_dir in source_dirs:
+            path = self.compiled(source_dir)
 
             if os.path.isdir(path):
                 shutil.rmtree(path)
-            else:
-                os.remove(path)
 
     @staticmethod
     def rewrite_file(path, transform):

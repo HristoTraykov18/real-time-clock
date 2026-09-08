@@ -181,6 +181,37 @@ class SetupApp:
 
         return True
 
+    def prepare_compile_folder(self, prepare_step):
+        """
+        Refresh the part of the compile folder that one build needs, before that build starts.
+        `prepare_step` is the CompileFolder method that copies and edits the files of that build.
+        Appends its progress to the status area and returns False when the copy was not made
+        """
+        if not self.environments:
+            self.status.show(f"No environments found in {PROJECT_FILE}")
+
+            return False
+
+        is_edit_id = self.is_edit_id.get() == 1
+        folder = CompileFolder(environment=self.selected_env.get(),
+                               timezone=self.timezone_value,
+                               clock_id=self.clock_id_value if is_edit_id else None,
+                               production=self.is_production_setup.get() == 1)
+
+        try:
+            for line in prepare_step(folder):
+                self.status += line
+        except Exception as error:
+            self.status.show(f"Failed to prepare the compile folder\n{error}")
+
+            return False
+
+        # The ID is written into Globals.h, so only a firmware build consumes one
+        if is_edit_id and prepare_step is CompileFolder.prepare_firmware:
+            self.save_and_increment_clock_id()
+
+        return True
+
     def run_monitor(self):
         """
         Open a serial monitor terminal for the selected environment.
@@ -202,20 +233,27 @@ class SetupApp:
         self.status += f"Serial Monitor Started for {environment}"
         self.status.show()
 
-    def run_platformio(self, title, *targets):
-        """ Launch PlatformIO against the compile folder in a terminal that waits to be closed """
+    def run_platformio(self, title, *targets, prepare=None):
+        """
+        Launch PlatformIO against the compile folder in a terminal that waits to be closed.
+        `prepare` is the CompileFolder step that refreshes the files this target needs, or None
+        for the upload targets, which reuse whatever their own build left behind
+        """
         self.status.clear()
-        compile_path = os.path.abspath(CompileFolder.COMPILE_FOLDER)
-
-        if not os.path.isfile(os.path.join(compile_path, PROJECT_FILE)):
-            self.status.show("Compile folder is not ready\nRun \"Set files\" first")
-
-            return
-
         environment = self.selected_env.get()
 
         if not environment:
             self.status.show("No PlatformIO environment selected")
+
+            return
+
+        if prepare is not None and not self.prepare_compile_folder(prepare):
+            return
+
+        compile_path = os.path.abspath(CompileFolder.COMPILE_FOLDER)
+
+        if not os.path.isfile(os.path.join(compile_path, PROJECT_FILE)):
+            self.status.show("Compile folder is not ready\nRun a build first")
 
             return
 
@@ -240,7 +278,7 @@ class SetupApp:
         self.id_display.config(text=f"{self.clock_id_value:05d}")
 
     def set_action_buttons_enabled(self, is_enabled):
-        """ Grey out the set files, build and upload buttons while a terminal is open """
+        """ Grey out the build, upload and monitor buttons while a terminal is open """
         for button in self.action_buttons:
             button.config(state=tk.NORMAL if is_enabled else tk.DISABLED)
 
@@ -260,23 +298,20 @@ class SetupApp:
         self.env_combobox = ttk.Combobox(self.root, textvariable=self.selected_env, width=26,
                                          state="readonly", values=self.environments)
 
-        self.set_files_button = tk.Button(self.root, text="Set Files",
-                                          width=10, command=self.set_files)
-        self.action_buttons.append(self.set_files_button)
-
         firmware_label = tk.Label(self.root, text="Firmware")
         firmware_frame = tk.Frame(self.root)
         filesystem_label = tk.Label(self.root, text="File System")
         filesystem_frame = tk.Frame(self.root)
 
-        # PlatformIO build commands, buttons are greyed out while a terminal is open
-        for parent, text, title, targets in (
-                (firmware_frame, "Build", "Firmware build", ()),
-                (firmware_frame, "Upload", "Firmware upload", ("upload",)),
-                (filesystem_frame, "Build", "File system build", ("buildfs",)),
-                (filesystem_frame, "Upload", "File system upload", ("uploadfs",))):
-            button = tk.Button(parent, text=text, width=10,
-                               command=lambda t=title, a=targets: self.run_platformio(t, *a))
+        # PlatformIO commands, buttons are greyed out while a terminal is open
+        for parent, text, title, targets, prepare in (
+                (firmware_frame, "Build", "Firmware build", (), CompileFolder.prepare_firmware),
+                (firmware_frame, "Upload", "Firmware upload", ("upload",), None),
+                (filesystem_frame, "Build", "File system build", ("buildfs",), CompileFolder.prepare_filesystem),
+                (filesystem_frame, "Upload", "File system upload", ("uploadfs",), None)):
+            button = tk.Button(
+                parent, text=text, width=10,
+                command=lambda t=title, a=targets, p=prepare: self.run_platformio(t, *a, prepare=p))
             button.pack(side=tk.LEFT, padx=3)
             self.action_buttons.append(button)
 
@@ -286,41 +321,12 @@ class SetupApp:
         self.status = StatusArea(self.root)
 
         for element in [cb, self.cb_edit_id, timezone_frame, env_label,
-                        self.env_combobox, self.set_files_button,
-                        firmware_label, firmware_frame, filesystem_label,
-                        filesystem_frame, debugging_label, monitor_button,
-                        self.status]:
+                        self.env_combobox, firmware_label, firmware_frame,
+                        filesystem_label, filesystem_frame, debugging_label,
+                        monitor_button, self.status]:
             element.pack(pady=3)
 
         self.env_combobox.focus()
-
-    def set_files(self):
-        """ Build the compile ready copy of the project. The main method """
-        self.status.clear()
-
-        if not self.environments:
-            self.status.show(f"No environments found in {PROJECT_FILE}")
-
-            return
-
-        is_edit_id = self.is_edit_id.get() == 1
-        folder = CompileFolder(environment=self.selected_env.get(),
-                               timezone=self.timezone_value,
-                               clock_id=self.clock_id_value if is_edit_id else None,
-                               production=self.is_production_setup.get() == 1)
-
-        try:
-            for line in folder.prepare():
-                self.status += line
-        except Exception as error:
-            self.status.show(f"Failed to prepare the compile folder\n{error}")
-
-            return
-
-        if is_edit_id:
-            self.save_and_increment_clock_id()
-
-        self.status.show()
 
     def toggle_edit_id(self):
         """ Show or hide the clock ID row depending on the checkbox state """
