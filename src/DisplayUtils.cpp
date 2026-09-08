@@ -77,6 +77,71 @@ void flashDisplay() {
 }
 
 
+void printCurrentTime() {
+  DateTime now = rtc.now();
+  int h = now.hour(); // Current hour
+  int m = now.minute(); // Current minute
+  int digits_to_print = ((h / 10) * 1000) + ((h % 10) * 100) + ((m / 10) * 10) + (m % 10);
+
+  if (second_now % 2 == 1)
+    tm1637.showNumber(digits_to_print, 32); // tm1637.showNumber(digits_to_print, 32, true); // OSRAM NBG_CLOCK_00001 & NBG_CLOCK_00002 ONLY
+  else
+    tm1637.showNumber(digits_to_print, 0); // tm1637.showNumber(digits_to_print, 0, true); // OSRAM NBG_CLOCK_00001 & NBG_CLOCK_00002 ONLY
+
+  if constexpr (DEBUG_MESSAGES) {
+    Serial.print(F("Time: "));
+    Serial.print(h);
+    Serial.print(F(":"));
+    Serial.print(m);
+    Serial.print(F(":"));
+    Serial.print(second_now);
+    Serial.print(F(" "));
+    Serial.print(now.day());
+    Serial.print(F("."));
+    Serial.print(now.month());
+    Serial.print(F("."));
+    Serial.print(now.year());
+    Serial.print(F(", Weekday: "));
+    Serial.print(now.dayOfTheWeek());
+    Serial.print(F(", "));
+  }
+}
+
+
+void printRemainingTime() {
+  int h = timer_duration / 3600; // Remaining hours
+  int m = (timer_duration / 60) % 60; // Remaining minutes
+  int s = timer_duration % 60; // Remaining seconds
+  int digits_to_print = ((h / 10) * 1000) + ((h % 10) * 100) + ((m / 10) * 10) + (m % 10);
+
+  if (h < 1)
+    digits_to_print = ((m / 10) * 1000) + ((m % 10) * 100) + ((s / 10) * 10) + (s % 10);
+
+  if (timer_status == 1) {
+    // Colon blinks when timer is running
+    if (second_now % 2 == 1)
+      tm1637.showNumber(digits_to_print, 32);
+    else
+      tm1637.showNumber(digits_to_print, 0);
+  }
+  else {
+    tm1637.showNumber(digits_to_print, 32); // Colon stays lit when paused
+  }
+
+  if constexpr (DEBUG_MESSAGES) {
+    Serial.print(F("Timer: "));
+    Serial.print(h);
+    Serial.print(F(":"));
+    Serial.print(m);
+    Serial.print(F(":"));
+    Serial.print(s);
+    Serial.print(F(" | Status: "));
+    Serial.print(timer_status);
+    Serial.print(F(", "));
+  }
+}
+
+
 void visualizeOnDisplay() {
   if constexpr (HAS_BRIGHTNESS_MODULE)
     autoSetBrightness(); // Brightness module function
