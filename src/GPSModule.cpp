@@ -55,8 +55,14 @@ static void configureGpsSentences() {
 /* ---------------------------------- Public functions ---------------------------------- */
 
 void activateGPS() {
-  gpsSerial.begin(GPS_BAUD_RATE);
-  configureGpsSentences();
+  static bool serial_started = false;
+
+  if (!serial_started) {
+    gpsSerial.begin(GPS_BAUD_RATE);
+    configureGpsSentences();
+    serial_started = true;
+  }
+
   gps_state = GpsState::Searching;
   gps_search_started_ms = millis();
 
@@ -76,40 +82,29 @@ GpsState gpsState() {
 
 
 void serviceGPS() {
-  if (!set_time_with_gps) {
-    gps_state = GpsState::Disabled;
+  static unsigned long last_report_ms = 0;
+  static uint32_t bytes_seen = 0;
 
-    return;
+  while (gpsSerial.available()) {
+    const char c = gpsSerial.read();
+    bytes_seen++;
+    Serial.write(c); // Raw passthrough, so a baud mismatch shows up as non-printable noise
+    gps.encode(c);
   }
 
-  while (gpsSerial.available())
-    gps.encode(gpsSerial.read());
+  if (millis() - last_report_ms < 5000) return;
+  last_report_ms = millis();
 
-  if (gpsHasFreshFix()) {
-    if (gps_state != GpsState::Locked) {
-      gps_state = GpsState::Locked;
-
-      if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("[serviceGPS] GPS fix acquired"));
-    }
-
-    return;
-  }
-
-  if (gps_state == GpsState::Locked) {
-    gps_state = GpsState::Searching;
-    gps_search_started_ms = millis();
-
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("[serviceGPS] GPS fix lost, searching again"));
-  }
-  else if (gps_state == GpsState::Searching &&
-           millis() - gps_search_started_ms > GPS_ACQUISITION_TIMEOUT) {
-    gps_state = GpsState::TimedOut;
-
-    if constexpr (DEBUG_MESSAGES)
-      Serial.println(F("[serviceGPS] GPS unreachable, falling back to manual updates"));
-  }
+  Serial.print(F("\n[GPS] bytes="));  Serial.print(bytes_seen);
+  Serial.print(F(" ok="));            Serial.print(gps.passedChecksum());
+  Serial.print(F(" bad="));           Serial.print(gps.failedChecksum());
+  Serial.print(F(" withFix="));       Serial.print(gps.sentencesWithFix());
+  Serial.print(F(" | date="));        Serial.print(gps.date.isValid());
+  Serial.print(F(" time="));          Serial.print(gps.time.isValid());
+  Serial.print(F(" loc="));           Serial.print(gps.location.isValid());
+  Serial.print(F(" age="));           Serial.print(gps.location.age());
+  Serial.print(F(" sats="));          Serial.print(gps.satellites.value());
+  Serial.print(F(" state="));         Serial.println((int)gpsState());
 }
 
 

@@ -84,6 +84,9 @@ void editTimeSyncMode(const char new_value[]) {
     if (set_time_with_gps != (strcmp(new_value, "gps") == 0)) {
       editSettingsFile(new_value, SettingId::TimeSyncMode);
       set_time_with_gps = !set_time_with_gps;
+
+      if (set_time_with_gps)
+        activateGPS();
     }
   }
   else
