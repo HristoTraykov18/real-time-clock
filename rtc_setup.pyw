@@ -11,6 +11,7 @@ Run from the project root:  pythonw rtc_setup.pyw
 import importlib.util
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -21,6 +22,33 @@ from rtc_setup_utils import PROJECT_FILE, CompileFolder, StatusArea
 
 
 CREATE_NEW_CONSOLE = 0x00000010  # Opens the spawned command in its own console window on Windows
+
+
+def command_chain(steps):
+    """
+    Assemble the single shell line that runs every step inside one terminal window.
+
+    `steps` is a list of (prompt, command) pairs, run in order. A step with a prompt is offered
+    only when everything before it succeeded, and runs only when the answer is not N, so a failed
+    build never reaches the upload. A step without a prompt runs as soon as the one before it
+    succeeded. Built from the last step backwards, because each prompt has to wrap all that follows
+    """
+    is_windows = os.name == "nt"
+    quote = subprocess.list2cmdline if is_windows else shlex.join
+    chain = ""
+
+    for prompt, command in reversed(steps):
+        step = quote(command) + (f" && {chain}" if chain else "")
+
+        if prompt is not None:
+            step = (f'(choice /c YN /n /m "{prompt} [Y/N] " & if not errorlevel 2 ({step}))'
+                    if is_windows else
+                    f'{{ read -p "{prompt} [Y/n] " reply; [ "$reply" != n ] && '
+                    f'[ "$reply" != N ]; }} && {{ {step}; }}')
+
+        chain = step
+
+    return chain
 
 
 def find_platformio():
@@ -66,25 +94,25 @@ def read_environments():
         return []
 
 
-def spawn_terminal(title, command):
+def spawn_terminal(title, steps):
     """
-    Run a command in its own terminal window that stays open until it is dismissed.
+    Run the steps in one terminal window that stays open until it is dismissed.
     Returns the Popen of the terminal itself, so the caller can tell when it is closed
     """
-    quoted = subprocess.list2cmdline(command)
+    chain = command_chain(steps)
 
     if os.name == "nt":
         # Passed as a single string, because a list would be run through list2cmdline, which
         # escapes the inner quotes as \" and cmd.exe reads those backslashes literally
-        return subprocess.Popen(f'cmd /c "title {title} & {quoted} & echo. & pause"',
+        return subprocess.Popen(f'cmd /c "title {title} & {chain} & echo. & pause"',
                                 creationflags=CREATE_NEW_CONSOLE)
 
     for terminal in (["x-terminal-emulator", "-e"], ["gnome-terminal", "--"], ["xterm", "-e"]):
         if shutil.which(terminal[0]):
             return subprocess.Popen(
-                terminal + ["bash", "-c", f"{quoted}; echo; read -p 'Press enter to close'"])
+                terminal + ["bash", "-c", f"{chain}; echo; read -p 'Press enter to close'"])
 
-    return subprocess.Popen(command)  # No terminal emulator available, run detached
+    return subprocess.Popen(chain, shell=True)  # No terminal emulator available, run detached
 
 
 class SetupApp:
@@ -94,6 +122,7 @@ class SetupApp:
     LAST_ID_FILE = "last_id.txt"
 
     TEXT_FONT = "Verdana 8 bold"
+    BUTTON_WIDTH = 28  # Fits the longest caption
     PROCESS_POLL_INTERVAL = 500  # How often the spawned terminal is checked, in milliseconds
 
     def __init__(self):
@@ -111,6 +140,7 @@ class SetupApp:
 
         self.is_production_setup = tk.IntVar()
         self.is_edit_id = tk.IntVar(value=0)
+        self.is_auto_monitor = tk.IntVar(value=1)
         self.selected_env = tk.StringVar(
             value=self.environments[0] if self.environments else "")
 
@@ -165,8 +195,11 @@ class SetupApp:
 
         return frame, display
 
-    def launch_terminal_task(self, title, arguments):
-        """ Run a PlatformIO command in its own terminal and lock the action buttons until it closes. """
+    def launch_terminal_task(self, title, steps):
+        """
+        Run PlatformIO steps in one terminal and lock the action buttons until it closes.
+        `steps` is a list of (prompt, arguments) pairs, each one missing the Core command prefix
+        """
         if self.pio_command is None:  # Kept once found, looked up again while it is missing
             self.pio_command = find_platformio()
 
@@ -175,11 +208,16 @@ class SetupApp:
 
             return False
 
-        self.running_process = spawn_terminal(title, self.pio_command + arguments)
+        self.running_process = spawn_terminal(
+            title, [(prompt, self.pio_command + arguments) for prompt, arguments in steps])
         self.set_action_buttons_enabled(False)
         self.watch_running_process()
 
         return True
+
+    def monitor_arguments(self):
+        """ PlatformIO arguments that open the serial monitor for the selected environment """
+        return ["device", "monitor", "-d", os.path.abspath("."), "-e", self.selected_env.get()]
 
     def prepare_compile_folder(self, prepare_step):
         """
@@ -212,6 +250,45 @@ class SetupApp:
 
         return True
 
+    def run_arguments(self, *targets):
+        """ PlatformIO run arguments against the compile folder, extended with the given targets """
+        arguments = ["run", "-d", os.path.abspath(CompileFolder.COMPILE_FOLDER),
+                     "-e", self.selected_env.get()]
+
+        for target in targets:
+            arguments += ["-t", target]
+
+        return arguments
+
+    def run_build_and_upload(self, title, prepare_step, build_targets, upload_targets):
+        """
+        Refresh the files this build needs, then build and offer the upload in the same terminal.
+        A failed build short circuits the chain, so the upload is never offered. With Auto-Monitor
+        ticked the serial monitor follows the upload in that same terminal
+        """
+        self.status.clear()
+        environment = self.selected_env.get()
+
+        if not environment:
+            self.status.show("No PlatformIO environment selected")
+
+            return
+
+        if not self.prepare_compile_folder(prepare_step):
+            return
+
+        steps = [(None, self.run_arguments(*build_targets)),
+                 ("Upload now?", self.run_arguments(*upload_targets))]
+
+        if self.is_auto_monitor.get() == 1:
+            steps.append((None, self.monitor_arguments()))
+
+        if not self.launch_terminal_task(title, steps):
+            return
+
+        self.status += f"{title} started for {environment}"
+        self.status.show()
+
     def run_monitor(self):
         """
         Open a serial monitor terminal for the selected environment.
@@ -225,47 +302,10 @@ class SetupApp:
 
             return
 
-        if not self.launch_terminal_task(
-                "Serial Monitor",
-                ["device", "monitor", "-d", os.path.abspath("."), "-e", environment]):
+        if not self.launch_terminal_task("Serial Monitor", [(None, self.monitor_arguments())]):
             return
 
         self.status += f"Serial Monitor Started for {environment}"
-        self.status.show()
-
-    def run_platformio(self, title, *targets, prepare=None):
-        """
-        Launch PlatformIO against the compile folder in a terminal that waits to be closed.
-        `prepare` is the CompileFolder step that refreshes the files this target needs, or None
-        for the upload targets, which reuse whatever their own build left behind
-        """
-        self.status.clear()
-        environment = self.selected_env.get()
-
-        if not environment:
-            self.status.show("No PlatformIO environment selected")
-
-            return
-
-        if prepare is not None and not self.prepare_compile_folder(prepare):
-            return
-
-        compile_path = os.path.abspath(CompileFolder.COMPILE_FOLDER)
-
-        if not os.path.isfile(os.path.join(compile_path, PROJECT_FILE)):
-            self.status.show("Compile folder is not ready\nRun a build first")
-
-            return
-
-        arguments = ["run", "-d", compile_path, "-e", environment]
-
-        for target in targets:
-            arguments += ["-t", target]
-
-        if not self.launch_terminal_task(title, arguments):
-            return
-
-        self.status += f"{title} started for {environment}"
         self.status.show()
 
     def save_and_increment_clock_id(self):
@@ -298,32 +338,29 @@ class SetupApp:
         self.env_combobox = ttk.Combobox(self.root, textvariable=self.selected_env, width=26,
                                          state="readonly", values=self.environments)
 
-        firmware_label = tk.Label(self.root, text="Firmware")
-        firmware_frame = tk.Frame(self.root)
-        filesystem_label = tk.Label(self.root, text="File System")
-        filesystem_frame = tk.Frame(self.root)
+        # Each build refreshes only the files it owns, then offers its own upload in the
+        # same terminal. Buttons are greyed out while that terminal is open
+        build_buttons = []
 
-        # PlatformIO commands, buttons are greyed out while a terminal is open
-        for parent, text, title, targets, prepare in (
-                (firmware_frame, "Build", "Firmware build", (), CompileFolder.prepare_firmware),
-                (firmware_frame, "Upload", "Firmware upload", ("upload",), None),
-                (filesystem_frame, "Build", "File system build", ("buildfs",), CompileFolder.prepare_filesystem),
-                (filesystem_frame, "Upload", "File system upload", ("uploadfs",), None)):
-            button = tk.Button(
-                parent, text=text, width=10,
-                command=lambda t=title, a=targets, p=prepare: self.run_platformio(t, *a, prepare=p))
-            button.pack(side=tk.LEFT, padx=3)
-            self.action_buttons.append(button)
+        for text, title, prepare, build_targets, upload_targets in (
+                ("Build and Upload Firmware", "Firmware build and upload",
+                 CompileFolder.prepare_firmware, (), ("upload",)),
+                ("Build and Upload File System", "File system build and upload",
+                 CompileFolder.prepare_filesystem, ("buildfs",), ("uploadfs",))):
+            build_buttons.append(tk.Button(
+                self.root, text=text, width=self.BUTTON_WIDTH,
+                command=lambda t=title, p=prepare, b=build_targets, u=upload_targets:
+                    self.run_build_and_upload(t, p, b, u)))
 
-        debugging_label = tk.Label(self.root, text="Debugging")
-        monitor_button = tk.Button(self.root, text="Start Monitor", width=12, command=self.run_monitor)
-        self.action_buttons.append(monitor_button)
+        auto_monitor_cb = tk.Checkbutton(self.root, text="Auto-Monitor",
+                                         variable=self.is_auto_monitor)
+        monitor_button = tk.Button(self.root, text="Serial Monitor", width=self.BUTTON_WIDTH,
+                                   command=self.run_monitor)
+        self.action_buttons += build_buttons + [monitor_button]
         self.status = StatusArea(self.root)
 
-        for element in [cb, self.cb_edit_id, timezone_frame, env_label,
-                        self.env_combobox, firmware_label, firmware_frame,
-                        filesystem_label, filesystem_frame, debugging_label,
-                        monitor_button, self.status]:
+        for element in [cb, self.cb_edit_id, timezone_frame, env_label, self.env_combobox,
+                        *build_buttons, auto_monitor_cb, monitor_button, self.status]:
             element.pack(pady=3)
 
         self.env_combobox.focus()

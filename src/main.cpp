@@ -82,6 +82,9 @@ void setup() {
       }
   });
 
+  if constexpr (DEBUG_MESSAGES)
+    Serial.println(F("[setup] Wi-Fi initialization delay"));
+
   delay(RADIO_SETTLE_PERIOD);
 
   if (networkReconnect() == WL_CONNECTED) // Network Utils
