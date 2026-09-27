@@ -88,7 +88,7 @@ const char* handleGPSTimeSync() {
       delay(GPS_CONNECT_ATTEMPT_DELAY);
     }
 
-    return "Неуспешно сверяване през GPS.\nУверете се, че часовникът е на открито и опитайте отново.";
+    return "Неуспешно сверяване през GPS. Уверете се, че часовникът е на открито и опитайте отново.";
   }
   else
     return "Часовникът няма инсталиран GPS модул.";
@@ -99,8 +99,11 @@ const char* handleManualTimeSync() {
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
   currentSsid(ssid_buf);
 
-  if (set_time_with_gps)
+  if (set_time_with_gps) {
+    activateGPS();
+
     return handleGPSTimeSync();
+  }
 
   if (networkReconnect() == WL_CONNECTED)
     return createReply("Часовникът е свързан с мрежа", ssid_buf, autoUpdateTime(true));
