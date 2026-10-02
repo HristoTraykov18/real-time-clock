@@ -335,8 +335,10 @@ class SetupApp:
 
         env_label = tk.Label(self.root,
                              text="Select PlatformIO Environment\n(Sets the Build Flags and the RTC Modules)")
-        self.env_combobox = ttk.Combobox(self.root, textvariable=self.selected_env, width=26,
-                                         state="readonly", values=self.environments)
+        longest_env = max((len(name) for name in self.environments), default=self.BUTTON_WIDTH)
+        self.env_combobox = ttk.Combobox(self.root, textvariable=self.selected_env,
+                                         width=longest_env + 2, state="readonly",
+                                         values=self.environments)
 
         # Each build refreshes only the files it owns, then offers its own upload in the
         # same terminal. Buttons are greyed out while that terminal is open
