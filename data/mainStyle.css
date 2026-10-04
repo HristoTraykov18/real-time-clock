@@ -26,7 +26,7 @@ header {
     background-color: var(--pale-purple);
 }
 header, .main-container {
-    min-width: 250px;
+    min-width: 360px;
     margin: 0 auto;
 }
 .main-container {
@@ -85,6 +85,7 @@ form {
 }
 .content {
     width: 100%;
+    min-width: 350px;
     transition: opacity var(--animation-speed) ease,
                 transform var(--animation-speed) ease;
     display: flex;
@@ -318,6 +319,7 @@ fieldset {
     border-radius: 10px;
     margin: 5px auto;
     width: 75vw;
+    min-width: 250px;
     background-color: rgba(0,0,0,0.25);
     padding-bottom: 10px;
 }
@@ -330,12 +332,13 @@ fieldset {
     cursor: default;
 }
 .network-list-header > span {
-    flex: 1;
+    flex: 0.93;
     text-align: center;
 }
 .network-refresh-btn {
     position: absolute;
     right: 8px;
+    flex: 0.1;
     background: none;
     border: none;
     color: white;
@@ -346,7 +349,7 @@ fieldset {
     -webkit-transition: transform var(--animation-speed);
     transition: transform var(--animation-speed);
 }
-.network-refresh-btn:hover { transform: rotate(360deg); }
+.network-refresh-btn:hover { animation: spin calc(var(--animation-speed) / 1.5) linear }
 .network-list-rows {
     height: 160px;
     overflow-y: auto;
@@ -388,17 +391,7 @@ fieldset {
 
 /* ------------------- Network popup specifics ------------------- */
 .popup-network { text-align: center; }
-#js-popup-password-btn-container {
-    position: absolute;
-    right: 10px;
-    width: var(--password-field-button-size);
-    height: var(--password-field-button-size);
-    border-radius: 4px;
-    display: flex;
-    cursor: pointer;
-}
-#js-popup-password-btn-container:active { background-color: gray; }
-#js-popup-hide-password-button { opacity: 0; }
+#js-popup-pass-input { width: 90% }
 .popup-btn-row {
     display: flex;
     justify-content: center;
@@ -416,27 +409,26 @@ fieldset {
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 95%;
-    margin: 5px auto;
+    width: fit-content;
+    margin: 0 auto;
 }
-.password-field input { width: 100%; }
-#js-password-button-container, .password-field-button {
-    position: absolute;
-    width: var(--password-field-button-size);
-    height: var(--password-field-button-size);
-}
-#js-password-button-container {
-    right: 8px;
+.password-field span {
+    right: 12px;
     border-radius: 4px;
     display: flex;
     cursor: pointer;
 }
-#js-password-button-container:active { background-color: gray; }
+.password-field span:active { background-color: gray; }
+.password-field span, .password-field-button {
+    position: absolute;
+    width: var(--password-field-button-size);
+    height: var(--password-field-button-size);
+}
 .password-field-button {
     fill: #012341;
     pointer-events: none;
 }
-#js-hide-password-button { opacity: 0; }
+.password-hide-button { opacity: 0; }
 /* ----------------------------------------------------- */
 
 /* -------- Switch buttons and checkboxes -------- */
@@ -656,6 +648,7 @@ fieldset {
     top: 50%;
     left: 50%;
     width: 70%;
+    min-width: 300px;
     z-index: 100;
     min-height: 100px;
     background-color: var(--dark-blue);
@@ -665,7 +658,7 @@ fieldset {
     transform: translate(-50%, -80%);
 }
 .popup .message {
-    width: 99%;
+    width: 95%;
     margin: 10px auto 20px auto;
     font-size: 18px;
 }
@@ -753,7 +746,6 @@ fieldset {
         min-height: 550px;
     }
     .message { margin: 5px auto; }
-    .network-list-header > span { flex: 1; }
     .main-settings-input {
         padding: 5px 10px;
         margin: 10px auto;
