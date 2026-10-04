@@ -410,6 +410,7 @@ fieldset {
     justify-content: center;
     align-items: center;
     width: fit-content;
+    max-width: 80%;
     margin: 0 auto;
 }
 .password-field span {
