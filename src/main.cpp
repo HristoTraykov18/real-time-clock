@@ -1,7 +1,7 @@
 
 // Real time clock software
 // Developed by Hristo Traykov, NEON.BG (Sofia)
-// Current version 1.11.x
+// Current version 1.12.x
 // DO NOT FORGET TO SETUP PROPERLY IN TOOLS
 // USE FLOAT FIRMWARE
 //
@@ -15,15 +15,15 @@
 
 #include "CoreUtils.h"
 #include "BrightnessModule.h"
+#include "EspUtils.h"
 #include "ServerUtils.h"
 
 void setup() {
   WiFi.disconnect();
   WiFi.persistent(false);
   WiFi.setAutoReconnect(false);
-  WiFi.setSleepMode(WIFI_NONE_SLEEP);
-  wifi_country_t country_settings = { "EU", 1, 13, WIFI_COUNTRY_POLICY_MANUAL };
-  wifi_set_country(&country_settings);
+  espSetWifiSleep(false); // Esp Utils
+  espSetCountry(); // Esp Utils
 
   if constexpr (DEBUG_MESSAGES) {
     Serial.begin(115200); // Serial monitor
@@ -52,35 +52,7 @@ void setup() {
   initializeSoftAP(); // Network Utils
   radio_settle_until_ms = millis() + RADIO_SETTLE_PERIOD;
 
-  apConnectHandler = WiFi.onSoftAPModeStationConnected(
-    [](const WiFiEventSoftAPModeStationConnected&) {
-      ap_station_associated = true;
-      last_http_activity_ms = millis();
-
-      if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("\n=== Device connected to softAP ==="));
-  });
-
-  apDisconnectHandler = WiFi.onSoftAPModeStationDisconnected(
-    [](const WiFiEventSoftAPModeStationDisconnected&) {
-      evictStaleStations();
-      ap_station_associated = false;
-      radio_settle_until_ms = millis() + RADIO_SETTLE_PERIOD;
-
-      if constexpr (DEBUG_MESSAGES)
-        Serial.println(F("\n=== Device disconnected from softAP ==="));
-  });
-
-  staDisconnectHandler = WiFi.onStationModeDisconnected(
-    [](const WiFiEventStationModeDisconnected& event) {
-      sta_disconnect_count++;
-
-      if constexpr (DEBUG_MESSAGES) {
-        Serial.print(F("\n=== ESP STA disconnected from "));
-        Serial.print(event.ssid);
-        Serial.println(F(" ==="));
-      }
-  });
+  espAttachWifiEventHandlers(); // Esp Utils
 
   if constexpr (DEBUG_MESSAGES)
     Serial.println(F("[setup] Wi-Fi initialization delay"));

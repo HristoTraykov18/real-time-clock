@@ -31,22 +31,11 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
                                   uint8_t channel = 0, const uint8_t* bssid = nullptr);
 
 /**
- * @brief Fills the caller's buffer with the SSID of the currently configured station network (no heap allocation).
- * @param buf Destination character buffer. Must be 33 bytes long (SSID can be 32 chars at most + NUL).
- */
-void currentSsid(char* buf);
-
-/**
  * @brief Compares the currently connected SSID against a target string (no heap allocation).
  * @param target Target string to compare against.
  * @return bool true if the current station SSID matches the target exactly.
  */
 bool currentSsidEquals(const char* target);
-
-/**
- * @brief Deauthenticates stations that are still associated to the softAP, but not really present.
- */
-void evictStaleStations();
 
 /**
  * @brief Validates the cached BSSID availability on the cached Wi-Fi channel before a fast-connect attempt.

@@ -109,9 +109,9 @@ void editTimerDuration(const char new_value[]) {
 void editTimezoneOffset(const char new_value[]) {
   int16_t new_timezone = atoi(new_value);
 
-  if (new_timezone != timezone) {
+  if (new_timezone != timezone_offset) {
     editSettingsFile(new_value, SettingId::TimezoneOffset);
-    timezone = new_timezone;
+    timezone_offset = new_timezone;
   }
 }
 

@@ -1,5 +1,6 @@
 // GPSModule.cpp
 #include "GPSModule.h"
+#include "EspUtils.h"
 
 static unsigned long gps_search_started_ms = 0; // millis() timestamp of the current acquisition window
 
@@ -58,7 +59,7 @@ void activateGPS() {
   static bool serial_started = false;
 
   if (!serial_started) {
-    gpsSerial.begin(GPS_BAUD_RATE);
+    espGpsSerialBegin(GPS_BAUD_RATE); // Esp Utils
     configureGpsSentences();
     serial_started = true;
   }
@@ -127,7 +128,7 @@ bool updateTimeFromGPS() {
   // calendar day, month and year over correctly
   DateTime utc(gps.date.year(), gps.date.month(), gps.date.day(),
                gps.time.hour(), gps.time.minute(), gps.time.second());
-  applyTimeUpdate((time_t)utc.unixtime() + (timezone * 3600L), true);
+  applyTimeUpdate((time_t)utc.unixtime() + (timezone_offset * 3600L), true);
 
   return true;
 }

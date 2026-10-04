@@ -1,5 +1,6 @@
 // CoreUtils.cpp
 #include "CoreUtils.h"
+#include "EspUtils.h"
 
 
 void applyTimeUpdate(time_t standard_epoch, bool updated_from_gps) {
@@ -109,7 +110,7 @@ void getInitialClockSettings() {
 
         if (!auto_brightness) last_display_brightness = display_brightness;
         break;
-      case SettingId::TimezoneOffset: timezone = atoi(val); break;
+      case SettingId::TimezoneOffset: timezone_offset = atoi(val); break;
       case SettingId::WorkMode: work_mode_is_timer = strcmp(val, "timer") == 0; break;
       case SettingId::TimerDuration: timer_duration = atoi(val); break;
       case SettingId::Count: break; // Prevent missing enum cases warning
@@ -128,7 +129,7 @@ uint8_t getLastSundayDate(DateTime &now) {
 
 
 void initializeFileSystem() {
-  while (!LittleFS.begin()) {
+  while (!espFsBegin()) { // Esp Utils
     if constexpr (DEBUG_MESSAGES)
       Serial.println(F("[initializeFileSystem] Failed to initialize file system"));
   }

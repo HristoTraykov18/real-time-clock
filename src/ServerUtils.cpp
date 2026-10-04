@@ -1,5 +1,6 @@
 // ServerUtils.cpp
 #include "ServerUtils.h"
+#include "EspUtils.h"
 
 // _____________________________________________ Web interface handling functions _____________________________________________ //
 
@@ -60,9 +61,9 @@ void handleDeleteCreds() {
 void handleDeviceMonitoring() {
   snprintf(response_buf, sizeof(response_buf),
     "Max free block size: %u\nCurrent Free Heap: %u\nHeap fragmentation: %u",
-    (unsigned) ESP.getMaxFreeBlockSize(),
+    (unsigned) espMaxAllocHeap(), // Esp Utils
     (unsigned) ESP.getFreeHeap(),
-    (unsigned) ESP.getHeapFragmentation());
+    (unsigned) espHeapFragmentation()); // Esp Utils
   sendWebpageResponse(response_buf);
 }
 
@@ -97,10 +98,11 @@ const char* handleGPSTimeSync() {
 
 const char* handleManualTimeSync() {
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
-  currentSsid(ssid_buf);
+  espStationSsid(ssid_buf);
 
   if (set_time_with_gps) {
-    activateGPS();
+    if constexpr (HAS_GPS_MODULE)
+      activateGPS();
 
     return handleGPSTimeSync();
   }
@@ -123,7 +125,7 @@ const char* handleManualTimeSync() {
 
 void handleSessionTimeout() {
   sendWebpageResponse("Сесията Ви изтече!\nЗа да използвате настройките, моля свържете се с часовника отново!");
-  evictStaleStations();
+  espEvictStations();
 }
 
 
@@ -203,7 +205,7 @@ const char* handleWifiTimeSync(const String& ssid) {
   const bool time_sync_was_gps = set_time_with_gps;
 
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
-  currentSsid(ssid_buf);
+  espStationSsid(ssid_buf);
   editTimeSyncMode("wifi");
 
   if (WiFi.status() != WL_CONNECTED) {
@@ -260,7 +262,7 @@ void initializeServers() {
   const char *UPDATE_UNAME = "ghost";
   const char *UPDATE_PASS = "m%O0gsLKOkDl";
 
-  httpUpdater.setup(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS);
+  espSetupHttpUpdater(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS); // Esp Utils
 
   if constexpr (DEBUG_MESSAGES) {
     Serial.println(F("[initializeServers] Web server started"));
@@ -272,7 +274,7 @@ void initializeServers() {
 void sendAdditionalSettings() {
   char response[16];
   snprintf(response, sizeof(response), "%d|%s",
-           timezone,
+           timezone_offset,
            LittleFS.exists(CREDS_FILE) ? "true" : "false");
 
   server.send(200, "text/plain", response);
@@ -287,7 +289,6 @@ void sendAdditionalSettings() {
 
 void sendClockInfo() {
   bool is_connected = WiFi.status() == WL_CONNECTED;
-  int32_t rssi = is_connected ? abs(WiFi.RSSI()) : 0;
   char ip_buf[16] = "-";
 
   if (is_connected) {
@@ -304,12 +305,12 @@ void sendClockInfo() {
   DateTime now = rtc.now();
   char response[90];
   char ssid_buf[33];
-  currentSsid(ssid_buf);
+  espStationSsid(ssid_buf);
 
   snprintf(response, sizeof(response), "%s|%s%d|%s|%s|%02d:%02d:%02d",
            is_connected ? ssid_buf : "-",
            is_connected ? "" : "-",
-           rssi,
+           is_connected ? abs(WiFi.RSSI()) : 0,
            ip_buf,
            mac_buf,
            now.hour(), now.minute(), now.second());
@@ -347,7 +348,7 @@ void sendNetworksList() {
   char line_buf[64];
 
   for (int i = 0; i < n; i++) {
-    snprintf(line_buf, sizeof(line_buf), "%s|%d\n", WiFi.SSID(i).c_str(), WiFi.RSSI(i));
+    snprintf(line_buf, sizeof(line_buf), "%s|%d\n", WiFi.SSID(i).c_str(), (int)WiFi.RSSI(i));
     server.sendContent(line_buf);
   }
 
@@ -491,7 +492,7 @@ const char* validateNetworkInput(const String& ssid, const String& pass, const S
           ssid.c_str());
       }
     }
-    else if (connection_status == WL_WRONG_PASSWORD)
+    else if (espIsAuthFailure(connection_status)) // Esp Utils
       snprintf(response_buf, sizeof(response_buf), "Грешна парола!\nМоля опитайте отново.");
     else if (connection_status == WL_NO_SSID_AVAIL)
       snprintf(response_buf, sizeof(response_buf), "Мрежата %s не е в обхват.", ssid.c_str());

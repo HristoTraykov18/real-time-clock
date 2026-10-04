@@ -13,34 +13,15 @@
 
 /* -------------------------------------- COMMON LIBRARIES -------------------------------------- */
 #include <Arduino.h>
-#include <SoftwareSerial.h> // Use the default Arduino library. Using the ESP8266 SoftwareSerial causes stack overflow
 #include <FS.h>
+#include <LittleFS.h>
 #include <RTClib.h>
 #include <time.h>
 #include "TM1637Display.h"
+
+// Libraries, boards pinout and RTC reset commands, based on the target platform built via PlatformIO
+#include "EspPlatform.h"
 /* ---------------------------------------------------------------------------------------------- */
-
-
-#ifdef  PLATFORM_ESP8266
-/* -------------------------------------- ESP8266 LIBRARIES -------------------------------------- */
-#include <ESP8266WiFi.h> // Keep on top so the IDE uses ESP8266 libraries
-#include <LittleFS.h>
-#include <WiFiUdp.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266HTTPUpdateServer.h>
-/* ----------------------------------------------------------------------------------------------- */
-#endif
-
-
-/* ------------------------------------------- COMMON ------------------------------------------- */
-extern "C" bool wifi_softap_deauth(uint8_t mac[6]);
-
-/* -------------------------------------- Pin definitions -------------------------------------- */
-// constexpr uint8_t SCL  = D1; | By default on the ESP8266
-// constexpr uint8_t SDA  = D2; | By default on the ESP8266
-constexpr uint8_t CLK     = D4; // Display clock input
-constexpr uint8_t DIO     = D5; // Display data input
-constexpr uint8_t LED_PIN = 16; // Integrated LED
 
 /* ----------------------------------- Constants and variables ----------------------------------- */
 constexpr bool DEBUG_MESSAGES = true; // Set to true to enable debug serial messages throughout the code
@@ -89,7 +70,7 @@ constexpr unsigned long RADIO_SETTLE_PERIOD = 5000UL; // Grace period for the Wi
 inline uint8_t display_brightness = DEFAULT_BRIGHTNESS;
 inline uint8_t last_display_brightness = DEFAULT_BRIGHTNESS;
 inline uint8_t timer_status = 0; // 0 - Paused; 1 - Running (Timer mode)
-inline int8_t timezone;
+inline int8_t timezone_offset;
 inline int8_t second_now = 0;
 inline int8_t last_second = -1; // Used to check if the current second is different than the last
 inline int8_t blink_count = 0; // Amount of flashes when someone connects to the ESP / ESP connects to NTP server
@@ -112,23 +93,10 @@ inline volatile uint16_t sta_disconnect_count = 0; // Bumped by every STA discon
 // ---------------- Objects ---------------- //
 inline WiFiUDP udp;
 inline RTC_DS3231 rtc;
-inline ESP8266WebServer server(80);
+inline WebServerClass server(80);
 inline TM1637Display tm1637(CLK, DIO);
-inline ESP8266WebServer softwareUpdateServer(1394);
-inline ESP8266HTTPUpdateServer httpUpdater;
-inline WiFiEventHandler apConnectHandler; // Keeps the softAP station connected event subscription alive
-inline WiFiEventHandler apDisconnectHandler; // Keeps the softAP station disconnected event subscription alive
-inline WiFiEventHandler staDisconnectHandler; // Keeps the STA disconnect event subscription alive
+inline WebServerClass softwareUpdateServer(1394);
 /* ----------------------------------------- */
-
-// --- Used when the RTC becomes unsynchronised --- //
-inline void SDA_LOW()  { GPES = (1 << SDA); }
-inline void SDA_HIGH() { GPEC = (1 << SDA); }
-inline void SCL_LOW()  { GPES = (1 << SCL); }
-inline void SCL_HIGH() { GPEC = (1 << SCL); }
-inline bool SDA_READ() { return ((GPI & (1 << SDA)) != 0); }
-// ------------------------------------------------ //
-
 
 #ifdef  BRIGHTNESS_MODULE
 /* ---------------------------------- BRIGHTNESS MODULE SPECIFIC ---------------------------------- */
@@ -157,9 +125,6 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     #include <TinyGPS++.h>
     #include "GPSModule.h"
 
-    constexpr int GPS_RX = D7; // ESP receives from the GPS module's TX pin
-    constexpr int GPS_TX = D8; // ESP transmits to the GPS module's RX pin
-
     constexpr int GPS_BAUD_RATE = 9600;
     constexpr unsigned long GPS_ACQUISITION_TIMEOUT = 180000UL; // Time allowed to acquire a fix before falling back
     constexpr unsigned long GPS_MAX_FIX_AGE = 2000UL; // A fix that was not refreshed within this window is stale
@@ -167,8 +132,7 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     inline bool set_time_with_gps = false;
 
     inline TinyGPSPlus gps;
-    inline SoftwareSerial gpsSerial(GPS_RX, GPS_TX);
-    inline GpsState gps_state = GpsState::Disabled;
+    inline GpsState gps_state = GpsState::Disabled; // gpsSerial is declared in EspPlatform.h
 
     constexpr bool HAS_GPS_MODULE = true;
 /* ----------------------------------------------------------------------------------------------- */
@@ -192,8 +156,6 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     #include <DallasTemperature.h>
     #include "TemperatureModule.h"
 
-    constexpr int ONE_WIRE_BUS = D3; // Temperature sensor pin
-
     inline OneWire oneWire(ONE_WIRE_BUS);
     inline DallasTemperature temperatureSensor(&oneWire); // Object init
 
@@ -203,7 +165,6 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
 #else
 /* ------------------------------------ NO TEMPERATURE MODULE ------------------------------------ */
     void initializeTemperatureSensor();
-
     void printCurrentTimeOrTemperature();
 
     constexpr bool HAS_TEMPERATURE_MODULE = false;

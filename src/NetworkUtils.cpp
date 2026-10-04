@@ -1,5 +1,6 @@
 // NetworkUtils.cpp
 #include "NetworkUtils.h"
+#include "EspUtils.h"
 
 constexpr uint8_t NTP_PACKET_SIZE = 48; // Fixed by the NTP specification
 
@@ -28,7 +29,7 @@ void checkForClientConnection() {
     }
 
     if (counted)
-      evictStaleStations();
+      espEvictStations();
   }
 }
 
@@ -42,7 +43,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
   if (status == WL_CONNECTED && currentSsidEquals(ssid)) {
     if constexpr (DEBUG_MESSAGES) {
       char ssid_buf[33]; // Max SSID len (32) + NUL = 33
-      currentSsid(ssid_buf);
+      espStationSsid(ssid_buf); // Esp Utils
       Serial.print(F("[connectClockToNetwork] Already connected to "));
       Serial.println(ssid_buf);
     }
@@ -87,7 +88,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
 
     // Unrecoverable statuses
     if (status != WL_CONNECTED && sta_disconnect_count != prev_disconnect_count) {
-      if (status != WL_WRONG_PASSWORD)
+      if (!espIsAuthFailure(status)) // Esp Utils
         status = WL_NO_SSID_AVAIL;
 
       if constexpr (DEBUG_MESSAGES) {
@@ -111,14 +112,6 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
 }
 
 
-void currentSsid(char* buf) {
-  struct station_config conf;
-  wifi_station_get_config(&conf);
-  memcpy(buf, conf.ssid, 32);
-  buf[32] = '\0';
-}
-
-
 bool currentSsidEquals(const char* target) {
   if (!target)
     return false;
@@ -128,35 +121,10 @@ bool currentSsidEquals(const char* target) {
   if (target_len > 32)
     return false;
 
-  struct station_config conf;
-  wifi_station_get_config(&conf);
+  char current[33]; // Max SSID len (32) + NUL = 33
+  espStationSsid(current); // Esp Utils
 
-  if (memcmp(conf.ssid, target, target_len) != 0)
-    return false;
-
-  return target_len == 32 || conf.ssid[target_len] == 0;
-}
-
-
-void evictStaleStations() {
-  struct station_info *si = wifi_softap_get_station_info();
-
-  while (si != NULL) {
-    char mac_addr[18];
-    snprintf(mac_addr, sizeof(mac_addr), "%02X:%02X:%02X:%02X:%02X:%02X",
-            si->bssid[0], si->bssid[1], si->bssid[2],
-            si->bssid[3], si->bssid[4], si->bssid[5]);
-    wifi_softap_deauth(si->bssid);
-    si = STAILQ_NEXT(si, next);
-
-    if constexpr (DEBUG_MESSAGES) {
-      Serial.print(F("[evictStaleStations] "));
-      Serial.print(mac_addr);
-      Serial.println(F(" disconnected from softAP due to inactivity"));
-    }
-  }
-
-  wifi_softap_free_station_info();
+  return strncmp(current, target, 33) == 0;
 }
 
 
@@ -165,7 +133,7 @@ bool fastConnectCacheIsValid(uint8_t channel, const uint8_t* bssid) {
     return false;
 
   for (uint8_t scan_attempts = 5; scan_attempts > 0; scan_attempts--) {
-    int8_t number_of_networks = WiFi.scanNetworks(false, true, channel);
+    int number_of_networks = espScanNetworks(channel); // Esp Utils
 
     if constexpr (DEBUG_MESSAGES) {
       Serial.print(F("[fastConnectCacheIsValid] scanNetworks: "));
@@ -176,22 +144,22 @@ bool fastConnectCacheIsValid(uint8_t channel, const uint8_t* bssid) {
       bool is_valid = false;
 
       for (uint8_t i = 0; i < number_of_networks; i++) {
-        const bss_info* info = WiFi.getScanInfoByIndex(i);
+        const uint8_t* found = espScanBssid(i); // Esp Utils
 
-        if (info && memcmp(info->bssid, bssid, 6) == 0) {
+        if (found && memcmp(found, bssid, 6) == 0) {
           is_valid = true;
 
           break;
         }
       }
 
-      WiFi.scanDelete();
+      espScanDelete(); // Esp Utils
       yield();
 
       return is_valid;
     }
 
-    WiFi.scanDelete();
+    espScanDelete(); // Esp Utils
     delay(500);
   }
 
@@ -325,34 +293,28 @@ bool networkIsInRange(const char* ssid) {
     Serial.println(ssid);
   }
 
-  int8_t number_of_networks = WiFi.scanNetworks();
+  int number_of_networks = espScanNetworks(); // Esp Utils, 0 scans every channel
 
   bool in_range = false;
 
-  for (uint8_t i = 0; i < number_of_networks; i++) {
-    const bss_info* info = WiFi.getScanInfoByIndex(i);
-
-    if (!info)
-      continue;
+  for (int i = 0; i < number_of_networks; i++) {
+    const char* found = espScanSsid(i); // Esp Utils
 
     if constexpr (DEBUG_MESSAGES) {
       Serial.print(F("In range: "));
-
-      for (uint8_t k = 0; k < 32 && info->ssid[k]; k++)
-        Serial.write(info->ssid[k]);
-
+      Serial.print(found);
       Serial.print(F(" | Channel: "));
-      Serial.println(info->channel);
+      Serial.println(espScanChannel(i));
     }
 
-    if (memcmp(info->ssid, ssid, ssid_len) == 0 && (ssid_len == 32 || info->ssid[ssid_len] == 0)) {
+    if (strncmp(found, ssid, ssid_len + 1) == 0) {
       in_range = true;
 
       break;
     }
   }
 
-  WiFi.scanDelete();
+  espScanDelete(); // Esp Utils
   yield();
 
   return in_range;
@@ -569,7 +531,7 @@ bool updateTimeFromNTP() {
   connected_to_ntp = true;
 
   // Add one second to compensate calculation delay
-  applyTimeUpdate(secs_since_1900 - SECONDS_1900_TO_1970 + (timezone * 3600L) + 1);
+  applyTimeUpdate(secs_since_1900 - SECONDS_1900_TO_1970 + (timezone_offset * 3600L) + 1);
 
   return true;
 }
