@@ -16,7 +16,7 @@
  * @brief Executes a synchronization animation.
  * @param updated_from_gps Reverses animation, if updated via GPS module.
  */
-void displayClockJustUpdated(bool updated_from_gps = false);
+void animateTimeUpdate(bool updated_from_gps = false);
 
 /**
  * @brief Flashes the TM1637 display segments when user connects to the ESP access point.

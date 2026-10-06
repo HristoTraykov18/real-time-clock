@@ -136,14 +136,14 @@ void espSetCountry() {
 }
 
 
-void espSetupHttpUpdater(WebServerClass* update_server, const char* path,
-                         const char* user, const char* pass) {
-  http_updater.setup(update_server, path, user, pass);
+void espSetWifiSleep(bool enabled) {
+  WiFi.setSleepMode(enabled ? WIFI_MODEM_SLEEP : WIFI_NONE_SLEEP);
 }
 
 
-void espSetWifiSleep(bool enabled) {
-  WiFi.setSleepMode(enabled ? WIFI_MODEM_SLEEP : WIFI_NONE_SLEEP);
+void espSetupHttpUpdater(WebServerClass* update_server, const char* path,
+                         const char* user, const char* pass) {
+  http_updater.setup(update_server, path, user, pass);
 }
 
 

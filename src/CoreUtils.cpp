@@ -11,7 +11,7 @@ void applyTimeUpdate(time_t standard_epoch, bool updated_from_gps) {
 
   rtc.adjust(DateTime((uint32_t)standard_epoch));
   daylight_saving_active = dst_applied;
-  displayClockJustUpdated(updated_from_gps);
+  animateTimeUpdate(updated_from_gps);
 
   if constexpr (DEBUG_MESSAGES) {
     Serial.print(F("[applyTimeUpdate] "));
@@ -153,6 +153,11 @@ void initializePeripherals() {
 
   if constexpr (HAS_TEMPERATURE_MODULE)
     initializeTemperatureSensor(); // Temperature module function
+
+  if constexpr (HAS_GPS_MODULE) {
+    if (set_time_with_gps)
+      activateGPS(); // GPS module function
+  }
 }
 
 

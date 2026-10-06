@@ -261,10 +261,8 @@ void manageStaReconnect() {
   }
 
   if (retry_count < 3) {
-    if (networkReconnect() == WL_CONNECTED) {
-      autoUpdateTime(true);
+    if (networkReconnect() == WL_CONNECTED)
       retry_count = 0;
-    }
     else if (++retry_count >= 3) {
       back_off_active = true;
       back_off_hour = rtc.now().hour();

@@ -38,11 +38,6 @@ void setup() {
 
   daylight_saving_active = daylight_saving_enabled && isDaylightSavingPeriod();
 
-  if constexpr (HAS_GPS_MODULE) {
-    if (set_time_with_gps)
-      activateGPS(); // GPS module function
-  }
-
   if constexpr (DEBUG_MESSAGES) {
     Serial.print(F("[setup] MAC: "));
     Serial.println(WiFi.macAddress());

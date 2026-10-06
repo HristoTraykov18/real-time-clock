@@ -10,7 +10,7 @@ constexpr uint8_t GLYPH_LEFT_BAR   = 0x30; // E, F
 static bool last_auto_brightness = true;
 
 
-void displayClockJustUpdated(bool updated_from_gps) {
+void animateTimeUpdate(bool updated_from_gps) {
   // Effect when the clock time is set
   const uint8_t ANIMATION_LENGTH = 9;
   const uint8_t TIME_SET_ANIMATION[ANIMATION_LENGTH][4] = {
