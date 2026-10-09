@@ -2,17 +2,17 @@
 #include "EspUtils.h"
 #include "NetworkUtils.h"
 
-static WiFiEventHandler ap_connect_handler;
-static WiFiEventHandler ap_disconnect_handler;
-static WiFiEventHandler sta_disconnect_handler;
+static WiFiEventHandler apConnectHandler;
+static WiFiEventHandler apDisconnectHandler;
+static WiFiEventHandler staDisconnectHandler;
 
-static ESP8266HTTPUpdateServer http_updater;
+static ESP8266HTTPUpdateServer httpUpdater;
 
 static char scan_ssid[33];
 
 
 void espAttachWifiEventHandlers() {
-  ap_connect_handler = WiFi.onSoftAPModeStationConnected(
+  apConnectHandler = WiFi.onSoftAPModeStationConnected(
     [](const WiFiEventSoftAPModeStationConnected&) {
       ap_station_associated = true;
       last_http_activity_ms = millis();
@@ -21,7 +21,7 @@ void espAttachWifiEventHandlers() {
         Serial.println(F("\n=== Device connected to softAP ==="));
   });
 
-  ap_disconnect_handler = WiFi.onSoftAPModeStationDisconnected(
+  apDisconnectHandler = WiFi.onSoftAPModeStationDisconnected(
     [](const WiFiEventSoftAPModeStationDisconnected&) {
       espEvictStations(); // Network Utils
       ap_station_associated = false;
@@ -31,7 +31,7 @@ void espAttachWifiEventHandlers() {
         Serial.println(F("\n=== Device disconnected from softAP ==="));
   });
 
-  sta_disconnect_handler = WiFi.onStationModeDisconnected(
+  staDisconnectHandler = WiFi.onStationModeDisconnected(
     [](const WiFiEventStationModeDisconnected& event) {
       sta_disconnect_count++;
 
@@ -143,7 +143,7 @@ void espSetWifiSleep(bool enabled) {
 
 void espSetupHttpUpdater(WebServerClass* update_server, const char* path,
                          const char* user, const char* pass) {
-  http_updater.setup(update_server, path, user, pass);
+  httpUpdater.setup(update_server, path, user, pass);
 }
 
 

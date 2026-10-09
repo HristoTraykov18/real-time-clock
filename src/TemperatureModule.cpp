@@ -50,7 +50,7 @@ void initializeTemperatureSensor() {
 
 
 void printCurrentTemperature() {
-  const int8_t reading = temperatureSensor.getTempC(sensor_address);
+  const int8_t reading = temperatureSensor.getTempC(sensor_address, 1);
 
   // A single failed reading keeps the last good value on the display
   if (readingIsValid(reading)) {
@@ -71,19 +71,19 @@ void printCurrentTemperature() {
     temperature[3] = fourth;
   };
 
-  if (failed_readings == MAX_FAILED_READINGS) // Error message from temperature module
+  if (failed_readings == MAX_FAILED_READINGS)                       // Error message from temperature module
     setDigits(GLYPH_MINUS, GLYPH_MINUS, GLYPH_MINUS, GLYPH_MINUS);
-  else if (current_temperature == 0) // Zero case
+  else if (current_temperature == 0)                                // Zero case
     setDigits(GLYPH_BLANK, tm1637.encodeDigit(0), GLYPH_DEGREE, GLYPH_C);
-  else if (current_temperature < 0 && current_temperature > -10) // Temp less than 0 and more than -10
+  else if (current_temperature < 0 && current_temperature > -10)    // Temperature less than 0 and more than -10
     setDigits(GLYPH_MINUS, tm1637.encodeDigit(abs(current_temperature) % 10), GLYPH_DEGREE, GLYPH_C);
-  else if (current_temperature <= -10) { // Temp less than -10
+  else if (current_temperature <= -10) {                            // Temperature less than -10
     const uint8_t abs_temp = abs(current_temperature);
     setDigits(GLYPH_MINUS, tm1637.encodeDigit(abs_temp / 10), tm1637.encodeDigit(abs_temp % 10), GLYPH_DEGREE);
   }
-  else if (current_temperature > 0 && current_temperature < 10)
+  else if (current_temperature > 0 && current_temperature < 10)     // Temperature more than 0 and less than 10
     setDigits(GLYPH_BLANK, tm1637.encodeDigit(current_temperature % 10), GLYPH_DEGREE, GLYPH_C);
-  else { // Every other case (10 to 99)
+  else {                                                            // Every other case (10 to 99)
     setDigits(tm1637.encodeDigit(current_temperature / 10),
               tm1637.encodeDigit(current_temperature % 10),
               GLYPH_DEGREE, GLYPH_C);

@@ -27,6 +27,15 @@ constexpr uint8_t CLK              = D4;
 constexpr uint8_t DIO              = D5;
 constexpr uint8_t LED_PIN          = 16; // Integrated LED
 constexpr uint8_t LIGHT_SENSOR_PIN = A0; // GPIO17, the dedicated ADC input
+
+// Light sensor reading ceiling and display brightness. 10 bit ADC
+constexpr int LIGHT_LEVELS[][2] = {
+  {   75, 0 },
+  {  200, 2 },
+  {  500, 3 },
+  { 1023, 7 }
+};
+
 constexpr int     ONE_WIRE_BUS     = D3; // GPIO0, temperature sensor
 constexpr int     GPS_RX           = D7; // GPIO13, ESP receives from the GPS module's TX pin
 constexpr int     GPS_TX           = D8; // GPIO15, ESP transmits to the GPS module's RX pin
