@@ -1,5 +1,6 @@
 Real_Time_Clock_Compile
 last_id.txt
+rtc_secrets.ini
 venv
 .pio
 .vscode

@@ -2,13 +2,58 @@
 Support classes for the Real Time Clock setup launcher.
 """
 
+import configparser
+import importlib
 import os
 import re
 import shutil
+import site
+import subprocess
+import sys
 import tkinter as tk
 
 
 PROJECT_FILE = "platformio.ini"  # PlatformIO configuration, read at the repository root
+SECRETS_FILE = "rtc_secrets.ini"  # Local credentials, ignored by git
+SECRETS_EXAMPLE_FILE = "rtc_secrets.example.ini"  # Committed template of SECRETS_FILE
+MINIFIER_PACKAGES = ["rjsmin", "rcssmin"]  # Webpage minifiers, installed with pip on first use
+
+
+def import_minifiers():
+    """
+    Import rjsmin and rcssmin, installing them with pip into the interpreter that runs the
+    launcher when they are missing. Returns (rjsmin, rcssmin, installed_now).
+    Raises RuntimeError when pip fails, so a file system build never ships unminified files
+    """
+    try:
+        import rcssmin
+        import rjsmin
+
+        return rjsmin, rcssmin, False
+    except ImportError:
+        pass
+
+    result = subprocess.run([sys.executable, "-m", "pip", "install", *MINIFIER_PACKAGES],
+                            capture_output=True, text=True,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout).strip().splitlines()[-3:]
+        raise RuntimeError("pip install " + " ".join(MINIFIER_PACKAGES) + " failed\n" + "\n".join(details))
+
+    # pip falls back to a per-user install when site-packages is not writable. That folder is on
+    # sys.path only if it existed when Python started, so add it before importing again
+    user_site = site.getusersitepackages()
+
+    if os.path.isdir(user_site) and user_site not in sys.path:
+        site.addsitedir(user_site)
+
+    importlib.invalidate_caches()
+
+    import rcssmin
+    import rjsmin
+
+    return rjsmin, rcssmin, True
 
 
 class CompileFolder:
@@ -34,7 +79,7 @@ class CompileFolder:
     WEBPAGE_MAIN_FILES = ["body.html", "mainScript.js", "mainStyle.css"]
 
     # Module tokens as they appear inside the PlatformIO environment names
-    MODULE_TOKENS = ["brightness", "gps", "temp"]
+    MODULE_TOKENS = ["bright", "gps", "temp"]
 
     # Marker templates
     # The content between the markers of a module is used when the module is not built
@@ -157,56 +202,24 @@ class CompileFolder:
 
         self.report.append(f"Timezone set to {self.timezone}")
 
-    def minify_source(self, content, extension):
-        """ Strip comments and collapse whitespace in a javascript or css file """
-        output = []
-        in_block_comment = False
-
-        for line in content.splitlines():
-            if in_block_comment:
-                end_index = line.find("*/")
-
-                if end_index == -1:
-                    continue
-
-                line = line[end_index + 2:]
-                in_block_comment = False
-
-            while "/*" in line:
-                start = line.find("/*")
-                end = line.find("*/", start + 2)
-
-                if end == -1:
-                    line = line[:start]
-                    in_block_comment = True
-                    break
-
-                line = line[:start] + line[end + 2:]
-
-            if extension == ".js":
-                line = self.strip_line_comment(line)
-
-            line = re.sub(r"\s+", " ", line).strip()
-
-            if line:
-                output.append(line)
-
-        return " ".join(output)
-
     def minify_webpage_files(self):
-        """ Minify the javascript and css files inside the compile folder """
+        """
+        Minify the javascript and css files inside the compile folder with rjsmin and rcssmin,
+        installing the two packages first when they are missing
+        """
+        rjsmin, rcssmin, installed_now = import_minifiers()
+
+        if installed_now:
+            self.report.append("Installed " + " and ".join(MINIFIER_PACKAGES))
+
+        minifiers = {".js": rjsmin.jsmin, ".css": rcssmin.cssmin}
         data_path = self.compiled(self.DATA_DIR)
 
         for filename in sorted(os.listdir(data_path)):
-            extension = os.path.splitext(filename)[1]
+            minify = minifiers.get(os.path.splitext(filename)[1])
 
-            if extension not in (".js", ".css"):
-                continue
-
-            file_path = os.path.join(data_path, filename)
-
-            self.rewrite_file(file_path,
-                              lambda content, ext=extension: self.minify_source(content, ext))
+            if minify is not None:
+                self.rewrite_file(os.path.join(data_path, filename), minify)
 
         self.report.append("Webpage files optimized")
 
@@ -241,6 +254,32 @@ class CompileFolder:
 
         return self.report
 
+    def read_secrets(self):
+        """
+        Read the access point password and the software update login from SECRETS_FILE.
+        Raises when the file, the [secrets] section or a value is missing, or a value cannot be
+        written into a C string literal
+        """
+        parser = configparser.ConfigParser(interpolation=None)  # Passwords may contain %
+
+        if not parser.read(SECRETS_FILE, encoding="utf8"):
+            raise FileNotFoundError(f"{SECRETS_FILE} not found. Copy {SECRETS_EXAMPLE_FILE} and set the values")
+
+        if not parser.has_section("secrets"):
+            raise ValueError(f"{SECRETS_FILE} has no [secrets] section")
+
+        secrets = {key: parser.get("secrets", key, fallback="").strip()
+                   for key in ("ap_password", "ota_user", "ota_password")}
+
+        for key, value in secrets.items():
+            if not value or any(char in value for char in '"\\') or not value.isprintable() or not value.isascii():
+                raise ValueError(f"{SECRETS_FILE}: {key} must be printable ASCII without quotes or backslashes")
+
+        if not 8 <= len(secrets["ap_password"]) <= 63:
+            raise ValueError(f"{SECRETS_FILE}: ap_password must have 8 to 63 characters")
+
+        return secrets
+
     def reset_folder(self, source_dirs):
         """
         Create the compile folder and drop only the source folders that are about to be rewritten.
@@ -268,19 +307,27 @@ class CompileFolder:
             current_file.truncate()
 
     def set_credentials(self):
-        """ Set ESP_SSID and ESP_PASS in the copied Globals.h, when a clock ID was supplied """
-        if self.clock_id is None:
-            self.report.append("Clock ID not changed")
+        """
+        Set OTA_USER and OTA_PASS in the copied Globals.h from SECRETS_FILE, and ESP_SSID and
+        ESP_PASS as well when a clock ID was supplied
+        """
+        secrets = self.read_secrets()
 
-            return
+        def c_string(value):
+            """ Replacement that keeps the declaration and swaps only the quoted value """
+            return lambda match: f'{match.group(1)}"{value}"'
 
-        ssid = f"NBG_CLOCK_{self.clock_id:05d}"
+        substitutions = [(r'(OTA_USER\s*=\s*)"[^"]*"', c_string(secrets["ota_user"])),
+                         (r'(OTA_PASS\s*=\s*)"[^"]*"', c_string(secrets["ota_password"]))]
 
-        self.apply_substitutions(self.compiled(self.GLOBALS_HEADER),
-                                 (r'(ESP_SSID\s*=\s*)"[^"]*"', rf'\1"{ssid}"'),
-                                 (r'(ESP_PASS\s*=\s*)"[^"]*"', r'\1"NEON1234"'))
+        if self.clock_id is not None:
+            ssid = f"NBG_CLOCK_{self.clock_id:05d}"
+            substitutions += [(r'(ESP_SSID\s*=\s*)"[^"]*"', c_string(ssid)),
+                              (r'(ESP_PASS\s*=\s*)"[^"]*"', c_string(secrets["ap_password"]))]
 
-        self.report.append(f"Clock ID set to {ssid}")
+        self.apply_substitutions(self.compiled(self.GLOBALS_HEADER), *substitutions)
+        self.report.append("Software update login set from " + SECRETS_FILE)
+        self.report.append(f"Clock ID set to {ssid}" if self.clock_id is not None else "Clock ID not changed")
 
     def set_debug_messages(self):
         """ Turn the debug serial output off for production firmware, leave it on otherwise """
@@ -293,31 +340,6 @@ class CompileFolder:
                                  (r"(DEBUG_MESSAGES\s*=\s*)true", r"\1false"))
 
         self.report.append("Debug messages disabled")
-
-    @staticmethod
-    def strip_line_comment(line):
-        """ Remove a trailing // comment while leaving protocol separators and strings alone """
-        in_single = in_double = False
-        index = 0
-
-        while index < len(line) - 1:
-            char = line[index]
-
-            if char == "\\":
-                index += 2
-                continue
-
-            if char == "'" and not in_double:
-                in_single = not in_single
-            elif char == '"' and not in_single:
-                in_double = not in_double
-            elif char == "/" and line[index + 1] == "/" and not in_single and not in_double:
-                if index == 0 or line[index - 1] != ":":  # Keep http:// and friends
-                    return line[:index]
-
-            index += 1
-
-        return line
 
 
 class StatusArea(tk.Frame):

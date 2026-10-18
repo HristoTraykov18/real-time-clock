@@ -27,6 +27,8 @@
 constexpr bool DEBUG_MESSAGES = true; // Set to true to enable debug serial messages throughout the code
 constexpr const char* ESP_SSID = "Test"; // ESP soft access point name | CHANGE NUMBER FOR EACH DEVICE!
 constexpr const char* ESP_PASS = "Test1234"; // ESP soft access point password
+constexpr const char* OTA_USER = "admin"; // Software update login | rtc_setup writes the value from rtc_secrets.ini
+constexpr const char* OTA_PASS = "ChangeMe1234"; // Software update password | rtc_setup writes the value from rtc_secrets.ini
 constexpr const char* SETTINGS_FILE = "/espSettings.xml";
 constexpr const char* CREDS_FILE = "/creds.txt";
 constexpr const char* EU_NTP_SERVER_1 = "0.europe.pool.ntp.org"; // NTP pool for IP addresses
