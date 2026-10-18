@@ -31,8 +31,8 @@ constexpr uint8_t LIGHT_SENSOR_PIN = 35; // ADC1 only. ADC2 cannot be read while
 // Light sensor reading ceiling and display brightness. 12 bit ADC
 constexpr int LIGHT_LEVELS[][2] = {
   {  300, 0 },
-  {  800, 2 },
-  { 2000, 3 },
+  {  700, 2 },
+  { 1500, 3 },
   { 4095, 7 }
 };
 
@@ -43,7 +43,7 @@ constexpr int     ONE_WIRE_BUS     = 32; // Temperature sensor
 static_assert(ONE_WIRE_BUS <= 33, "OneWire cannot drive ESP32 pins above GPIO33");
 
 constexpr int     GPS_RX           = 27; // UART2 RX
-constexpr int     GPS_TX           = 14; // UART2 TX
+constexpr int     GPS_TX           = 34; // UART2 TX
 
 /* ----------------------------------- Status LED switching ----------------------------------- */
 inline void LED_ON()  { digitalWrite(LED_PIN, HIGH); }
