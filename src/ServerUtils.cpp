@@ -201,7 +201,7 @@ void handleWebInterface() {
 const char* handleWifiTimeSync(const String& ssid) {
   const char* response;
   const String& pass = server.arg("pass");
-  const bool has_new_credentials = ssid != "" && pass.length() > 7;
+  const bool has_new_credentials = ssid != "" && (pass.length() == 0 || pass.length() > 7); // Empty password = open network
   const bool time_sync_was_gps = set_time_with_gps;
 
   char ssid_buf[33]; // Max SSID len (32) + NUL = 33
@@ -258,11 +258,9 @@ void initializeServers() {
   server.on("/m", handleDeviceMonitoring);
   server.begin();
 
-  const char *UPDATE_PATH = "/sourceControl";
-  const char *UPDATE_UNAME = "ghost";
-  const char *UPDATE_PASS = "m%O0gsLKOkDl";
+  const char *OTA_PATH = "/sourceControl";
 
-  espSetupHttpUpdater(&softwareUpdateServer, UPDATE_PATH, UPDATE_UNAME, UPDATE_PASS); // Esp Utils
+  espSetupHttpUpdater(&softwareUpdateServer, OTA_PATH, OTA_USER, OTA_PASS); // Esp Utils
 
   if constexpr (DEBUG_MESSAGES) {
     Serial.println(F("[initializeServers] Web server started"));
