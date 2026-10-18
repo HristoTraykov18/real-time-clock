@@ -43,7 +43,7 @@ constexpr int     ONE_WIRE_BUS     = 32; // Temperature sensor
 static_assert(ONE_WIRE_BUS <= 33, "OneWire cannot drive ESP32 pins above GPIO33");
 
 constexpr int     GPS_RX           = 27; // UART2 RX
-constexpr int     GPS_TX           = 34; // UART2 TX
+constexpr int     GPS_TX           = 33; // UART2 TX
 
 /* ----------------------------------- Status LED switching ----------------------------------- */
 inline void LED_ON()  { digitalWrite(LED_PIN, HIGH); }
