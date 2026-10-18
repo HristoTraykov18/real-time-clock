@@ -12,6 +12,7 @@ async function initializeApp () { // Add event listeners for the javascript func
     document.getElementById("js-main-form").addEventListener("submit", submitNetworkRequest);
     document.getElementById("js-time-sync-mode").addEventListener("click", toggleTimeSyncMode);
     document.getElementById("js-daylight-saving").addEventListener("click", toggleDaylightSaving);
+    document.getElementById("js-brightness-control").addEventListener("click", toggleBrightnessControl);
     document.getElementById("js-password-button-container").addEventListener("click", togglePasswordVisibility);
 
     // Tab switching
@@ -57,21 +58,26 @@ async function initializeApp () { // Add event listeners for the javascript func
     document.getElementById("js-timer-pause-control").addEventListener("click", sendTimerPauseControl);
 
     // Slider input
-    document.getElementById("js-brightness-control-label").addEventListener("mouseup", toggleBrightnessSliderInput);
-
     let slidersInputs = document.getElementsByClassName("js-slider-input");
     let slidersThumbs = document.getElementsByClassName("js-slider-thumb");
 
     for (let i = 0, arrLen = slidersInputs.length; i < arrLen; i++) {
+        slidersInputs[i].dataset.confirmedValue = slidersInputs[i].value; // Last value the clock accepted
+
         slidersInputs[i].addEventListener("input", function() {
             updateSlider(this, slidersThumbs[i]);
         });
-        slidersInputs[i].addEventListener("change", function() {
+        slidersInputs[i].addEventListener("change", async function() {
             updateSlider(this, slidersThumbs[i]);
             let submitData = "autoBrightnessControl=false&manualBrightnessLevel=";
             submitData += slidersInputs[i].value;
 
-            sendServerRequest(submitData);
+            if (await sendServerRequest(submitData))
+                this.dataset.confirmedValue = this.value;
+            else { // Not saved: move the slider back
+                this.value = this.dataset.confirmedValue;
+                updateSlider(this, slidersThumbs[i]);
+            }
         });
     }
 
@@ -348,6 +354,7 @@ async function requestConfig() {
         let brightnessSliderInput = document.getElementById("js-brightness-slider-input");
         let brightnessSliderThumb = document.getElementById("js-brightness-slider-thumb");
         brightnessSliderInput.value = xmlDoc.getElementsByTagName("manualBrightnessLevel")[0].childNodes[0].nodeValue;
+        brightnessSliderInput.dataset.confirmedValue = brightnessSliderInput.value;
 
         updateSlider(brightnessSliderInput, brightnessSliderThumb);
 
@@ -397,11 +404,15 @@ async function sendServerRequest(params, loader = true, route = '/') {
         if (loader) toggleLoader();
 
         showStatusPopup(response.ok ? await response.text() : "Възникна грешка!");
+
+        return response.ok;
     } catch {
 
         if (loader) toggleLoader();
 
         showStatusPopup("Неуспешно свързване с часовника!\nМоля проверете дали сте свързани с мрежата му и опитайте отново");
+
+        return false;
     }
 }
 
@@ -442,29 +453,33 @@ function submitNetworkRequest(event) {
     sendServerRequest(submitData);
 }
 
-function toggleBrightnessSliderInput() {
-    let isChecked = document.getElementById("js-brightness-control").checked;
-    let sliderContainer = document.getElementById("js-brightness-slider-container");
+async function toggleBrightnessControl(event) {
+    let checkbox = event.currentTarget;
+    let autoBrightness = checkbox.checked; // The state this click asks for
 
-    if (isChecked) { // Show
-        sliderContainer.style.opacity = 1;
-        sliderContainer.style.pointerEvents = "all";
-    } else { // Hide
-        sliderContainer.style.opacity = 0;
-        sliderContainer.style.pointerEvents = "none";
-    }
+    event.preventDefault(); // The box keeps its current state until the clock confirms the change
 
-    let submitData = `autoBrightnessControl=${!isChecked}&manualBrightnessLevel=`;
+    let submitData = `autoBrightnessControl=${autoBrightness}&manualBrightnessLevel=`;
     submitData += document.getElementById("js-brightness-slider-input").value;
-    sendServerRequest(submitData);
+
+    if (!await sendServerRequest(submitData))
+        return;
+
+    checkbox.checked = autoBrightness;
+
+    let sliderContainer = document.getElementById("js-brightness-slider-container");
+    sliderContainer.style.opacity = autoBrightness ? 0 : 1;
+    sliderContainer.style.pointerEvents = autoBrightness ? "none" : "all";
 }
 
-function toggleDaylightSaving() {
-    let submitData = "daylightSavingEnabled=";
-    let daylightSavingCheckbox = document.getElementById("js-daylight-saving");
-    submitData += daylightSavingCheckbox.checked;
+async function toggleDaylightSaving(event) {
+    let checkbox = event.currentTarget;
+    let daylightSavingEnabled = checkbox.checked; // The state this click asks for
 
-    sendServerRequest(submitData);
+    event.preventDefault(); // The box keeps its current state until the clock confirms the change
+
+    if (await sendServerRequest("daylightSavingEnabled=" + daylightSavingEnabled))
+        checkbox.checked = daylightSavingEnabled;
 }
 
 function toggleLoader() {
@@ -496,11 +511,14 @@ function togglePasswordVisibility() {
     passInput.focus();
 }
 
-function toggleTimeSyncMode() {
-    let timeSyncMode = document.getElementById("js-time-sync-mode");
-    let submitData = "timeSyncMode=";
-    submitData += timeSyncMode.checked ? "wifi" : "gps";
-    sendServerRequest(submitData);
+async function toggleTimeSyncMode(event) {
+    let timeSyncMode = event.currentTarget;
+    let useWifi = timeSyncMode.checked; // The state this click asks for (checked = Wi-Fi)
+
+    event.preventDefault(); // The switch keeps its current state until the clock confirms the change
+
+    if (await sendServerRequest("timeSyncMode=" + (useWifi ? "wifi" : "gps")))
+        timeSyncMode.checked = useWifi;
 }
 
 function updateSlider(slider, thumb) {
@@ -632,6 +650,7 @@ function updateInfoPanelTime() {
 // Additional settings panel specific functionality
 let additionalSettingsTzDebounce = null;
 let currentTimezone = 0;
+let confirmedTimezone = 0; // Last offset the clock reported or accepted
 
 async function activateSoftwareUpdate(event) {
     event.stopPropagation();
@@ -672,15 +691,24 @@ function adjustTimezone(delta) {
         document.getElementById("js-additional-settings-loader").style.display = "block";
         document.getElementById("js-additional-settings-info").style.display = "none";
 
+        const requestedTimezone = currentTimezone;
+
         try {
-            await fetchWithTimeout("/", {
+            const response = await fetchWithTimeout("/", {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-                body: "timezoneHoursOffset=" + currentTimezone
+                body: "timezoneHoursOffset=" + requestedTimezone
             });
+
+            if (!response.ok)
+                throw new Error("HTTP " + response.status);
+
+            confirmedTimezone = requestedTimezone;
             document.getElementById("js-additional-settings-loader").style.display = "none";
             document.getElementById("js-additional-settings-info").style.display = "block";
-        } catch {
+        } catch { // Not saved: show the stored offset again
+            currentTimezone = confirmedTimezone;
+            document.getElementById("js-timezone-value").innerText = currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
             displayDisconnectedState("js-additional-settings");
         }
         additionalSettingsTzDebounce = null;
@@ -726,6 +754,7 @@ function openAdditionalSettings(event) {
         function(responseText) {
             let parts = responseText.split("|");
             currentTimezone = parseInt(parts[0], 10);
+            confirmedTimezone = currentTimezone;
             document.getElementById("js-timezone-value").innerText =
                 currentTimezone > 0 ? "+" + currentTimezone : currentTimezone;
 
