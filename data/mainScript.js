@@ -142,8 +142,8 @@ function timeoutForInactivity() {
 
 // Networks list and popup functionality
 function connectToSelectedNetwork() {
-    let submitData = "ssid=" + selectedNetworkSSID;
-    submitData += "&pass=" + document.getElementById("js-popup-pass-input").value;
+    let submitData = "ssid=" + encodeURIComponent(selectedNetworkSSID);
+    submitData += "&pass=" + encodeURIComponent(document.getElementById("js-popup-pass-input").value);
     submitData += "&timeSyncMode=wifi";
     submitData += "&isHiddenNetwork=false";
     submitData += "&workMode=" + getActiveWorkMode();
@@ -433,8 +433,8 @@ function submitNetworkRequest(event) {
     submitData += "&timeSyncMode=wifi";
 
     let networkInputs = document.getElementsByClassName("main-settings-input");
-    submitData += "&ssid=" + networkInputs[0].value;
-    submitData += "&pass=" + networkInputs[1].value;
+    submitData += "&ssid=" + encodeURIComponent(networkInputs[0].value);
+    submitData += "&pass=" + encodeURIComponent(networkInputs[1].value);
 
     submitData += "&isHiddenNetwork=";
     submitData += document.getElementsByName("hiddenNetwork")[0].checked;

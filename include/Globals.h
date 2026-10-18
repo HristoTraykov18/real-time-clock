@@ -74,7 +74,7 @@ inline int8_t timezone_offset;
 inline int8_t second_now = 0;
 inline int8_t last_second = -1; // Used to check if the current second is different than the last
 inline int8_t blink_count = 0; // Amount of flashes when someone connects to the ESP / ESP connects to NTP server
-inline int16_t timer_duration = 0; // Remaining timer duration in seconds
+inline int32_t timer_duration = 0; // Remaining timer duration in seconds. 32 bit, the web UI allows up to 99:59:59 (359999 s)
 inline unsigned long timer_millis = 0;        // millis() timestamp of when the current timer-second began (or when resume was called)
 inline unsigned long timer_millis_offset = 0; // ms already elapsed within the current second at the moment of pause
 inline unsigned long last_http_activity_ms = 0; // Updated on every HTTP request

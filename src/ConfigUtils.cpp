@@ -95,7 +95,7 @@ void editTimeSyncMode(const char new_value[]) {
 
 
 void editTimerDuration(const char new_value[]) {
-  int16_t new_duration = atoi(new_value);
+  int32_t new_duration = atoi(new_value);
 
   if (new_duration != timer_duration)
     editSettingsFile(new_value, SettingId::TimerDuration);

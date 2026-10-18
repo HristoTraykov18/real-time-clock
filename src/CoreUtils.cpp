@@ -78,7 +78,7 @@ void getInitialClockSettings() {
   f.close();
   buf[len] = '\0';
 
-  char val[16]; // Longest stored value is "3600" or "false" - 5 chars; 16 is generous
+  char val[16]; // Longest stored value is a timer duration like "359999" - 6 chars; 16 is generous
 
   for (uint8_t i = 0; i < (uint8_t)SettingId::Count; i++) {
     const SettingTag& tag = SETTING_TAGS[i];
