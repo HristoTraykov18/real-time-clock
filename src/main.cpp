@@ -2,10 +2,10 @@
 // Real time clock software
 // Developed by Hristo Traykov, NEON.BG (Sofia)
 // Current version 1.12.x
-// DO NOT FORGET TO SETUP PROPERLY IN TOOLS
 // USE FLOAT FIRMWARE
 //
 // ESP8266 core version 3.1.2
+// ESP32 core version 3.3.11
 // LittleFS version 1.5.2
 // TM1637 library is edited
 // RTClib version 2.1.4
@@ -19,38 +19,43 @@
 #include "ServerUtils.h"
 
 void setup() {
-  WiFi.disconnect();
-  WiFi.persistent(false);
-  WiFi.setAutoReconnect(false);
-  espSetWifiSleep(false); // Esp Utils
-  espSetCountry(); // Esp Utils
-
   if constexpr (DEBUG_MESSAGES) {
     Serial.begin(115200); // Serial monitor
     Serial.println("\n\n");
   }
 
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
+  LED_OFF();
   initializePeripherals(); // Core Utils
   initializeFileSystem(); // Core Utils
-  initializeServers(); // Server Utils
+  tm1637.setBrightness(display_brightness); // Set brightness of the 7-digit display (TM1637)
 
   daylight_saving_active = daylight_saving_enabled && isDaylightSavingPeriod();
+
+  if constexpr (HAS_GPS_MODULE) {
+    if (set_time_with_gps)
+      activateGPS(); // GPS module function
+  }
+
+  WiFi.persistent(false);
+  WiFi.setAutoReconnect(false);
+  WiFi.mode(WIFI_AP_STA);
+  espAttachWifiEventHandlers(); // Esp Utils
+
+  initializeSoftAP(); // Network Utils
+
+  WiFi.disconnect();
+  espSetWifiSleep(false); // Esp Utils
+  espSetCountry(); // Esp Utils
+  radio_settle_until_ms = millis() + RADIO_SETTLE_PERIOD;
+
+  initializeServers(); // Server Utils
 
   if constexpr (DEBUG_MESSAGES) {
     Serial.print(F("[setup] MAC: "));
     Serial.println(WiFi.macAddress());
-  }
-
-  tm1637.setBrightness(display_brightness); // Set brightness of the 7-digit display (TM1637)
-  initializeSoftAP(); // Network Utils
-  radio_settle_until_ms = millis() + RADIO_SETTLE_PERIOD;
-
-  espAttachWifiEventHandlers(); // Esp Utils
-
-  if constexpr (DEBUG_MESSAGES)
     Serial.println(F("[setup] Wi-Fi initialization delay"));
+  }
 
   delay(RADIO_SETTLE_PERIOD);
 

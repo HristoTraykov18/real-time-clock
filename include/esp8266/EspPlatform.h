@@ -40,13 +40,19 @@ constexpr int     ONE_WIRE_BUS     = D3; // GPIO0, temperature sensor
 constexpr int     GPS_RX           = D7; // GPIO13, ESP receives from the GPS module's TX pin
 constexpr int     GPS_TX           = D8; // GPIO15, ESP transmits to the GPS module's RX pin
 
+/* ----------------------------------- Status LED switching ----------------------------------- */
+inline void LED_ON()  { digitalWrite(LED_PIN, LOW); }
+inline void LED_OFF() { digitalWrite(LED_PIN, HIGH); }
+
 /* ------------------------- Used when the RTC becomes unsynchronised ------------------------- */
 // GPES sets and GPEC clears the output enable bit, so the pin is driven low or released
+// Only the output enable bits are touched, I2C bus needs no restart on ESP8266
 inline void SDA_LOW()  { GPES = (1 << SDA); }
 inline void SDA_HIGH() { GPEC = (1 << SDA); }
 inline void SCL_LOW()  { GPES = (1 << SCL); }
 inline void SCL_HIGH() { GPEC = (1 << SCL); }
 inline bool SDA_READ() { return ((GPI & (1 << SDA)) != 0); }
+inline void I2C_RESTART() {}
 
 #ifdef  GPS_MODULE
 /* ---------------------------------- GPS module serial port ---------------------------------- */

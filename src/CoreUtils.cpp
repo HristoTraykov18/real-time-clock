@@ -221,7 +221,7 @@ void manualTimeUpdate() {
 
 
 void resetRTC() {
-  digitalWrite(LED_PIN, LOW);
+  LED_ON();
   delay(250);
 
   pinMode(SDA, INPUT_PULLUP);
@@ -239,10 +239,12 @@ void resetRTC() {
     SCL_LOW();
   }
 
+  I2C_RESTART(); // ESP32 I2C has to be restarted after the bus is released
+
   if constexpr (DEBUG_MESSAGES)
     Serial.println(F("[resetRTC] RTC reset"));
 
-  digitalWrite(LED_PIN, HIGH);
+  LED_OFF();
   delay(250);
 }
 

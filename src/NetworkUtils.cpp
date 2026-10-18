@@ -57,7 +57,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
   yield();
 
   if constexpr (DEBUG_MESSAGES) {
-    Serial.print(F("[connectClockToNetwork] Trying to connect to "));
+    Serial.print(F("[connectClockToNetwork] Connecting to "));
     Serial.print(ssid);
 
     if (bssid) {
