@@ -21,8 +21,7 @@ void editDaylightSavingEnabled(const char new_value[]) {
 
 
 void editManualBrightness(const char new_value[]) {
-  if (display_brightness != atoi(new_value))
-    editSettingsFile(new_value, SettingId::ManualBrightness);
+  editSettingsFile(new_value, SettingId::ManualBrightness);
 
   if (!auto_brightness)
     last_display_brightness = display_brightness;
@@ -60,6 +59,12 @@ void editSettingsFile(const char new_value[], SettingId id) {
 
   if (!value_end) return;
 
+  const size_t new_value_len = strlen(new_value);
+
+  // The stored value already matches, skip the flash write
+  if ((size_t)(value_end - value_start) == new_value_len && memcmp(value_start, new_value, new_value_len) == 0)
+    return;
+
   f = LittleFS.open(SETTINGS_FILE, "w");
 
   if (!f) {
@@ -73,7 +78,7 @@ void editSettingsFile(const char new_value[], SettingId id) {
   }
 
   f.write((uint8_t*)buf, value_start - buf);  // Everything before the value
-  f.write((uint8_t*)new_value, strlen(new_value));  // The new value
+  f.write((const uint8_t*)new_value, new_value_len);  // The new value
   f.write((uint8_t*)value_end, len - (value_end - buf));  // Closing tag onwards
   f.close();
 }

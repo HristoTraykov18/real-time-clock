@@ -24,13 +24,14 @@ void editAutoBrightness(const char new_value[]);
 void editDaylightSavingEnabled(const char new_value[]);
 
 /**
- * @brief Updates the manual brightness local integer and stores the value in the ESP filesystem.
+ * @brief Stores the manual brightness level in the ESP filesystem when it differs from the stored value.
  * @param new_value Integer value formatted as string.
  */
 void editManualBrightness(const char new_value[]);
 
 /**
  * @brief Modifies the RTC configuration file in the ESP filesystem.
+ * Skips the write when the stored value already equals the new one.
  * @param new_value Integer value formatted as string.
  * @param id Identifies which setting to rewrite. Indexes SETTING_TAGS.
  */
