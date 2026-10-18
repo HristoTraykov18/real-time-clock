@@ -804,6 +804,7 @@ function sendTimerStart() {
         return;
 
     document.getElementById("js-timer-pause-control").innerHTML = "&#9646;&#9646; Пауза";
+    timerIsRunning = false;
     sendServerRequest("workMode=timer&status=start&duration=" + seconds, false);
 }
 
