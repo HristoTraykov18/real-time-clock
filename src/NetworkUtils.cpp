@@ -391,7 +391,7 @@ bool readTimestamp(uint32_t &secs_since_1900) {
   constexpr uint32_t NTP_MIN_VALID_SECONDS = 2208988800UL + 1577836800UL; // Reject anything before 2020
   IPAddress time_server_ip;
 
-  if (!WiFi.hostByName(EU_NTP_SERVER_1, time_server_ip)) {
+  if (WiFi.hostByName(EU_NTP_SERVER_1, time_server_ip) != 1) { // ESP32 returns error code on failure, not 0
     if constexpr (DEBUG_MESSAGES)
       Serial.println(F("NTP DNS resolution failed"));
 
