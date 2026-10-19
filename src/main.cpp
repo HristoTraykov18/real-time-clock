@@ -1,7 +1,7 @@
 
 // Real time clock software
 // Developed by Hristo Traykov, NEON.BG (Sofia)
-// Current version 1.12.x
+// Current version 1.13.x
 // USE FLOAT FIRMWARE
 //
 // ESP8266 core version 3.1.2
