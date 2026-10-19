@@ -93,6 +93,16 @@ const char* handleWifiTimeSync(const String& ssid);
 void initializeServers();
 
 /**
+ * @brief Joins the network the client asked for and updates the time over it.
+ * A visible network must be in the scan; an empty password for a protected one is rejected without a connect attempt.
+ * @param ssid Target wireless access point name provided by the client.
+ * @param pass Network password provided by the client (empty for an open network).
+ * @param is_hidden String indicating visibility settings ("true"/"false").
+ * @return const char* Status message describing the connection and synchronization result.
+ */
+const char* joinRequestedNetwork(const String& ssid, const String& pass, const String& is_hidden);
+
+/**
  * @brief Sends the timezone offset and whether a saved network information is available to the client.
  */
 void sendAdditionalSettings();
@@ -120,12 +130,3 @@ void sendWebpageResponse(const char *webpage_response, int status_code = 200);
  * @param content_type MIME type reported to the client.
  */
 void streamFileToClient(const char *filename, const char *content_type);
-
-/**
- * @brief Validates client-provided network credentials and attempts connection followed by a time update.
- * @param ssid Target wireless access point name provided by the client.
- * @param pass Network password provided by the client.
- * @param is_hidden String indicating visibility settings ("true"/"false").
- * @return const char* Status message describing the connection and synchronization result.
- */
-const char* validateNetworkInput(const String& ssid, const String& pass, const String& is_hidden);

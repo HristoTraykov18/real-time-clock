@@ -214,7 +214,7 @@ const char* handleWifiTimeSync(const String& ssid) {
 
   if (WiFi.status() != WL_CONNECTED) {
     if (has_new_credentials)
-      response = validateNetworkInput(ssid, pass, server.arg("isHiddenNetwork"));
+      response = joinRequestedNetwork(ssid, pass, server.arg("isHiddenNetwork"));
     else if (time_sync_was_gps)
       response = "Промените са запазени.";
     else
@@ -224,7 +224,7 @@ const char* handleWifiTimeSync(const String& ssid) {
     response = createReply("Часовникът вече е свързан с мрежа", ssid_buf, autoUpdateTime(true));
   else if (has_new_credentials) {
     WiFi.disconnect(true);
-    response = validateNetworkInput(ssid, pass, server.arg("isHiddenNetwork"));
+    response = joinRequestedNetwork(ssid, pass, server.arg("isHiddenNetwork"));
 
     if (WiFi.status() != WL_CONNECTED)
       networkReconnect();
@@ -270,6 +270,39 @@ void initializeServers() {
     Serial.println(F("[initializeServers] Web server started"));
     Serial.println(F("[initializeServers] Software update server configured (not started)"));
   }
+}
+
+
+const char* joinRequestedNetwork(const String& ssid, const String& pass, const String& is_hidden) {
+  const char* name = ssid.c_str();
+  const bool hidden = is_hidden == "true";
+  const bool no_password = pass.length() == 0;
+  bool needs_password = false; // Known only for a visible network, from the scan
+  const char* format;
+
+  if (!hidden && !networkIsInRange(name, &needs_password)) // Network Utils
+    format = "Мрежата %s не е в обхват, или е скрита.";
+  else if (needs_password && no_password) // A protected network rejects an empty password, skip the attempt
+    format = "Мрежата %s изисква парола!";
+  else {
+    const wl_status_t status = connectClockToNetwork(name, pass.c_str(), hidden); // Network Utils
+
+    if (status == WL_CONNECTED)
+      return createReply("Часовникът се свърза с мрежа", name, autoUpdateTime(true));
+
+    if (espIsAuthFailure(status)) // Esp Utils
+      format = no_password ? "Мрежата %s изисква парола!" : "Грешна парола!\nМоля опитайте отново.";
+    else if (espIsAssocFailure()) // Esp Utils | The network refused the clock, e.g. WPA3 only
+      format = "Часовникът не може да се свърже с мрежа %s.\nВидът защита на мрежата не се поддържа.";
+    else if (status == WL_NO_SSID_AVAIL)
+      format = "Мрежата %s не е в обхват.";
+    else
+      format = "Неуспешно свързване с мрежа %s.";
+  }
+
+  snprintf(response_buf, sizeof(response_buf), format, name);
+
+  return response_buf;
 }
 
 
@@ -476,33 +509,4 @@ void streamFileToClient(const char *filename, const char *content_type) {
       Serial.println(length);
     }
   }
-}
-
-
-const char* validateNetworkInput(const String& ssid, const String& pass, const String& is_hidden) {
-  if (is_hidden == "true" || networkIsInRange(ssid.c_str())) {
-    wl_status_t connection_status = connectClockToNetwork(ssid.c_str(), pass.c_str(), is_hidden == "true");
-
-    if (connection_status == WL_CONNECTED) {
-      if (autoUpdateTime(true))
-        snprintf(response_buf, sizeof(response_buf),
-          "Часовникът се свърза с мрежа %s.\nУспешна актуализация на времето през Интернет!",
-          ssid.c_str());
-      else {
-        snprintf(response_buf, sizeof(response_buf),
-          "Часовникът се свърза с мрежа %s.\nНеуспешна актуализация на времето, моля опитайте отново!",
-          ssid.c_str());
-      }
-    }
-    else if (espIsAuthFailure(connection_status)) // Esp Utils
-      snprintf(response_buf, sizeof(response_buf), "Грешна парола!\nМоля опитайте отново.");
-    else if (connection_status == WL_NO_SSID_AVAIL)
-      snprintf(response_buf, sizeof(response_buf), "Мрежата %s не е в обхват.", ssid.c_str());
-    else
-      snprintf(response_buf, sizeof(response_buf), "Неуспешно свързване с мрежа %s.", ssid.c_str());
-  }
-  else
-    snprintf(response_buf, sizeof(response_buf), "Мрежата %s не е в обхват, или е скрита.", ssid.c_str());
-
-  return response_buf;
 }

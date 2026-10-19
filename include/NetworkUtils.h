@@ -74,9 +74,10 @@ void manageStaReconnect();
 /**
  * @brief Triggers a wireless scan to see if an SSID target is broadcasted within range.
  * @param ssid Target access point name.
+ * @param needs_password Optional. Set to true when the target AP is in range and protected, false otherwise.
  * @return bool true if the target AP is in range.
  */
-bool networkIsInRange(const char* ssid);
+bool networkIsInRange(const char* ssid, bool* needs_password = nullptr);
 
 /**
  * @brief Reads network credentials stored locally inside `/creds.txt` and attempts system re-association.

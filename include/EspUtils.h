@@ -18,6 +18,12 @@
 void espAttachWifiEventHandlers();
 
 /**
+ * @brief Forgets the authentication and association failures of an earlier connection attempt.
+ * Called before every new attempt, so espIsAuthFailure() and espIsAssocFailure() only report the current one.
+ */
+void espClearConnectFailures();
+
+/**
  * @brief Deauthenticates every station currently associated to the ESP's softAP.
  */
 void espEvictStations();
@@ -41,10 +47,19 @@ uint32_t espMaxAllocHeap();
 uint8_t espHeapFragmentation();
 
 /**
- * @brief Tells whether a Wi-Fi status value means the password was rejected.
- * The ESP8266 core reports this as a distinct status.
- * @param status Value returned by WiFi.status().
- * @return bool true if the status specifically indicates an authentication failure.
+ * @brief Tells whether the current connection attempt failed because the network refused the association
+ * (disconnect reason ASSOC_FAIL, 203), e.g. a WPA3-only network the ESP8266 cannot join.
+ * Based on the reason of the last station disconnect event since espClearConnectFailures().
+ * @return bool true if the attempt failed on association.
+ */
+bool espIsAssocFailure();
+
+/**
+ * @brief Tells whether the current connection attempt failed because the password was rejected.
+ * Based on the reason of the last station disconnect event since espClearConnectFailures()
+ * (AUTH_EXPIRE, AUTH_FAIL, HANDSHAKE_TIMEOUT, 4WAY_HANDSHAKE_TIMEOUT); the ESP8266 also accepts its WL_WRONG_PASSWORD status.
+ * @param status Value returned by WiFi.status() (used on the ESP8266 only).
+ * @return bool true if the attempt specifically failed on authentication.
  */
 bool espIsAuthFailure(int status);
 
@@ -100,6 +115,14 @@ const uint8_t* espScanBssid(int index);
  * @return uint8_t Channel number, or 0 if the index is not valid.
  */
 uint8_t espScanChannel(int index);
+
+/**
+ * @brief Tells whether one scan result is a protected network, which cannot be joined without a password.
+ * Open networks (and, on the ESP32, OWE "enhanced open" networks) need no password.
+ * @param index Zero based index into the last scan result.
+ * @return bool true if the network asks for a password, false if it is open or the index is not valid.
+ */
+bool espScanNeedsPassword(int index);
 
 /**
  * @brief SSID of one scan result, as a NUL terminated string.

@@ -7,6 +7,7 @@ static HTTPUpdateServer httpUpdater;
 static char scan_ssid[33];
 
 static volatile bool sta_auth_failed = false;
+static volatile bool sta_assoc_failed = false;
 
 
 void espAttachWifiEventHandlers() {
@@ -30,9 +31,11 @@ void espAttachWifiEventHandlers() {
   WiFi.onEvent([](arduino_event_id_t, arduino_event_info_t info) {
       const uint8_t reason = info.wifi_sta_disconnected.reason;
 
-      sta_auth_failed = reason == WIFI_REASON_AUTH_FAIL
+      sta_auth_failed = reason == WIFI_REASON_AUTH_EXPIRE
+                     || reason == WIFI_REASON_AUTH_FAIL
                      || reason == WIFI_REASON_HANDSHAKE_TIMEOUT
                      || reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT;
+      sta_assoc_failed = reason == WIFI_REASON_ASSOC_FAIL;
 
       sta_disconnect_count += 1;
 
@@ -44,6 +47,12 @@ void espAttachWifiEventHandlers() {
         Serial.println(F(" ==="));
       }
   }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+}
+
+
+void espClearConnectFailures() {
+  sta_auth_failed = false;
+  sta_assoc_failed = false;
 }
 
 
@@ -90,6 +99,11 @@ uint8_t espHeapFragmentation() {
 }
 
 
+bool espIsAssocFailure() {
+  return sta_assoc_failed;
+}
+
+
 bool espIsAuthFailure(int) {
   return sta_auth_failed;
 }
@@ -116,6 +130,13 @@ uint8_t espScanChannel(int index) {
 
 void espScanDelete() {
   WiFi.scanDelete();
+}
+
+
+bool espScanNeedsPassword(int index) {
+  const wifi_ap_record_t* info = (const wifi_ap_record_t*)WiFi.getScanInfoByIndex(index);
+
+  return info && info->authmode != WIFI_AUTH_OPEN && info->authmode != WIFI_AUTH_OWE;
 }
 
 

@@ -10,6 +10,9 @@ static ESP8266HTTPUpdateServer httpUpdater;
 
 static char scan_ssid[33];
 
+static volatile bool sta_auth_failed = false;
+static volatile bool sta_assoc_failed = false;
+
 
 void espAttachWifiEventHandlers() {
   apConnectHandler = WiFi.onSoftAPModeStationConnected(
@@ -33,14 +36,28 @@ void espAttachWifiEventHandlers() {
 
   staDisconnectHandler = WiFi.onStationModeDisconnected(
     [](const WiFiEventStationModeDisconnected& event) {
+      sta_auth_failed = event.reason == WIFI_DISCONNECT_REASON_AUTH_EXPIRE
+                     || event.reason == WIFI_DISCONNECT_REASON_AUTH_FAIL
+                     || event.reason == WIFI_DISCONNECT_REASON_HANDSHAKE_TIMEOUT
+                     || event.reason == WIFI_DISCONNECT_REASON_4WAY_HANDSHAKE_TIMEOUT;
+      sta_assoc_failed = event.reason == WIFI_DISCONNECT_REASON_ASSOC_FAIL; // e.g. WPA3-only network
+
       sta_disconnect_count++;
 
       if constexpr (DEBUG_MESSAGES) {
         Serial.print(F("\n=== ESP STA disconnected from "));
         Serial.print(event.ssid);
+        Serial.print(F(" | Reason: "));
+        Serial.print((int)event.reason);
         Serial.println(F(" ==="));
       }
   });
+}
+
+
+void espClearConnectFailures() {
+  sta_auth_failed = false;
+  sta_assoc_failed = false;
 }
 
 
@@ -83,8 +100,13 @@ uint8_t espHeapFragmentation() {
 }
 
 
+bool espIsAssocFailure() {
+  return sta_assoc_failed;
+}
+
+
 bool espIsAuthFailure(int status) {
-  return status == WL_WRONG_PASSWORD;
+  return sta_auth_failed || status == WL_WRONG_PASSWORD;
 }
 
 
@@ -109,6 +131,13 @@ uint8_t espScanChannel(int index) {
 
 void espScanDelete() {
   WiFi.scanDelete();
+}
+
+
+bool espScanNeedsPassword(int index) {
+  const bss_info* info = WiFi.getScanInfoByIndex(index);
+
+  return info && info->authmode != AUTH_OPEN;
 }
 
 

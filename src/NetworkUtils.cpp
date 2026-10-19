@@ -53,6 +53,7 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
 
   const uint16_t prev_disconnect_count = sta_disconnect_count;
 
+  espClearConnectFailures(); // Esp Utils
   WiFi.begin(ssid, pass, channel, bssid);
   yield();
 
@@ -277,7 +278,10 @@ void manageStaReconnect() {
 }
 
 
-bool networkIsInRange(const char* ssid) {
+bool networkIsInRange(const char* ssid, bool* needs_password) {
+  if (needs_password)
+    *needs_password = false;
+
   if (!ssid)
     return false;
 
@@ -307,6 +311,9 @@ bool networkIsInRange(const char* ssid) {
 
     if (strncmp(found, ssid, ssid_len + 1) == 0) {
       in_range = true;
+
+      if (needs_password)
+        *needs_password = espScanNeedsPassword(i); // Esp Utils
 
       break;
     }
