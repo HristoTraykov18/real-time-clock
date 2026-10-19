@@ -29,7 +29,9 @@ void handleActivateSoftwareUpdate();
 
 /**
  * @brief Applies automatic or manual brightness settings from the client and saves them to the filesystem.
- * @return const char* Localized confirmation message for the client.
+ * A value the web UI cannot send (autoBrightnessControl other than "true"/"false", or a manual level
+ * outside 0 to LIGHT_LEVELS_COUNT - 1) is answered with HTTP 400 here and changes nothing.
+ * @return const char* Localized confirmation message for the client, or nullptr when the request was rejected.
  */
 const char* handleBrightnessControl();
 
@@ -108,8 +110,9 @@ void sendNetworksList();
 /**
  * @brief Sends a plain text response to the client and refreshes the HTTP activity timestamp.
  * @param webpage_response Text message payload to deliver.
+ * @param status_code HTTP status code (200 by default, 400 for a rejected value).
  */
-void sendWebpageResponse(const char *webpage_response);
+void sendWebpageResponse(const char *webpage_response, int status_code = 200);
 
 /**
  * @brief Streams a file from the filesystem to the client, honoring HTTP Range requests for partial content.

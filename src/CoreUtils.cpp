@@ -1,5 +1,6 @@
 // CoreUtils.cpp
 #include "CoreUtils.h"
+#include "ConfigUtils.h"
 #include "EspUtils.h"
 
 
@@ -105,11 +106,16 @@ void getInitialClockSettings() {
           set_time_with_gps = strcmp(val, "gps") == 0;
         break;
       case SettingId::AutoBrightness: auto_brightness = strcmp(val, "true") == 0; break;
-      case SettingId::ManualBrightness:
-        display_brightness = atoi(val);
+      case SettingId::ManualBrightness: {
+        const int8_t level = lightLevelIndex(val); // Config Utils
+
+        if (level < 0) break; // Not a valid level (e.g. a file from before the 4-level slider): keep the default
+
+        display_brightness = (uint8_t)LIGHT_LEVELS[level][1];
 
         if (!auto_brightness) last_display_brightness = display_brightness;
         break;
+      }
       case SettingId::TimezoneOffset: timezone_offset = atoi(val); break;
       case SettingId::WorkMode: work_mode_is_timer = strcmp(val, "timer") == 0; break;
       case SettingId::TimerDuration: timer_duration = atoi(val); break;

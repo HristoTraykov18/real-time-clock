@@ -20,11 +20,17 @@ void editDaylightSavingEnabled(const char new_value[]) {
 }
 
 
-void editManualBrightness(const char new_value[]) {
-  editSettingsFile(new_value, SettingId::ManualBrightness);
+bool editManualBrightness(const char new_value[]) {
+  const int8_t level = lightLevelIndex(new_value);
 
-  if (!auto_brightness)
-    last_display_brightness = display_brightness;
+  if (level < 0)
+    return false;
+
+  editSettingsFile(new_value, SettingId::ManualBrightness);
+  display_brightness = (uint8_t)LIGHT_LEVELS[level][1];
+  last_display_brightness = display_brightness;
+
+  return true;
 }
 
 
@@ -125,4 +131,12 @@ void editWorkMode(const char new_value[]) {
     editSettingsFile(new_value, SettingId::WorkMode);
     work_mode_is_timer = !work_mode_is_timer;
   }
+}
+
+
+int8_t lightLevelIndex(const char value[]) {
+  if (value[0] < '0' || value[0] >= '0' + LIGHT_LEVELS_COUNT || value[1] != '\0')
+    return -1;
+
+  return (int8_t)(value[0] - '0');
 }

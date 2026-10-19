@@ -41,7 +41,9 @@ void animateTimeUpdate(bool updated_from_gps) {
 }
 
 
-void flashDisplay() {
+void flashDisplay() {  
+  constexpr uint8_t MAX_BRIGHTNESS = LIGHT_LEVELS[LIGHT_LEVELS_COUNT - 1][1]; // Brightest sensor level
+
   if (display_client_connected && blink_count == 0) {
     blink_count = 6;
     last_auto_brightness = auto_brightness;
@@ -52,9 +54,9 @@ void flashDisplay() {
   if (blink_count > 0) {
     if (display_brightness == last_display_brightness) {
       if (connected_to_ntp)
-        display_brightness = display_brightness != 6 ? 6 : 0;
+        display_brightness = display_brightness != MAX_BRIGHTNESS ? MAX_BRIGHTNESS : 0;
       else
-        display_brightness = display_brightness != 0 ? 0 : 6;
+        display_brightness = display_brightness != 0 ? 0 : MAX_BRIGHTNESS;
     }
     else
       display_brightness = last_display_brightness;

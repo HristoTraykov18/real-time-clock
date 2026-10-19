@@ -32,13 +32,17 @@ void handleActivateSoftwareUpdate() {
 const char* handleBrightnessControl() {
   const String& auto_brightness_control = server.arg("autoBrightnessControl");
 
-  if (auto_brightness_control == "false") {
-    const String& manual_brightness_level = server.arg("manualBrightnessLevel");
+  const bool manual = auto_brightness_control == "false";
 
-    editManualBrightness(manual_brightness_level.c_str());
-    display_brightness = manual_brightness_level.toInt();
+  // Reject anything the web UI cannot send, so a tampered request changes nothing
+  if ((!manual && auto_brightness_control != "true") ||
+      (manual && !editManualBrightness(server.arg("manualBrightnessLevel").c_str()))) { // Config Utils
+    sendWebpageResponse("Невалидна настройка за яркост!", 400);
+
+    return nullptr;
   }
-  else
+
+  if (!manual)
     display_brightness = DEFAULT_BRIGHTNESS;
 
   editAutoBrightness(auto_brightness_control.c_str());
@@ -360,8 +364,8 @@ void sendNetworksList() {
 }
 
 
-void sendWebpageResponse(const char *webpage_response) {
-  server.send(200, "text/plain", webpage_response);
+void sendWebpageResponse(const char *webpage_response, int status_code) {
+  server.send(status_code, "text/plain", webpage_response);
   last_http_activity_ms = millis();
 
   if constexpr (DEBUG_MESSAGES) {

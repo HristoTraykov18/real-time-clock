@@ -24,10 +24,12 @@ void editAutoBrightness(const char new_value[]);
 void editDaylightSavingEnabled(const char new_value[]);
 
 /**
- * @brief Stores the manual brightness level in the ESP filesystem when it differs from the stored value.
- * @param new_value Integer value formatted as string.
+ * @brief Validates the manual brightness level (a LIGHT_LEVELS row index), applies the display
+ * brightness of that row and stores the level in the ESP filesystem when it differs from the stored value.
+ * @param new_value Row index formatted as string ("0" to LIGHT_LEVELS_COUNT - 1).
+ * @return true when the level is valid and applied, false when it is rejected (nothing changes).
  */
-void editManualBrightness(const char new_value[]);
+bool editManualBrightness(const char new_value[]);
 
 /**
  * @brief Modifies the RTC configuration file in the ESP filesystem.
@@ -61,3 +63,10 @@ void editTimezoneOffset(const char new_value[]);
  * @param new_value String ("rtc"/"timer").
  */
 void editWorkMode(const char new_value[]);
+
+/**
+ * @brief Converts a manual brightness level to its LIGHT_LEVELS row index.
+ * @param value Exactly one digit, "0" to LIGHT_LEVELS_COUNT - 1.
+ * @return int8_t Row index, or -1 for any other text (e.g. a tampered request or an old stored value).
+ */
+int8_t lightLevelIndex(const char value[]);

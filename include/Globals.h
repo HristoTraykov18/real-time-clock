@@ -63,6 +63,10 @@ static_assert(sizeof(SETTING_TAGS) / sizeof(SETTING_TAGS[0]) == (size_t)SettingI
               "SETTING_TAGS must have exactly one entry per SettingId");
 
 constexpr uint8_t DEFAULT_BRIGHTNESS = 2; // The default display brightness
+constexpr uint8_t LIGHT_LEVELS_COUNT = sizeof(LIGHT_LEVELS) / sizeof(LIGHT_LEVELS[0]); // Web UI slider: 0 to LIGHT_LEVELS_COUNT - 1 (body.html max)
+
+static_assert(LIGHT_LEVELS_COUNT >= 1 && LIGHT_LEVELS_COUNT <= 10, "The manual brightness level is sent as one digit");
+
 constexpr uint8_t UPDATE_HOUR = 3; // Request time from NTP server at 3:00 in the morning
 constexpr uint8_t GPS_MAX_CONNECT_ATTEMPTS = 20;
 constexpr uint8_t GPS_CONNECT_ATTEMPT_DELAY = 250;

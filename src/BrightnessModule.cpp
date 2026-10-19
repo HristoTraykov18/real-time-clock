@@ -2,7 +2,6 @@
 #include "BrightnessModule.h"
 
 constexpr uint8_t BRIGHTNESS_CHANGE_ATTEMPTS = 3;
-constexpr uint8_t LIGHT_LEVELS_COUNT = sizeof(LIGHT_LEVELS) / sizeof(LIGHT_LEVELS[0]);
 
 static uint8_t attempt = 0;
 
