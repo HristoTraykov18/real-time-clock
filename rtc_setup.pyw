@@ -324,7 +324,7 @@ class SetupApp:
 
     def set_app_widgets(self):
         """ Create widgets in the application """
-        cb = tk.Checkbutton(self.root, text="RTC Info Messages",
+        cb = tk.Checkbutton(self.root, text="Test Environment",
                             variable=self.is_production_setup, onvalue=0, offvalue=1)
         self.cb_edit_id = tk.Checkbutton(self.root, text="Edit Clock ID",
                                          variable=self.is_edit_id, command=self.toggle_edit_id)

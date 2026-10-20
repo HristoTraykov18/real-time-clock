@@ -73,6 +73,8 @@ class CompileFolder:
 
     DATA_DIR = "data"
     GLOBALS_HEADER = os.path.join("include", "Globals.h")
+    # Sources whose tm1637.showNumber() colon value changes in test environment builds
+    TEST_DISPLAY_SOURCES = [os.path.join("src", "CoreUtils.cpp"), os.path.join("src", "DisplayUtils.cpp")]
     SETTINGS_XML = os.path.join("data", "espSettings.xml")
 
     # Webpage files with addon markers
@@ -250,6 +252,7 @@ class CompileFolder:
         self.reset_folder(self.FIRMWARE_DIRS)
         self.copy_sources(self.FIRMWARE_DIRS)
         self.set_debug_messages()
+        self.set_test_display()
         self.set_credentials()
 
         return self.report
@@ -340,6 +343,22 @@ class CompileFolder:
                                  (r"(DEBUG_MESSAGES\s*=\s*)true", r"\1false"))
 
         self.report.append("Debug messages disabled")
+
+    def set_test_display(self):
+        """
+        Test environment builds only: change the second tm1637.showNumber() argument from 32 to 64
+        in the copied CoreUtils.cpp and DisplayUtils.cpp. Other values and commented out calls stay
+        """
+        if self.production:
+            return
+
+        # One call per line; the prefix cannot contain "/", so calls after a // comment are skipped
+        pattern = r"(?m)^([^/\n]*?\btm1637\.showNumber\([^,()]*,\s*)32\b"
+
+        for source in self.TEST_DISPLAY_SOURCES:
+            self.apply_substitutions(self.compiled(source), (pattern, r"\g<1>64"))
+
+        self.report.append("Test display: showNumber() colon value 32 changed to 64")
 
 
 class StatusArea(tk.Frame):
