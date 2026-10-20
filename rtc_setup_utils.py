@@ -4,6 +4,7 @@ Support classes for the Real Time Clock setup launcher.
 
 import configparser
 import importlib
+import json
 import os
 import re
 import shutil
@@ -17,6 +18,18 @@ PROJECT_FILE = "platformio.ini"  # PlatformIO configuration, read at the reposit
 SECRETS_FILE = "rtc_secrets.ini"  # Local credentials, ignored by git
 SECRETS_EXAMPLE_FILE = "rtc_secrets.example.ini"  # Committed template of SECRETS_FILE
 MINIFIER_PACKAGES = ["rjsmin", "rcssmin"]  # Webpage minifiers, installed with pip on first use
+TASK_RUNNER = os.path.abspath(__file__)  # Run as a script inside the build terminal, see run_terminal_task()
+
+
+def ask(question):
+    """
+    Ask a yes/no question in the terminal. Enter, Y or any answer other than N counts as yes.
+    A closed input (no console attached) counts as no
+    """
+    try:
+        return input(f"{question} [Y/n] ").strip().lower() != "n"
+    except EOFError:
+        return False
 
 
 def import_minifiers():
@@ -54,6 +67,64 @@ def import_minifiers():
     import rjsmin
 
     return rjsmin, rcssmin, True
+
+
+def run_step(step):
+    """
+    Run one terminal task step and return True when it succeeded.
+    A step with a prompt runs only when the answer is not N. A failed step with a retry prompt is
+    offered again until it succeeds or the answer is N; a failed step without one is not retried
+    """
+    if step.get("prompt") and not ask(step["prompt"]):
+        return False
+
+    while True:
+        try:
+            if subprocess.run(step["command"]).returncode == 0:
+                return True
+        except OSError as error:
+            print(error)
+
+        if not step.get("retry_prompt") or not ask(step["retry_prompt"]):
+            return False
+
+
+def run_terminal_task(task_path):
+    """
+    Run the steps of a task file in the current terminal, then wait for Enter so the output stays
+    readable. The task file is JSON written by the launcher and deleted once read:
+    {"title": str, "steps": [{"command": [str, ...], "prompt": str|null, "retry_prompt": str|null}]}
+    The first failed or declined step ends the task, so a failed build never reaches the upload
+    and a declined or failed upload never opens the serial monitor
+    """
+    with open(task_path, encoding="utf8") as task_file:
+        task = json.load(task_file)
+
+    os.remove(task_path)
+    set_terminal_title(task["title"])
+
+    try:
+        for step in task["steps"]:
+            if not run_step(step):
+                break
+    except KeyboardInterrupt:  # Ctrl+C, e.g. to leave the serial monitor
+        print("\nStopped")
+
+    try:
+        input("\nPress Enter to close")
+    except (EOFError, KeyboardInterrupt):
+        pass
+
+
+def set_terminal_title(title):
+    """ Show the task name in the title bar of the terminal window """
+    if os.name == "nt":
+        import ctypes
+
+        ctypes.windll.kernel32.SetConsoleTitleW(title)
+    else:
+        sys.stdout.write(f"\33]0;{title}\a")
+        sys.stdout.flush()
 
 
 class CompileFolder:
@@ -414,3 +485,7 @@ class StatusArea(tk.Frame):
         (self.error_label if error else self.success_label).lift()
         self.cancel_auto_clear()
         self.after_id = self.after(self.SHOW_DURATION, self.clear)
+
+
+if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "--run-task":
+    run_terminal_task(sys.argv[2])

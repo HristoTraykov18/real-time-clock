@@ -9,46 +9,33 @@ Run from the project root:  pythonw rtc_setup.pyw
 """
 
 import importlib.util
+import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import tkinter as tk
 from tkinter import ttk
 
-from rtc_setup_utils import PROJECT_FILE, CompileFolder, StatusArea
+from rtc_setup_utils import PROJECT_FILE, TASK_RUNNER, CompileFolder, StatusArea
 
 
 CREATE_NEW_CONSOLE = 0x00000010  # Opens the spawned command in its own console window on Windows
 
 
-def command_chain(steps):
+def console_python():
     """
-    Assemble the single shell line that runs every step inside one terminal window.
-
-    `steps` is a list of (prompt, command) pairs, run in order. A step with a prompt is offered
-    only when everything before it succeeded, and runs only when the answer is not N, so a failed
-    build never reaches the upload. A step without a prompt runs as soon as the one before it
-    succeeded. Built from the last step backwards, because each prompt has to wrap all that follows
+    The interpreter that runs console work. A .pyw runs under pythonw, which has no console and
+    would swallow the output, so its python.exe sibling is used instead
     """
-    is_windows = os.name == "nt"
-    quote = subprocess.list2cmdline if is_windows else shlex.join
-    chain = ""
+    interpreter = sys.executable
 
-    for prompt, command in reversed(steps):
-        step = quote(command) + (f" && {chain}" if chain else "")
+    if os.name == "nt" and os.path.basename(interpreter).lower() == "pythonw.exe":
+        interpreter = os.path.join(os.path.dirname(interpreter), "python.exe")
 
-        if prompt is not None:
-            step = (f'(choice /c YN /n /m "{prompt} [Y/N] " & if not errorlevel 2 ({step}))'
-                    if is_windows else
-                    f'{{ read -p "{prompt} [Y/n] " reply; [ "$reply" != n ] && '
-                    f'[ "$reply" != N ]; }} && {{ {step}; }}')
-
-        chain = step
-
-    return chain
+    return interpreter
 
 
 def find_platformio():
@@ -74,13 +61,7 @@ def find_platformio():
 
     # Installed with pip into the interpreter running this script
     if importlib.util.find_spec("platformio") is not None:
-        interpreter = sys.executable
-
-        # A .pyw runs under pythonw, which has no console and would swallow the output
-        if os.name == "nt" and os.path.basename(interpreter).lower() == "pythonw.exe":
-            interpreter = os.path.join(os.path.dirname(interpreter), "python.exe")
-
-        return [interpreter, "-m", "platformio"]
+        return [console_python(), "-m", "platformio"]
 
     return None
 
@@ -97,22 +78,24 @@ def read_environments():
 def spawn_terminal(title, steps):
     """
     Run the steps in one terminal window that stays open until it is dismissed.
+    The steps are written to a task file that TASK_RUNNER (rtc_setup_utils.run_terminal_task)
+    runs inside the new terminal, so the prompts and retries work the same on every system.
     Returns the Popen of the terminal itself, so the caller can tell when it is closed
     """
-    chain = command_chain(steps)
+    with tempfile.NamedTemporaryFile("w", encoding="utf8", prefix="rtc_task_", suffix=".json",
+                                     delete=False) as task_file:
+        json.dump({"title": title, "steps": steps}, task_file)
+
+    runner = [console_python(), TASK_RUNNER, "--run-task", task_file.name]
 
     if os.name == "nt":
-        # Passed as a single string, because a list would be run through list2cmdline, which
-        # escapes the inner quotes as \" and cmd.exe reads those backslashes literally
-        return subprocess.Popen(f'cmd /c "title {title} & {chain} & echo. & pause"',
-                                creationflags=CREATE_NEW_CONSOLE)
+        return subprocess.Popen(runner, creationflags=CREATE_NEW_CONSOLE)
 
     for terminal in (["x-terminal-emulator", "-e"], ["gnome-terminal", "--"], ["xterm", "-e"]):
         if shutil.which(terminal[0]):
-            return subprocess.Popen(
-                terminal + ["bash", "-c", f"{chain}; echo; read -p 'Press enter to close'"])
+            return subprocess.Popen(terminal + runner)
 
-    return subprocess.Popen(chain, shell=True)  # No terminal emulator available, run detached
+    return subprocess.Popen(runner)  # No terminal emulator available: prompts read no input and count as no
 
 
 class SetupApp:
@@ -141,6 +124,7 @@ class SetupApp:
         self.is_production_setup = tk.IntVar()
         self.is_edit_id = tk.IntVar(value=0)
         self.is_auto_monitor = tk.IntVar(value=1)
+        self.is_auto_upload = tk.IntVar(value=1)
         self.selected_env = tk.StringVar(
             value=self.environments[0] if self.environments else "")
 
@@ -198,7 +182,9 @@ class SetupApp:
     def launch_terminal_task(self, title, steps):
         """
         Run PlatformIO steps in one terminal and lock the action buttons until it closes.
-        `steps` is a list of (prompt, arguments) pairs, each one missing the Core command prefix
+        `steps` is a list of dicts: "arguments" (PlatformIO arguments without the Core command
+        prefix), optional "prompt" (asked before the step) and optional "retry_prompt" (asked
+        after the step fails, until it succeeds or the answer is N)
         """
         if self.pio_command is None:  # Kept once found, looked up again while it is missing
             self.pio_command = find_platformio()
@@ -209,7 +195,9 @@ class SetupApp:
             return False
 
         self.running_process = spawn_terminal(
-            title, [(prompt, self.pio_command + arguments) for prompt, arguments in steps])
+            title, [{"command": self.pio_command + step["arguments"],
+                     "prompt": step.get("prompt"),
+                     "retry_prompt": step.get("retry_prompt")} for step in steps])
         self.set_action_buttons_enabled(False)
         self.watch_running_process()
 
@@ -262,9 +250,11 @@ class SetupApp:
 
     def run_build_and_upload(self, title, prepare_step, build_targets, upload_targets):
         """
-        Refresh the files this build needs, then build and offer the upload in the same terminal.
-        A failed build short circuits the chain, so the upload is never offered. With Auto-Monitor
-        ticked the serial monitor follows the upload in that same terminal
+        Refresh the files this build needs, then build and upload in the same terminal.
+        With Auto-Upload ticked the upload starts right after a successful build, otherwise it is
+        offered with a prompt. A failed upload offers a retry until the answer is N; a failed build
+        ends the task without a retry. With Auto-Monitor ticked the serial monitor follows a
+        successful upload in that same terminal
         """
         self.status.clear()
         environment = self.selected_env.get()
@@ -277,11 +267,13 @@ class SetupApp:
         if not self.prepare_compile_folder(prepare_step):
             return
 
-        steps = [(None, self.run_arguments(*build_targets)),
-                 ("Upload now?", self.run_arguments(*upload_targets))]
+        steps = [{"arguments": self.run_arguments(*build_targets)},
+                 {"arguments": self.run_arguments(*upload_targets),
+                  "prompt": None if self.is_auto_upload.get() == 1 else "Upload now?",
+                  "retry_prompt": "Upload failed. Retry?"}]
 
         if self.is_auto_monitor.get() == 1:
-            steps.append((None, self.monitor_arguments()))
+            steps.append({"arguments": self.monitor_arguments()})
 
         if not self.launch_terminal_task(title, steps):
             return
@@ -302,7 +294,7 @@ class SetupApp:
 
             return
 
-        if not self.launch_terminal_task("Serial Monitor", [(None, self.monitor_arguments())]):
+        if not self.launch_terminal_task("Serial Monitor", [{"arguments": self.monitor_arguments()}]):
             return
 
         self.status += f"Serial Monitor Started for {environment}"
@@ -354,6 +346,8 @@ class SetupApp:
                 command=lambda t=title, p=prepare, b=build_targets, u=upload_targets:
                     self.run_build_and_upload(t, p, b, u)))
 
+        auto_upload_cb = tk.Checkbutton(self.root, text="Auto-Upload",
+                                        variable=self.is_auto_upload)
         auto_monitor_cb = tk.Checkbutton(self.root, text="Auto-Monitor",
                                          variable=self.is_auto_monitor)
         monitor_button = tk.Button(self.root, text="Serial Monitor", width=self.BUTTON_WIDTH,
@@ -362,7 +356,8 @@ class SetupApp:
         self.status = StatusArea(self.root)
 
         for element in [cb, self.cb_edit_id, timezone_frame, env_label, self.env_combobox,
-                        *build_buttons, auto_monitor_cb, monitor_button, self.status]:
+                        auto_upload_cb, *build_buttons, auto_monitor_cb, monitor_button,
+                        self.status]:
             element.pack(pady=3)
 
         self.env_combobox.focus()
