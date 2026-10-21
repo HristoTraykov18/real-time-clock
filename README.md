@@ -14,6 +14,7 @@ Personal clock project for **ESP8266** (NodeMCU v2) and **ESP32** (ESP32 DevKit)
   - **Temperature** - DS18B20 sensor, alternates time and temperature on the display
   - **Brightness** - light sensor for automatic display brightness
   - **GPS** - u-blox receiver as a time source (not fully tested)
+- Planned: **Audio** module for the ESP32 (scheduled notifications and audio playback), see [Documentation](#documentation)
 
 ## Build targets
 
@@ -40,6 +41,13 @@ pythonw rtc_setup.pyw
 
 Select the environment, then use **Build and Upload Firmware** and **Build and Upload File System** (a new board needs both). The launcher builds from a prepared copy in `Real_Time_Clock_Compile/`, where it sets the debug messages, the clock's access point name (`NBG_CLOCK_<ID>`) and password, the software update login, the timezone and the module parts of the web interface. The repository sources are never changed.
 
+Launcher options:
+
+- **Test Environment** (ticked by default): keeps the debug serial messages on and sets the display colon value for the test hardware. Untick it for a clock that is delivered.
+- **Edit Clock ID**: gives the firmware the next clock number from `last_id.txt` (access point `NBG_CLOCK_<ID>`).
+- **Auto-Upload** (ticked by default): uploads right after a successful build. Unticked, the terminal asks first. A failed upload asks to retry until it succeeds or you answer N; a failed build is not retried. In the terminal, Enter counts as Y.
+- **Auto-Monitor** (ticked by default): opens the serial monitor after a successful upload.
+
 Without the launcher, PlatformIO can build the repository directly. The launcher's edits are then missing: the access point is `Test` / `Test1234`, the software update login is the `admin` / `ChangeMe1234` placeholder, debug messages are on, the timezone is 0 and the web interface has no GPS switch.
 
 ```
@@ -58,7 +66,7 @@ The access point password of numbered clocks and the login of the software updat
 
 Step-by-step instructions for connecting to the clock and using its web interface:
 
-- [Български](instructions/BG.txt)
+- [Български](docs/instructions/BG.txt)
 
 In short:
 
@@ -66,13 +74,23 @@ In short:
 2. Open `http://192.168.4.1`. While no saved network is reachable, the clock takes the time from the device on every visit.
 3. Pick a network from the list (or enter a hidden one) to enable automatic time synchronization. Leave the password empty for an open network.
 
+## Documentation
+
+| File | Contents |
+|---|---|
+| [docs/rtc-firmware.md](docs/rtc-firmware.md) | Firmware reference: layout, build targets and modules, pinout, runtime flow, HTTP API, conventions |
+| [docs/rtc-setup-launcher.md](docs/rtc-setup-launcher.md) | Launcher reference: window controls, compile folder preparation, terminal steps |
+| [docs/audio-module-base.spec](docs/audio-module-base.spec) | Audio module, base version (MP3-TF-16P / DFPlayer compatible board, files pre-loaded on the SD card) - draft |
+| [docs/audio-module-extended.spec](docs/audio-module-extended.spec) | Audio module, extended version (VS1053 board with SD card, file upload, delete and rename from the web interface) - draft |
+| [docs/instructions/BG.txt](docs/instructions/BG.txt) | User instructions in Bulgarian |
+
 ## Project structure
 
 ```
 src/, include/   Firmware sources and headers (platform specific code in esp32/ and esp8266/ subfolders)
 lib/             Vendored libraries (trimmed or modified)
 data/            Web interface and default settings, uploaded to LittleFS
-instructions/    User instructions (BG.txt in Bulgarian)
+docs/            Reference documents, specifications and user instructions (docs/instructions/)
 rtc_setup.pyw    Build and upload launcher (with rtc_setup_utils.py and rtc_secrets.example.ini)
 ```
 
