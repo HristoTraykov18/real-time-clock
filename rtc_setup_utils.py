@@ -33,6 +33,11 @@ MODULES = {"Brightness": ("bright", "brightness_module"),
 AUDIO_VERSIONS = {"Base": ("audio_base", "audio_module_base"),
                   "Extended": ("audio_extended", "audio_module_extended")}
 
+# Launcher colours
+WINDOW_BACKGROUND = "#333"
+TEXT_COLOR = "white"
+ACCENT_RED = "#f02"  # The red of the web interface (--red in mainStyle.css)
+
 
 def ask(question):
     """
@@ -553,6 +558,92 @@ class StatusArea(tk.Frame):
         self.cancel_auto_clear()
         self.after_id = self.after(self.SHOW_DURATION, self.clear)
 
+
+
+class ToggleSwitch(tk.Frame):
+    """
+    A two-way switch: [left caption] [white track with a sliding red square] [right caption],
+    bound to a StringVar that holds one of the two values. Clicking the track flips it, clicking a
+    caption selects that side. The square slides to the selected side, also when the variable is
+    set from code. While disabled the track turns grey, the square dark, and clicks are ignored
+    """
+
+    WIDTH = 44
+    HEIGHT = 22
+    PADDING = 3  # Gap between the track edge and the square
+    TRACK_COLOR = "white"
+    KNOB_COLOR = ACCENT_RED
+    DISABLED_TRACK_COLOR = "#888"
+    DISABLED_KNOB_COLOR = "#333"
+    ANIMATION_STEPS = 8
+    ANIMATION_INTERVAL = 15  # Milliseconds between two animation steps
+
+    def __init__(self, master, variable, left, right):
+        """ `left` and `right` are (caption, value) pairs """
+        super().__init__(master)
+
+        self.variable = variable
+        self.values = (left[1], right[1])
+        self.enabled = True
+        self.animation_id = None
+        self.knob_size = self.HEIGHT - 2 * self.PADDING
+
+        left_label = tk.Label(self, text=left[0])
+        self.canvas = tk.Canvas(self, width=self.WIDTH, height=self.HEIGHT, highlightthickness=0,
+                                borderwidth=0)
+        right_label = tk.Label(self, text=right[0])
+
+        left_label.pack(side=tk.LEFT, padx=(0, 6))
+        self.canvas.pack(side=tk.LEFT)
+        right_label.pack(side=tk.LEFT, padx=(6, 0))
+
+        self.track = self.canvas.create_rectangle(0, 0, self.WIDTH, self.HEIGHT, width=0)
+        self.knob = self.canvas.create_rectangle(0, 0, 0, 0, width=0)
+        self.place_knob(self.target_x())
+        self.paint()
+
+        self.canvas.bind("<Button-1>", lambda event: self.select(
+            self.values[0] if self.variable.get() == self.values[1] else self.values[1]))
+        left_label.bind("<Button-1>", lambda event: self.select(self.values[0]))
+        right_label.bind("<Button-1>", lambda event: self.select(self.values[1]))
+        self.variable.trace_add("write", lambda *args: self.slide())
+
+    def paint(self):
+        """ Colour the track and the square for the enabled or disabled state """
+        self.canvas.itemconfig(self.track, fill=self.TRACK_COLOR if self.enabled else self.DISABLED_TRACK_COLOR)
+        self.canvas.itemconfig(self.knob, fill=self.KNOB_COLOR if self.enabled else self.DISABLED_KNOB_COLOR)
+        self.canvas.config(cursor="hand2" if self.enabled else "")
+
+    def place_knob(self, x):
+        """ Put the square's left edge at x """
+        self.canvas.coords(self.knob, x, self.PADDING, x + self.knob_size, self.PADDING + self.knob_size)
+
+    def select(self, value):
+        """ Set the variable from a click; the trace then slides the square """
+        if self.enabled:
+            self.variable.set(value)
+
+    def set_enabled(self, enabled):
+        """ Allow or block clicks and repaint """
+        self.enabled = enabled
+        self.paint()
+
+    def slide(self, step=1):
+        """
+        Move the square a fraction of the remaining way to the selected side, ANIMATION_STEPS times.
+        A new selection during an animation restarts it from the current position
+        """
+        if step == 1 and self.animation_id is not None:
+            self.after_cancel(self.animation_id)
+
+        current = self.canvas.coords(self.knob)[0]
+        self.place_knob(current + (self.target_x() - current) / (self.ANIMATION_STEPS - step + 1))
+        self.animation_id = (self.after(self.ANIMATION_INTERVAL, self.slide, step + 1)
+                             if step < self.ANIMATION_STEPS else None)
+
+    def target_x(self):
+        """ Left edge of the square for the selected value """
+        return self.WIDTH - self.PADDING - self.knob_size if self.variable.get() == self.values[1] else self.PADDING
 
 if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "--run-task":
     run_terminal_task(sys.argv[2])

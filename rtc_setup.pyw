@@ -17,9 +17,10 @@ import subprocess
 import sys
 import tempfile
 import tkinter as tk
+from tkinter import ttk
 
-from rtc_setup_utils import (AUDIO_VERSIONS, MODULES, PLATFORMS, PROJECT_FILE, TASK_RUNNER,
-                             CompileFolder, StatusArea)
+from rtc_setup_utils import (ACCENT_RED, AUDIO_VERSIONS, MODULES, PLATFORMS, PROJECT_FILE, TASK_RUNNER,
+                             TEXT_COLOR, WINDOW_BACKGROUND, CompileFolder, StatusArea, ToggleSwitch)
 
 
 CREATE_NEW_CONSOLE = 0x00000010  # Opens the spawned command in its own console window on Windows
@@ -120,7 +121,7 @@ class SetupApp:
         self.root = tk.Tk()
         self.root.resizable(0, 0)
         self.root.title("Real Time Clock setup")
-        self.root.option_add("*Font", self.TEXT_FONT)
+        self.set_colors()
 
         self.is_production_setup = tk.IntVar()
         self.is_edit_id = tk.IntVar(value=0)
@@ -180,12 +181,12 @@ class SetupApp:
                              clock_id=self.clock_id_value if self.is_edit_id.get() == 1 else None,
                              production=self.is_production_setup.get() == 1)
 
-    def create_stepper_row(self, text, initial_value, display_width, adjust):
+    def create_stepper_row(self, parent, text, initial_value, display_width, adjust):
         """
-        Build a [caption] [-] [value] [+] row and return it together with its value label.
+        Build a [caption] [-] [value] [+] row in `parent` and return it together with its value label.
         The clock ID and timezone rows differ only in caption, width and callback
         """
-        frame = tk.Frame(self.root)
+        frame = tk.Frame(parent)
         tk.Label(frame, text=text).pack(side=tk.LEFT, padx=(0, 4))
         tk.Button(frame, text="-", width=2, command=lambda: adjust(-1)).pack(side=tk.LEFT)
         display = tk.Label(frame, text=initial_value, width=display_width,
@@ -194,21 +195,6 @@ class SetupApp:
         tk.Button(frame, text="+", width=2, command=lambda: adjust(1)).pack(side=tk.LEFT)
 
         return frame, display
-
-    def create_toggle(self, variable, options):
-        """
-        Build a two-way toggle: buttons side by side, the selected one shown pressed.
-        `options` maps each caption to its value. Returns the frame and the buttons by value
-        """
-        frame = tk.Frame(self.root)
-        buttons = {}
-
-        for caption, value in options.items():
-            buttons[value] = tk.Radiobutton(frame, text=caption, variable=variable, value=value,
-                                            indicatoron=0, width=self.BUTTON_WIDTH // 2)
-            buttons[value].pack(side=tk.LEFT)
-
-        return frame, buttons
 
     def launch_terminal_task(self, title, steps):
         """
@@ -272,6 +258,18 @@ class SetupApp:
             self.save_and_increment_clock_id()
 
         return True
+
+    @staticmethod
+    def reserve_space(slot, content):
+        """
+        Fix `slot` to the size of `content` (a widget inside it), so showing and hiding `content`
+        with pack() / pack_forget() keeps the space and never resizes the window
+        """
+        content.pack()
+        content.update_idletasks()
+        slot.config(width=content.winfo_reqwidth(), height=content.winfo_reqheight())
+        slot.pack_propagate(False)
+        content.pack_forget()
 
     def run_arguments(self, environment, *targets):
         """ PlatformIO run arguments against the compile folder, extended with the given targets """
@@ -344,32 +342,33 @@ class SetupApp:
 
     def set_app_widgets(self):
         """ Create widgets in the application """
-        cb = tk.Checkbutton(self.root, text="Test Environment",
-                            variable=self.is_production_setup, onvalue=0, offvalue=1)
-        self.cb_edit_id = tk.Checkbutton(self.root, text="Edit Clock ID",
-                                         variable=self.is_edit_id, command=self.toggle_edit_id)
+        cb = ttk.Checkbutton(self.root, text="Test Environment",
+                             variable=self.is_production_setup, onvalue=0, offvalue=1)
+        self.cb_edit_id = ttk.Checkbutton(self.root, text="Edit Clock ID",
+                                          variable=self.is_edit_id, command=self.toggle_edit_id)
+        # The clock ID row and the audio version switch keep their space while hidden (see reserve_space)
+        id_slot = tk.Frame(self.root)
         self.id_frame, self.id_display = self.create_stepper_row(
-            "Clock ID:", "-----", 6, self.adjust_clock_id)
+            id_slot, "Clock ID:", "-----", 6, self.adjust_clock_id)
         timezone_frame, self.timezone_display = self.create_stepper_row(
-            "Timezone offset:", "+2", 4, self.adjust_timezone)
+            self.root, "Timezone Offset:", "+2", 4, self.adjust_timezone)
 
         processor_label = tk.Label(self.root, text="Processor")
-        processor_frame, self.platform_buttons = self.create_toggle(self.platform, PLATFORMS)
+        self.platform_switch = ToggleSwitch(self.root, self.platform, *PLATFORMS.items())
 
         modules_label = tk.Label(self.root, text="Modules")
         modules_frame = tk.Frame(self.root)
 
         for index, label in enumerate(sorted(MODULES)):  # Alphabetical, row by row
-            tk.Checkbutton(modules_frame, text=label, variable=self.module_selections[label]).grid(
+            ttk.Checkbutton(modules_frame, text=label, variable=self.module_selections[label]).grid(
                 row=index // self.MODULE_COLUMNS, column=index % self.MODULE_COLUMNS, sticky="w", padx=4)
 
-        self.cb_audio = tk.Checkbutton(self.root, text="Audio Module", variable=self.is_audio_module,
-                                       command=self.toggle_audio_module)
-        self.audio_frame, audio_buttons = self.create_toggle(
-            self.audio_version, {label: label for label in AUDIO_VERSIONS})
-
-        for button in audio_buttons.values():
-            button.config(state=tk.DISABLED)  # Only the base version exists for now
+        self.cb_audio = ttk.Checkbutton(self.root, text="Audio Module", variable=self.is_audio_module,
+                                        command=self.toggle_audio_module)
+        audio_slot = tk.Frame(self.root)
+        self.audio_switch = ToggleSwitch(audio_slot, self.audio_version,
+                                         *[(label, label) for label in AUDIO_VERSIONS])
+        self.audio_switch.set_enabled(False)  # Only the base version exists for now
 
         # Each build refreshes only the files it owns, then offers its own upload in the
         # same terminal. Buttons are greyed out while that terminal is open
@@ -385,40 +384,60 @@ class SetupApp:
                 command=lambda t=title, p=prepare, b=build_targets, u=upload_targets:
                     self.run_build_and_upload(t, p, b, u)))
 
-        auto_upload_cb = tk.Checkbutton(self.root, text="Auto-Upload",
-                                        variable=self.is_auto_upload)
-        auto_monitor_cb = tk.Checkbutton(self.root, text="Auto-Monitor",
-                                         variable=self.is_auto_monitor)
+        auto_upload_cb = ttk.Checkbutton(self.root, text="Auto-Upload",
+                                         variable=self.is_auto_upload)
+        auto_monitor_cb = ttk.Checkbutton(self.root, text="Auto-Monitor",
+                                          variable=self.is_auto_monitor)
         monitor_button = tk.Button(self.root, text="Serial Monitor", width=self.BUTTON_WIDTH,
                                    command=self.run_monitor)
         self.action_buttons += build_buttons + [monitor_button]
         self.status = StatusArea(self.root)
 
-        for element in [cb, self.cb_edit_id, timezone_frame, processor_label, processor_frame,
-                        modules_label, modules_frame, self.cb_audio, auto_upload_cb, *build_buttons,
-                        auto_monitor_cb, monitor_button, self.status]:
+        for element in [cb, self.cb_edit_id, id_slot, timezone_frame, processor_label,
+                        self.platform_switch, modules_label, modules_frame, self.cb_audio, audio_slot,
+                        auto_upload_cb, *build_buttons, auto_monitor_cb, monitor_button, self.status]:
             element.pack(pady=3)
+
+        self.reserve_space(id_slot, self.id_frame)
+        self.reserve_space(audio_slot, self.audio_switch)
+
+    def set_colors(self):
+        """
+        Dark window with white text. Tk widgets take the colours from the option database; the
+        checkboxes are ttk widgets in the "clam" theme, which draws a red X on a white box
+        """
+        self.root.configure(background=WINDOW_BACKGROUND)
+
+        for option, value in (("*Font", self.TEXT_FONT), ("*Background", WINDOW_BACKGROUND),
+                              ("*Foreground", TEXT_COLOR), ("*activeBackground", "#555"),
+                              ("*activeForeground", TEXT_COLOR), ("*highlightBackground", WINDOW_BACKGROUND)):
+            self.root.option_add(option, value)
+
+        style = ttk.Style(self.root)
+        style.theme_use("clam")
+        style.configure("TCheckbutton", font=self.TEXT_FONT, background=WINDOW_BACKGROUND,
+                        foreground=TEXT_COLOR, indicatorbackground="white",
+                        indicatorforeground=ACCENT_RED, focuscolor=WINDOW_BACKGROUND)
+        style.map("TCheckbutton", background=[("active", WINDOW_BACKGROUND)],
+                  indicatorbackground=[("pressed", "white"), ("active", "white")])
 
     def toggle_audio_module(self):
         """
-        The audio module runs on the ESP32 only: while it is ticked the ESP32 is selected, the ESP8266
-        cannot be chosen, and the Base / Extended toggle is shown under the checkbox
+        The audio module runs on the ESP32 only: while it is ticked the processor switch is set to the
+        ESP32 and disabled, and the Base / Extended switch is shown under the checkbox
         """
         if self.is_audio_module.get() == 1:
             self.platform.set(PLATFORMS["ESP32"])
-            self.platform_buttons[PLATFORMS["ESP8266"]].config(state=tk.DISABLED)
-            self.audio_frame.pack(after=self.cb_audio, pady=3)
+            self.platform_switch.set_enabled(False)
+            self.audio_switch.pack()
         else:
-            self.platform_buttons[PLATFORMS["ESP8266"]].config(state=tk.NORMAL)
-            self.audio_frame.pack_forget()
-
-        self.center_window()
+            self.platform_switch.set_enabled(True)
+            self.audio_switch.pack_forget()
 
     def toggle_edit_id(self):
         """ Show or hide the clock ID row depending on the checkbox state """
         if self.is_edit_id.get() != 1:
             self.id_frame.pack_forget()
-            self.center_window()
 
             return
 
@@ -434,8 +453,7 @@ class SetupApp:
 
             return
 
-        self.id_frame.pack(after=self.cb_edit_id, pady=2)
-        self.center_window()
+        self.id_frame.pack()
 
     def watch_running_process(self):
         """ Re-enable the buttons once the spawned terminal is gone """

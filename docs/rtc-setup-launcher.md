@@ -31,9 +31,9 @@ For the firmware itself see `docs/rtc-firmware.md` (also used as the `real-time-
 | **Test Environment** checkbox (called "RTC Info Messages" before Oct 2026) | Inverted variable: checked → `production=False` → debug serial output stays on, and in the copied `src/CoreUtils.cpp` and `src/DisplayUtils.cpp` the second `tm1637.showNumber()` argument 32 becomes 64 (test display hardware). Unchecked → `DEBUG_MESSAGES` set to `false` in the copied `Globals.h`, `showNumber()` untouched. Checked by default. |
 | **Edit Clock ID** checkbox | Reads `last_id.txt`; shows a `Clock ID: - 00068 +` stepper (1–99999). Fails with a status message if the file is missing or empty. |
 | **Timezone offset** stepper | −12…+12, wraps around, default **+2**. Written only into the copied `espSettings.xml` (filesystem build). |
-| **Processor** toggle | Two `Radiobutton`s with `indicatoron=0` (look like a two-way toggle): ESP32 (default) / ESP8266, values `esp32` / `esp8266` = the plain environments in `platformio.ini` (`PLATFORMS`). Replaced the environment combobox in Oct 2026. |
+| **Processor** switch | `ToggleSwitch` (see below): ESP32 (default) / ESP8266, values `esp32` / `esp8266` = the plain environments in `platformio.ini` (`PLATFORMS`). Replaced the environment combobox in Oct 2026. |
 | **Modules** grid | Checkboxes from `MODULES` in a grid of `MODULE_COLUMNS = 3` columns, alphabetical row by row (today one row: Brightness, GPS, Temperature), all unticked by default. The Audio Module checkbox sits below the grid. |
-| **Audio Module** checkbox | Unticked by default. Ticking it selects ESP32, disables the ESP8266 button and shows the Base / Extended toggle under the checkbox (`AUDIO_VERSIONS`); the toggle is set to Base and disabled until the extended version exists. Unticking hides the toggle and enables ESP8266 again. The audio module code itself is not implemented yet. |
+| **Audio Module** checkbox | Unticked by default. Ticking it sets the Processor switch to ESP32 and disables it, and shows the Base / Extended `ToggleSwitch` under the checkbox (`AUDIO_VERSIONS`), set to Base and disabled until the extended version exists. Unticking hides that switch and enables the Processor switch again. The audio module code itself is not implemented yet. |
 | **Auto-Upload** checkbox (above the build buttons) | Default on: the upload starts right after a successful build, without a prompt. Off: "Upload now? [Y/n]" is asked first. |
 | **Build and Upload Firmware** | Prepare firmware folders → `pio run` → upload (auto or after the prompt) `pio run -t upload` → optional monitor. |
 | **Build and Upload File System** | Prepare `data/` → `pio run -t buildfs` → upload (auto or after the prompt) `pio run -t uploadfs` → optional monitor. A failed upload (either button) asks "Upload failed. Retry? [Y/n]" until it succeeds or N is answered; a failed build ends the task without a retry prompt. |
@@ -42,6 +42,12 @@ For the firmware itself see `docs/rtc-firmware.md` (also used as the `real-time-
 | Status area | Green progress lines or red error, auto-cleared after 5 s. |
 
 The three action buttons are disabled while the spawned terminal is open (polled every 500 ms) and re-enabled when it closes.
+
+Look (`set_colors()`, Oct 2026): window background `#333` (`WINDOW_BACKGROUND`), white text (`TEXT_COLOR`), both set for Tk widgets through the option database (`*Background`, `*Foreground`, plus `#555` active background). Checkboxes are `ttk.Checkbutton`s in the `clam` theme: white box, red X (`indicatorforeground = ACCENT_RED = #f02`, the web UI red); `style.map` keeps the background and the white box on hover and press.
+
+`ToggleSwitch` (in `rtc_setup_utils.py`): `[left caption] [44x22 canvas track] [right caption]` bound to a `StringVar` holding one of two values. Clicking the track flips it, clicking a caption selects that side. A red square (16 px) slides to the selected side in 8 steps of 15 ms, also when the variable is set from code (variable trace). `set_enabled(False)`: track `#888`, square `#333`, clicks ignored.
+
+The Clock ID row and the Base / Extended switch sit in fixed-size slot frames (`reserve_space()`: the slot gets the content's size once, then `pack_propagate(False)`), so they keep their space while hidden and the window never resizes; `center_window()` runs only at start-up.
 
 ## 3. What preparation does (`CompileFolder`)
 
