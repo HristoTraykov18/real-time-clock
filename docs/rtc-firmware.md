@@ -16,7 +16,8 @@ Building/uploading is normally done through `rtc_setup.pyw` (see `docs/rtc-setup
 ## 1. Repository layout
 
 ```
-platformio.ini          16 build targets (2 platforms x 8 module combinations)
+platformio.ini          Plain environments esp32 / esp8266 + one section per module; module builds use a generated
+                        environment (rtc_build*.ini through extra_configs), see section 2
 include/
   Globals.h             Central include: libraries, constants, inline globals, module #ifdef blocks
   CoreUtils.h           Time sync, DST, RTC init/reset, timer, settings load
@@ -62,24 +63,24 @@ Keep README.md and docs/ in step with changes to features, build targets or libr
 
 ## 2. Build system and compile-time modules
 
-### Targets
-`platformio.ini` defines `[env:<platform>_<modules>]`:
+### Targets (generated environments, since Oct 2026)
+`platformio.ini` has only two build environments, `env:esp32` and `env:esp8266` (no modules; `default_envs` = both), plus one section per module. Every module section has the same four options:
 
-| Env suffix | Modules | Flags |
-|---|---|---|
-| `_only` | none | — |
-| `_temp` | Temperature | `-D TEMPERATURE_MODULE` |
-| `_bright` | Brightness (light sensor) | `-D BRIGHTNESS_MODULE` |
-| `_temp_bright` | both | both |
-| `_gps` | GPS | `-D GPS_MODULE` |
-| `_gps_temp`, `_gps_bright`, `_gps_temp_bright` | combinations | combinations |
+| Section | `build_flags` | `lib_deps` | `src_filter` | `lib_ignore_off` |
+|---|---|---|---|---|
+| `brightness_module` | `-D BRIGHTNESS_MODULE` | – | `+<BrightnessModule.cpp>` | – |
+| `gps_module` | `-D GPS_MODULE` | TinyGPSPlus 1.0.3 | `+<GPSModule.cpp>` | – |
+| `temperature_module` | `-D TEMPERATURE_MODULE` | OneWire ^2.3.8 | `+<TemperatureModule.cpp>` | `DallasTemperature` |
+| `audio_module_base` (ESP32) | `-D AUDIO_MODULE_BASE` | – | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerDfPlayer.cpp>` | – |
+| `audio_module_extended` (ESP32) | `-D AUDIO_MODULE_EXTENDED` | (VS1053 driver later) | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerVs1053.cpp> +<esp32/AudioFiles.cpp>` | – |
 
-Prefixes: `esp32_` and `esp8266_`. `default_envs = esp32_only, esp8266_only`.
+A build with modules uses an environment that `extends = env:<platform>` and lists, as multi-line options: `build_flags`, `lib_deps` and `build_src_filter` = the platform value followed by the selected sections' `build_flags` / `lib_deps` / `src_filter`, and `lib_ignore` = the `lib_ignore_off` of every module that is NOT selected. rtc_setup writes it to `rtc_build.ini` in the compile copy for every build; `platformio.ini` loads `rtc_build*.ini` through `extra_configs` (a missing file is ignored). Name: `<platform>_<tokens>` with the module tokens in alphabetical module order (`bright`, `gps`, `temp`, then `audio_base` / `audio_extended`), or `<platform>_only`; e.g. `esp32_bright_gps_temp`. By hand: put such an environment in `rtc_build_local.ini` in the project root (gitignored), see README.
+- Validated Oct 2026: all 8 ESP32 combinations built from generated environments give the same firmware sizes as the former fixed environments; `DallasTemperature` is linked only with the temperature module. Letting the LDF evaluate `#ifdef`s instead of `lib_ignore` (`lib_ldf_mode = chain+` / `deep+`) does not work with ESP32 core 3.3.11 (`Network.h` not found in the WiFi library).
 
 - `[esp32_base]`: pioarduino platform-espressif32 release `55.03.311` (installs as espressif32 55.3.311, Arduino core 3.3.11), `board = esp32dev`, `default.csv` partitions, upload 921600, `-D PLATFORM_ESP32 -Iinclude/esp32`, exception decoder.
 - `[esp8266_base]`: `platform = platformio/espressif8266 @ 4.2.1` (pinned; framework-arduinoespressif8266 3.30102.0 = Arduino core 3.1.2), `board = nodemcuv2`, upload 256000, `-D PLATFORM_ESP8266 -Iinclude/esp8266`, adds `EspSoftwareSerial`.
-- `[filters]` exclude the other platform's `src/esp*/` folder. Each env also excludes the `.cpp` files of modules it does not build via `build_src_filter`.
-- `lib_ignore = DallasTemperature` globally; temperature envs clear it (`lib_ignore =`) and add `OneWire ^2.3.8`. GPS envs add `TinyGPSPlus 1.0.3`. All envs pull `Adafruit BusIO` (needed by vendored RTClib).
+- `[filters]` exclude the other platform's `src/esp*/` folder and every module source (`BrightnessModule.cpp`, `GPSModule.cpp`, `TemperatureModule.cpp`, ESP32 `esp32/Audio*.cpp`); the module sections add theirs back.
+- `lib_ignore = DallasTemperature` globally (plain environments); generated environments replace it with the `lib_ignore_off` of the unselected modules. All environments pull `Adafruit BusIO` (needed by vendored RTClib).
 - `[diagnostics]` applies strict warnings to project sources only (`build_src_flags`): `-Wall -Wextra -Wdouble-promotion` and `-Werror` for return-type, uninitialized, implicit-fallthrough, format, write-strings, sign-compare. New code must compile clean under these.
 - `pio check` is configured with cppcheck over `src/` and `include/`.
 - Filesystem is LittleFS (`board_build.filesystem = littlefs`), monitor 115200.
@@ -225,7 +226,7 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
 
 **GPS** (u-blox, 9600 baud, TinyGPS++): on activation sends UBX-CFG-MSG frames leaving only RMC enabled, then sets `GPS_TX` to INPUT (boot strapping pin). States `Disabled → Searching → Locked`, `TimedOut` after 180 s without a fix (NTP is then used). Fix is fresh if date+location valid and age < 2 s. The README calls the GPS module not fully tested. Web UI shows an enabled GPS/Wi-Fi toggle only in GPS builds (via `gpsAddon.html`).
 
-**Audio** (planned, ESP32 only, not implemented yet): two versions specified in `docs/audio-module-base.spec` (MP3-TF-16P / DFPlayer compatible board, files pre-loaded on its SD card, notifications and volume; switch `-D AUDIO_MODULE_BASE`) and `docs/audio-module-extended.spec` (VS1053 board with SD card, adds upload, delete and rename from the web UI; switch `-D AUDIO_MODULE_EXTENDED`). Both set `HAS_AUDIO_MODULE`. The build mechanism (a derived environment written by rtc_setup instead of new targets) is still under discussion.
+**Audio** (planned, ESP32 only, not implemented yet): two versions specified in `docs/audio-module-base.spec` (MP3-TF-16P / DFPlayer compatible board, files pre-loaded on its SD card, notifications and volume; switch `-D AUDIO_MODULE_BASE`) and `docs/audio-module-extended.spec` (VS1053 board with SD card, adds upload, delete and rename from the web UI; switch `-D AUDIO_MODULE_EXTENDED`). Both set `HAS_AUDIO_MODULE`. Their `platformio.ini` sections exist (`audio_module_base`, `audio_module_extended`); the module code does not exist yet.
 
 ## 10. Web UI (`data/`)
 
@@ -257,7 +258,7 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
 **Add an HTTP endpoint**: declare/define the handler in `ServerUtils`, `server.on(...)` in `initializeServers()`, reply via `sendWebpageResponse()` (refreshes the session timestamp) or set `last_http_activity_ms` yourself.
 
 **Add a hardware module**
-1. `[x_module]` section with `build_flags = -D X_MODULE` (+ `lib_deps`) in `platformio.ini`; new envs for every combination; exclude `XModule.cpp` from every env without it.
+1. `[x_module]` section in `platformio.ini` with all four options (`build_flags = -D X_MODULE`, `lib_deps`, `src_filter = +<XModule.cpp>`, `lib_ignore_off`, empty values allowed), and `-<XModule.cpp>` in the `[filters]` line of each platform it supports. Add it to `MODULES` in `rtc_setup_utils.py` (label → token, section); the launcher then shows it in the module list. No new environments.
 2. `#ifdef X_MODULE` block in `Globals.h` with includes/objects and `HAS_X_MODULE = true`, `#else` block with declared-only stubs and `false`.
 3. Guard every call with `if constexpr (HAS_X_MODULE)`.
 4. Pins in both `EspPlatform.h` files; platform-specific calls via `EspUtils`.
@@ -266,8 +267,8 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
 **Add platform-specific behaviour**: declare in `EspUtils.h`, implement in both `src/esp32/EspUtils.cpp` and `src/esp8266/EspUtils.cpp`.
 
 **Check a change before flashing**
-- Firmware: build every env the change can reach (`pio run -e <env>`, all 16 when in doubt). Project sources compile under the strict `[diagnostics]` flags, so a clean build means no new warnings. On ESP8266 `int32_t` is `int`; on ESP32 (IDF 5) it is `long` — avoid `%d`/`%ld` format assumptions.
-- Web UI: run `CompileFolder(env, tz).prepare_filesystem()` from `rtc_setup_utils` and `node --check Real_Time_Clock_Compile/data/mainScript.js`, because the shipped file is the minified one.
+- Firmware: build every module combination the change can reach (generated environments; all 8 per platform when in doubt). Project sources compile under the strict `[diagnostics]` flags, so a clean build means no new warnings. On ESP8266 `int32_t` is `int`; on ESP32 (IDF 5) it is `long` — avoid `%d`/`%ld` format assumptions.
+- Web UI: run `CompileFolder(platform, modules, tz).prepare_filesystem()` from `rtc_setup_utils` and `node --check Real_Time_Clock_Compile/data/mainScript.js`, because the shipped file is the minified one.
 - Request handling: the device sees `server.arg()` values after `urlDecode`, so test free-text input with `& = + % space` and non-ASCII (Cyrillic) characters.
 
 ## 13. Known issues and risks (as of Oct 2026 review)

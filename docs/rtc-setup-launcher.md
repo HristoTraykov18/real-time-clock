@@ -31,34 +31,37 @@ For the firmware itself see `docs/rtc-firmware.md` (also used as the `real-time-
 | **Test Environment** checkbox (called "RTC Info Messages" before Oct 2026) | Inverted variable: checked → `production=False` → debug serial output stays on, and in the copied `src/CoreUtils.cpp` and `src/DisplayUtils.cpp` the second `tm1637.showNumber()` argument 32 becomes 64 (test display hardware). Unchecked → `DEBUG_MESSAGES` set to `false` in the copied `Globals.h`, `showNumber()` untouched. Checked by default. |
 | **Edit Clock ID** checkbox | Reads `last_id.txt`; shows a `Clock ID: - 00068 +` stepper (1–99999). Fails with a status message if the file is missing or empty. |
 | **Timezone offset** stepper | −12…+12, wraps around, default **+2**. Written only into the copied `espSettings.xml` (filesystem build). |
-| Environment combobox | All `[env:...]` names parsed from the repo `platformio.ini` by regex, in file order; first one selected. |
+| **Processor** toggle | Two `Radiobutton`s with `indicatoron=0` (look like a two-way toggle): ESP32 (default) / ESP8266, values `esp32` / `esp8266` = the plain environments in `platformio.ini` (`PLATFORMS`). Replaced the environment combobox in Oct 2026. |
+| **Modules** grid | Checkboxes from `MODULES` in a grid of `MODULE_COLUMNS = 3` columns, alphabetical row by row (today one row: Brightness, GPS, Temperature), all unticked by default. The Audio Module checkbox sits below the grid. |
+| **Audio Module** checkbox | Unticked by default. Ticking it selects ESP32, disables the ESP8266 button and shows the Base / Extended toggle under the checkbox (`AUDIO_VERSIONS`); the toggle is set to Base and disabled until the extended version exists. Unticking hides the toggle and enables ESP8266 again. The audio module code itself is not implemented yet. |
 | **Auto-Upload** checkbox (above the build buttons) | Default on: the upload starts right after a successful build, without a prompt. Off: "Upload now? [Y/n]" is asked first. |
 | **Build and Upload Firmware** | Prepare firmware folders → `pio run` → upload (auto or after the prompt) `pio run -t upload` → optional monitor. |
 | **Build and Upload File System** | Prepare `data/` → `pio run -t buildfs` → upload (auto or after the prompt) `pio run -t uploadfs` → optional monitor. A failed upload (either button) asks "Upload failed. Retry? [Y/n]" until it succeeds or N is answered; a failed build ends the task without a retry prompt. |
 | **Auto-Monitor** checkbox | Appends `pio device monitor` to the same terminal after a successful upload. Default on. |
-| **Serial Monitor** | Opens a monitor only, against the repo root `platformio.ini` (no preparation). |
+| **Serial Monitor** | Opens a monitor only, against the repo root `platformio.ini` and the plain platform environment (`esp32` / `esp8266`; board, speed and filters do not depend on the modules), no preparation. The Auto-Monitor step uses the same. |
 | Status area | Green progress lines or red error, auto-cleared after 5 s. |
 
 The three action buttons are disabled while the spawned terminal is open (polled every 500 ms) and re-enabled when it closes.
 
 ## 3. What preparation does (`CompileFolder`)
 
-`CompileFolder(environment, timezone, clock_id=None, production=False)`; each step appends a line to `report`. Each build only refreshes the folders it owns, so a firmware build never wipes `data/` and vice versa. `Real_Time_Clock_Compile/.pio` (PlatformIO cache) is always kept. `platformio.ini` is copied in on every preparation.
+`CompileFolder(platform, modules, timezone, clock_id=None, production=False)`: `platform` is `esp32`/`esp8266`, `modules` a list of `(token, section)` pairs from `MODULES` (alphabetical) and, last, `AUDIO_VERSIONS`. Property `environment` = `<platform>_<tokens>` or `<platform>_only` (e.g. `esp32_bright_temp_audio_base`); built by `SetupApp.compile_folder()`. Each step appends a line to `report`. Each build only refreshes the folders it owns, so a firmware build never wipes `data/` and vice versa. `Real_Time_Clock_Compile/.pio` (PlatformIO cache) is always kept. `platformio.ini` is copied in on every preparation.
 
 ### `prepare_firmware()` — folders `include`, `lib`, `src`
 1. `reset_folder` deletes only those three folders in the compile copy, `copy_sources` copies them fresh plus `platformio.ini`.
-2. `set_debug_messages`: when production, regex `DEBUG_MESSAGES = true` → `false` in `include/Globals.h`.
-3. `set_test_display`: when not production, in `TEST_DISPLAY_SOURCES` (`src/CoreUtils.cpp`, `src/DisplayUtils.cpp`) regex `(?m)^([^/\n]*?\btm1637\.showNumber\([^,()]*,\s*)32\b` → `\g<1>64`. Only the value 32 changes, one call per line, and calls after a `//` comment (the commented OSRAM variants) are left alone. Report line `Test display: showNumber() colon value 32 changed to 64`.
-4. `set_credentials`: reads `rtc_secrets.ini` through `read_secrets()` and writes into the copied `include/Globals.h`:
+2. `write_build_config` (both preparations, right after the copy): writes `rtc_build.ini` (`BUILD_CONFIG_FILE`) into the compile folder with `[env:<environment>]`: `extends = env:<platform>`; `build_flags`, `lib_deps`, `build_src_filter` = the platform value followed by the selected sections' `build_flags` / `lib_deps` / `src_filter`; `lib_ignore` = the `lib_ignore_off` of every unselected module section. `platformio.ini` loads it through `extra_configs = rtc_build*.ini`. Raises `ValueError` for an audio section on a platform other than the ESP32. Report line `Build environment <name> written to rtc_build.ini`.
+3. `set_debug_messages`: when production, regex `DEBUG_MESSAGES = true` → `false` in `include/Globals.h`.
+4. `set_test_display`: when not production, in `TEST_DISPLAY_SOURCES` (`src/CoreUtils.cpp`, `src/DisplayUtils.cpp`) regex `(?m)^([^/\n]*?\btm1637\.showNumber\([^,()]*,\s*)32\b` → `\g<1>64`. Only the value 32 changes, one call per line, and calls after a `//` comment (the commented OSRAM variants) are left alone. Report line `Test display: showNumber() colon value 32 changed to 64`.
+5. `set_credentials`: reads `rtc_secrets.ini` through `read_secrets()` and writes into the copied `include/Globals.h`:
    - always `OTA_USER` and `OTA_PASS` (the repo holds the placeholders `admin` / `ChangeMe1234`);
    - with a clock ID also `ESP_SSID` → `"NBG_CLOCK_%05d"` and `ESP_PASS` → `ap_password`. Without an ID the repo access point values (`Test`/`Test1234`) ship.
    - `read_secrets()` uses `ConfigParser(interpolation=None)` (passwords may contain `%`) and rejects missing values, quotes, backslashes, non-printable or non-ASCII characters, and an `ap_password` outside 8–63 characters (WPA2 limits). Values are inserted with a callable `re.sub` replacement, so no regex escaping applies.
 
 ### `prepare_filesystem()` — folder `data`
-1. Reset and copy `data/`, skipping `*.old.*` and `*Addon.*` files.
+1. Reset and copy `data/`, skipping `*.old.*` and `*Addon.*` files, then `write_build_config` (the file system targets need the generated environment too).
 2. `edit_timezone`: regex replaces the `<timezoneHoursOffset>` value in `data/espSettings.xml`.
 3. `add_addon_content` for `body.html`, `mainScript.js`, `mainStyle.css` (`WEBPAGE_MAIN_FILES`):
-   - Active modules = tokens of the env name that are in `MODULE_TOKENS = ["bright", "gps", "temp"]` (e.g. `esp32_gps_temp_bright` → `gps`, `temp`, `bright`). Addon files are named after the token: `gpsAddon.html`, `brightAddon.js`, ...
+   - Active modules = tokens of the generated environment name that are in `MODULE_TOKENS = ["audio", "bright", "gps", "temp"]` (e.g. `esp32_gps_temp_audio_base` → `gps`, `temp`, `audio`). Addon files are named after the token: `gpsAddon.html`, `brightAddon.js`, ...
    - HTML: each `<!-- PLACEHOLDER FOR <name> -->…<!-- END OF PLACEHOLDER FOR <name> -->` block is replaced by the file `data/<name>` when the module (`<name>` text before `Addon`, lower-cased) is active and the file exists; otherwise the default content between the markers stays and only the marker comments are removed.
    - JS/CSS: everything after `/* END OF MAIN <filename> FILE */` is dropped (the marker too), then `data/<module>Addon.js|.css` of each active module is appended.
    - Today only `gpsAddon.html` exists: GPS builds get a working GPS/Wi-Fi toggle, other builds keep a disabled Wi-Fi-only toggle.
@@ -80,33 +83,32 @@ Since Oct 2026 the terminal runs a Python step runner instead of a cmd/bash one-
 - `ask()`: `[Y/n]` prompt; Enter, Y or anything except n/N is yes; EOF is no. (The old Windows `choice /c YN` ignored Enter, which is why Enter did not work as Y.)
 - Steps built by `run_build_and_upload`: build (no prompt, no retry) → upload (`prompt` = None with Auto-Upload, else "Upload now?"; `retry_prompt` = "Upload failed. Retry?") → monitor if Auto-Monitor. `run_monitor` sends one monitor step.
 
-Equivalent manual commands (from the repo root, env `esp8266_temp_bright` as an example):
+Equivalent manual commands (from the repo root, after a preparation wrote `Real_Time_Clock_Compile/rtc_build.ini` for `esp8266_bright_temp`):
 ```
-pio run -d Real_Time_Clock_Compile -e esp8266_temp_bright
-pio run -d Real_Time_Clock_Compile -e esp8266_temp_bright -t upload
-pio run -d Real_Time_Clock_Compile -e esp8266_temp_bright -t buildfs
-pio run -d Real_Time_Clock_Compile -e esp8266_temp_bright -t uploadfs
-pio device monitor -d . -e esp8266_temp_bright
+pio run -d Real_Time_Clock_Compile -e esp8266_bright_temp
+pio run -d Real_Time_Clock_Compile -e esp8266_bright_temp -t upload
+pio run -d Real_Time_Clock_Compile -e esp8266_bright_temp -t buildfs
+pio run -d Real_Time_Clock_Compile -e esp8266_bright_temp -t uploadfs
+pio device monitor -d . -e esp8266
 ```
 (Preparation must have been run first, or the compile folder holds stale sources.)
 
 ## 5. Typical workflows
 
 - **First use on a machine**: copy `rtc_secrets.example.ini` to `rtc_secrets.ini` and set the access point password and the software update login. The minifiers install themselves on the first filesystem build (internet access needed once).
-- **New clock**: tick Edit Clock ID (check the ID), untick Test Environment for production, set timezone, select the env matching the fitted modules, Build and Upload Firmware, then Build and Upload File System. Both are needed on a blank board.
+- **New clock**: tick Edit Clock ID (check the ID), untick Test Environment for production, set timezone, select the processor and tick the fitted modules, Build and Upload Firmware, then Build and Upload File System. Both are needed on a blank board.
 - **Firmware-only update**: firmware button only; settings and saved Wi-Fi on the device survive. Over the air is also possible: build, then upload `Real_Time_Clock_Compile/.pio/build/<env>/firmware.bin` through the clock's update page (port 1394, `/sourceControl`).
 - **Web UI or default-settings change**: filesystem button.
 - **Debugging**: keep Test Environment ticked (also switches the display colon value to 64) and Auto-Monitor on; the monitor uses 115200 baud with the platform exception decoder.
 
 ## 6. Extending the launcher
 
-- New PlatformIO env: nothing to do, the combobox reads `platformio.ini`.
-- New module: add its env-name token to `MODULE_TOKENS`; name addon files `<token>Addon.html/.js/.css` so `<name>.split("Addon")[0].lower()` equals the token; add a placeholder block in `body.html` for HTML addons.
+- New platform: add a plain `[env:<platform>]` to `platformio.ini` and an entry to `PLATFORMS`.
+- New module: add a section with the four options (`build_flags`, `lib_deps`, `src_filter`, `lib_ignore_off`) to `platformio.ini`, exclude its sources in `[filters]`, add `label: (token, section)` to `MODULES` (it appears in the list automatically), and add its token to `MODULE_TOKENS`; name addon files `<token>Addon.html/.js/.css` so `<name>.split("Addon")[0].lower()` equals the token; add a placeholder block in `body.html` for HTML addons.
 - New web file needing addons: add it to `WEBPAGE_MAIN_FILES` and end it with `/* END OF MAIN <filename> FILE */`.
 - New substitution in a copied source: add a method using `apply_substitutions(path, (pattern, replacement), ...)`, call it from `prepare_firmware()` or `prepare_filesystem()`, append a `report` line.
 - New secret (a value that must not be committed): add its key to the tuple in `read_secrets()`, a placeholder constant in `Globals.h`, a substitution in `set_credentials()`, and the key to `rtc_secrets.example.ini`.
 - Keep writes inside `COMPILE_FOLDER`; that invariant is what keeps the repo clean.
-- Planned (audio module, not implemented): an "Audio Module" checkbox below the environment dropdown (unchecked by default) that limits the list to ESP32 environments and shows a disabled "Base | Extended" toggle; the build then uses a derived environment written into the compile copy of `platformio.ini`. See section 5 of `docs/audio-module-base.spec`; the mechanism is still under discussion.
 
 ## 7. Known behaviour and limitations (Oct 2026 review)
 

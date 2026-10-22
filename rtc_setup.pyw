@@ -17,9 +17,9 @@ import subprocess
 import sys
 import tempfile
 import tkinter as tk
-from tkinter import ttk
 
-from rtc_setup_utils import PROJECT_FILE, TASK_RUNNER, CompileFolder, StatusArea
+from rtc_setup_utils import (AUDIO_VERSIONS, MODULES, PLATFORMS, PROJECT_FILE, TASK_RUNNER,
+                             CompileFolder, StatusArea)
 
 
 CREATE_NEW_CONSOLE = 0x00000010  # Opens the spawned command in its own console window on Windows
@@ -106,6 +106,7 @@ class SetupApp:
 
     TEXT_FONT = "Verdana 8 bold"
     BUTTON_WIDTH = 28  # Fits the longest caption
+    MODULE_COLUMNS = 3  # Columns of the module checkbox grid
     PROCESS_POLL_INTERVAL = 500  # How often the spawned terminal is checked, in milliseconds
 
     def __init__(self):
@@ -125,8 +126,10 @@ class SetupApp:
         self.is_edit_id = tk.IntVar(value=0)
         self.is_auto_monitor = tk.IntVar(value=1)
         self.is_auto_upload = tk.IntVar(value=1)
-        self.selected_env = tk.StringVar(
-            value=self.environments[0] if self.environments else "")
+        self.platform = tk.StringVar(value=PLATFORMS["ESP32"])
+        self.module_selections = {label: tk.IntVar(value=0) for label in MODULES}
+        self.is_audio_module = tk.IntVar(value=0)
+        self.audio_version = tk.StringVar(value="Base")
 
         try:
             self.root.iconbitmap(self.ICON_FILE)
@@ -164,6 +167,19 @@ class SetupApp:
         self.root.wm_minsize(width=width, height=height)
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
+    def compile_folder(self):
+        """ CompileFolder for the processor, modules and options currently selected in the window """
+        modules = [MODULES[label] for label in sorted(MODULES) if self.module_selections[label].get() == 1]
+
+        if self.is_audio_module.get() == 1:
+            modules.append(AUDIO_VERSIONS[self.audio_version.get()])
+
+        return CompileFolder(platform=self.platform.get(),
+                             modules=modules,
+                             timezone=self.timezone_value,
+                             clock_id=self.clock_id_value if self.is_edit_id.get() == 1 else None,
+                             production=self.is_production_setup.get() == 1)
+
     def create_stepper_row(self, text, initial_value, display_width, adjust):
         """
         Build a [caption] [-] [value] [+] row and return it together with its value label.
@@ -178,6 +194,21 @@ class SetupApp:
         tk.Button(frame, text="+", width=2, command=lambda: adjust(1)).pack(side=tk.LEFT)
 
         return frame, display
+
+    def create_toggle(self, variable, options):
+        """
+        Build a two-way toggle: buttons side by side, the selected one shown pressed.
+        `options` maps each caption to its value. Returns the frame and the buttons by value
+        """
+        frame = tk.Frame(self.root)
+        buttons = {}
+
+        for caption, value in options.items():
+            buttons[value] = tk.Radiobutton(frame, text=caption, variable=variable, value=value,
+                                            indicatoron=0, width=self.BUTTON_WIDTH // 2)
+            buttons[value].pack(side=tk.LEFT)
+
+        return frame, buttons
 
     def launch_terminal_task(self, title, steps):
         """
@@ -204,25 +235,29 @@ class SetupApp:
         return True
 
     def monitor_arguments(self):
-        """ PlatformIO arguments that open the serial monitor for the selected environment """
-        return ["device", "monitor", "-d", os.path.abspath("."), "-e", self.selected_env.get()]
+        """
+        PlatformIO arguments that open the serial monitor. The plain platform environment of the
+        repository platformio.ini is enough: board, speed and filters do not depend on the modules
+        """
+        return ["device", "monitor", "-d", os.path.abspath("."), "-e", self.platform.get()]
 
-    def prepare_compile_folder(self, prepare_step):
+    def platform_is_known(self):
+        """ Report a missing platform environment in platformio.ini and return False """
+        if self.platform.get() in self.environments:
+            return True
+
+        self.status.show(f"Environment {self.platform.get()} not found in {PROJECT_FILE}")
+
+        return False
+
+    def prepare_compile_folder(self, folder, prepare_step):
         """
         Refresh the part of the compile folder that one build needs, before that build starts.
         `prepare_step` is the CompileFolder method that copies and edits the files of that build.
         Appends its progress to the status area and returns False when the copy was not made
         """
-        if not self.environments:
-            self.status.show(f"No environments found in {PROJECT_FILE}")
-
+        if not self.platform_is_known():
             return False
-
-        is_edit_id = self.is_edit_id.get() == 1
-        folder = CompileFolder(environment=self.selected_env.get(),
-                               timezone=self.timezone_value,
-                               clock_id=self.clock_id_value if is_edit_id else None,
-                               production=self.is_production_setup.get() == 1)
 
         try:
             for line in prepare_step(folder):
@@ -233,15 +268,14 @@ class SetupApp:
             return False
 
         # The ID is written into Globals.h, so only a firmware build consumes one
-        if is_edit_id and prepare_step is CompileFolder.prepare_firmware:
+        if self.is_edit_id.get() == 1 and prepare_step is CompileFolder.prepare_firmware:
             self.save_and_increment_clock_id()
 
         return True
 
-    def run_arguments(self, *targets):
+    def run_arguments(self, environment, *targets):
         """ PlatformIO run arguments against the compile folder, extended with the given targets """
-        arguments = ["run", "-d", os.path.abspath(CompileFolder.COMPILE_FOLDER),
-                     "-e", self.selected_env.get()]
+        arguments = ["run", "-d", os.path.abspath(CompileFolder.COMPILE_FOLDER), "-e", environment]
 
         for target in targets:
             arguments += ["-t", target]
@@ -257,18 +291,14 @@ class SetupApp:
         successful upload in that same terminal
         """
         self.status.clear()
-        environment = self.selected_env.get()
+        folder = self.compile_folder()
+        environment = folder.environment
 
-        if not environment:
-            self.status.show("No PlatformIO environment selected")
-
+        if not self.prepare_compile_folder(folder, prepare_step):
             return
 
-        if not self.prepare_compile_folder(prepare_step):
-            return
-
-        steps = [{"arguments": self.run_arguments(*build_targets)},
-                 {"arguments": self.run_arguments(*upload_targets),
+        steps = [{"arguments": self.run_arguments(environment, *build_targets)},
+                 {"arguments": self.run_arguments(environment, *upload_targets),
                   "prompt": None if self.is_auto_upload.get() == 1 else "Upload now?",
                   "retry_prompt": "Upload failed. Retry?"}]
 
@@ -287,11 +317,9 @@ class SetupApp:
         Reads the repository platformio.ini, so the compile folder does not have to be prepared
         """
         self.status.clear()
-        environment = self.selected_env.get()
+        environment = self.platform.get()
 
-        if not environment:
-            self.status.show("No PlatformIO environment selected")
-
+        if not self.platform_is_known():
             return
 
         if not self.launch_terminal_task("Serial Monitor", [{"arguments": self.monitor_arguments()}]):
@@ -325,12 +353,23 @@ class SetupApp:
         timezone_frame, self.timezone_display = self.create_stepper_row(
             "Timezone offset:", "+2", 4, self.adjust_timezone)
 
-        env_label = tk.Label(self.root,
-                             text="Select PlatformIO Environment\n(Sets the Build Flags and the RTC Modules)")
-        longest_env = max((len(name) for name in self.environments), default=self.BUTTON_WIDTH)
-        self.env_combobox = ttk.Combobox(self.root, textvariable=self.selected_env,
-                                         width=longest_env + 2, state="readonly",
-                                         values=self.environments)
+        processor_label = tk.Label(self.root, text="Processor")
+        processor_frame, self.platform_buttons = self.create_toggle(self.platform, PLATFORMS)
+
+        modules_label = tk.Label(self.root, text="Modules")
+        modules_frame = tk.Frame(self.root)
+
+        for index, label in enumerate(sorted(MODULES)):  # Alphabetical, row by row
+            tk.Checkbutton(modules_frame, text=label, variable=self.module_selections[label]).grid(
+                row=index // self.MODULE_COLUMNS, column=index % self.MODULE_COLUMNS, sticky="w", padx=4)
+
+        self.cb_audio = tk.Checkbutton(self.root, text="Audio Module", variable=self.is_audio_module,
+                                       command=self.toggle_audio_module)
+        self.audio_frame, audio_buttons = self.create_toggle(
+            self.audio_version, {label: label for label in AUDIO_VERSIONS})
+
+        for button in audio_buttons.values():
+            button.config(state=tk.DISABLED)  # Only the base version exists for now
 
         # Each build refreshes only the files it owns, then offers its own upload in the
         # same terminal. Buttons are greyed out while that terminal is open
@@ -355,12 +394,25 @@ class SetupApp:
         self.action_buttons += build_buttons + [monitor_button]
         self.status = StatusArea(self.root)
 
-        for element in [cb, self.cb_edit_id, timezone_frame, env_label, self.env_combobox,
-                        auto_upload_cb, *build_buttons, auto_monitor_cb, monitor_button,
-                        self.status]:
+        for element in [cb, self.cb_edit_id, timezone_frame, processor_label, processor_frame,
+                        modules_label, modules_frame, self.cb_audio, auto_upload_cb, *build_buttons,
+                        auto_monitor_cb, monitor_button, self.status]:
             element.pack(pady=3)
 
-        self.env_combobox.focus()
+    def toggle_audio_module(self):
+        """
+        The audio module runs on the ESP32 only: while it is ticked the ESP32 is selected, the ESP8266
+        cannot be chosen, and the Base / Extended toggle is shown under the checkbox
+        """
+        if self.is_audio_module.get() == 1:
+            self.platform.set(PLATFORMS["ESP32"])
+            self.platform_buttons[PLATFORMS["ESP8266"]].config(state=tk.DISABLED)
+            self.audio_frame.pack(after=self.cb_audio, pady=3)
+        else:
+            self.platform_buttons[PLATFORMS["ESP8266"]].config(state=tk.NORMAL)
+            self.audio_frame.pack_forget()
+
+        self.center_window()
 
     def toggle_edit_id(self):
         """ Show or hide the clock ID row depending on the checkbox state """

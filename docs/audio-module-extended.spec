@@ -98,12 +98,14 @@ the BASE text does not apply to the extended version.
 
 3. FIRMWARE
 -----------
-3.1 Build configuration (extends BASE 3.1; same status - proposal under discussion)
+3.1 Build configuration (extends BASE 3.1)
+  - The section exists in platformio.ini; lib_deps gets the VS1053 driver with the implementation (7.1):
         [audio_module_extended]
-        build_flags      = -D AUDIO_MODULE_EXTENDED
-        build_src_filter = +<esp32/AudioModule.cpp> +<esp32/AudioPlayerVs1053.cpp> +<esp32/AudioFiles.cpp>
-        lib_deps         = the VS1053 driver (see 7.1)
-  - Derived environment written by rtc_setup: <selected env>_audio_extended, built like BASE 3.1.
+        build_flags    = -D AUDIO_MODULE_EXTENDED
+        lib_deps       = (the VS1053 driver, see 7.1)
+        src_filter     = +<esp32/AudioModule.cpp> +<esp32/AudioPlayerVs1053.cpp> +<esp32/AudioFiles.cpp>
+        lib_ignore_off =
+  - Generated environment: <platform>_<modules>_audio_extended, written by rtc_setup like BASE 3.1.
   - SD support comes from the ESP32 core (SD, FS, SPI libraries); no extra lib_deps.
   - Flash budget: about 205 KB are free in the largest ESP32 build today. SD + VS1053 driver +
     file management are estimated at 40-80 KB; to be measured in the first build.
@@ -206,15 +208,15 @@ the BASE text does not apply to the extended version.
 
 5. rtc_setup (extends BASE 5)
 -----------------------------
-  - The "Base | Extended" toggle is enabled. "Extended" writes the derived environment
-    <selected env>_audio_extended (3.1).
+  - The "Base | Extended" toggle is enabled (remove the DISABLED state set in set_app_widgets()).
+    "Extended" adds the audio_module_extended section to the generated environment (3.1).
   - File system builds with "Extended" add the module names "audio" and "audioextended", so both the
     BASE addon files and audioExtendedAddon.* are inlined.
 
 
 6. VERIFICATION PLAN (extends BASE 6)
 -------------------------------------
-  - Build every ESP32 environment with the extended configuration; measure the flash use.
+  - Build all 8 ESP32 module combinations with the extended audio module; measure the flash use.
   - Host tests: file name validation, upload checks (size, free space, count, extension, magic
     bytes), duplicate detection, notification rewrite on rename/delete.
   - jsdom tests: upload flow with progress and errors, bulk delete, inline rename, free space display.

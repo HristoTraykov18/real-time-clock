@@ -19,6 +19,19 @@ SECRETS_FILE = "rtc_secrets.ini"  # Local credentials, ignored by git
 SECRETS_EXAMPLE_FILE = "rtc_secrets.example.ini"  # Committed template of SECRETS_FILE
 MINIFIER_PACKAGES = ["rjsmin", "rcssmin"]  # Webpage minifiers, installed with pip on first use
 TASK_RUNNER = os.path.abspath(__file__)  # Run as a script inside the build terminal, see run_terminal_task()
+BUILD_CONFIG_FILE = "rtc_build.ini"  # Environment of the current build, loaded by platformio.ini (extra_configs)
+
+# Processors offered by the launcher: label -> plain platform environment in platformio.ini
+PLATFORMS = {"ESP32": "esp32", "ESP8266": "esp8266"}
+
+# Modules offered by the launcher: label -> (environment name token, platformio.ini section)
+MODULES = {"Brightness": ("bright", "brightness_module"),
+           "GPS": ("gps", "gps_module"),
+           "Temperature": ("temp", "temperature_module")}
+
+# Audio module versions, ESP32 only: label -> (environment name token, platformio.ini section)
+AUDIO_VERSIONS = {"Base": ("audio_base", "audio_module_base"),
+                  "Extended": ("audio_extended", "audio_module_extended")}
 
 
 def ask(question):
@@ -152,7 +165,7 @@ class CompileFolder:
     WEBPAGE_MAIN_FILES = ["body.html", "mainScript.js", "mainStyle.css"]
 
     # Module tokens as they appear inside the PlatformIO environment names
-    MODULE_TOKENS = ["bright", "gps", "temp"]
+    MODULE_TOKENS = ["audio", "bright", "gps", "temp"]
 
     # Marker templates
     # The content between the markers of a module is used when the module is not built
@@ -163,16 +176,28 @@ class CompileFolder:
         re.DOTALL)
     MAIN_FILE_END_MARKER = "/* END OF MAIN {filename} FILE */"
 
-    def __init__(self, environment, timezone, clock_id=None, production=False):
-        self.environment = environment
+    def __init__(self, platform, modules, timezone, clock_id=None, production=False):
+        """
+        `platform` is a value of PLATFORMS, `modules` a list of (token, section) pairs taken from
+        MODULES and AUDIO_VERSIONS, in the order the environment name lists them
+        """
+        self.platform = platform
+        self.module_entries = list(modules)
         self.timezone = timezone
         self.clock_id = clock_id
         self.production = production
         self.report = []
 
     @property
+    def environment(self):
+        """ PlatformIO environment of this build: the platform followed by the module tokens """
+        tokens = [token for token, _ in self.module_entries]
+
+        return "_".join([self.platform] + (tokens or ["only"]))
+
+    @property
     def modules(self):
-        """ Module tokens carried by the PlatformIO environment name """
+        """ Module tokens carried by the PlatformIO environment name (used to pick the addons) """
         return [token for token in self.environment.split("_") if token in self.MODULE_TOKENS]
 
     def add_addon_content(self):
@@ -306,6 +331,7 @@ class CompileFolder:
 
         self.reset_folder(self.FILESYSTEM_DIRS)
         self.copy_sources(self.FILESYSTEM_DIRS)
+        self.write_build_config()
         self.edit_timezone()
         self.add_addon_content()
         self.minify_webpage_files()
@@ -322,6 +348,7 @@ class CompileFolder:
 
         self.reset_folder(self.FIRMWARE_DIRS)
         self.copy_sources(self.FIRMWARE_DIRS)
+        self.write_build_config()
         self.set_debug_messages()
         self.set_test_display()
         self.set_credentials()
@@ -430,6 +457,46 @@ class CompileFolder:
             self.apply_substitutions(self.compiled(source), (pattern, r"\g<1>64"))
 
         self.report.append("Test display: showNumber() colon value 32 changed to 64")
+
+    def write_build_config(self):
+        """
+        Write the environment of this build to BUILD_CONFIG_FILE in the compile folder, where
+        platformio.ini loads it through extra_configs. It extends the plain platform environment
+        with the sections of the selected modules; the vendored libraries of the other modules
+        stay ignored. Raises ValueError for the audio module on a platform other than the ESP32
+        """
+        selected = [section for _, section in self.module_entries]
+        all_sections = [section for _, section in list(MODULES.values()) + list(AUDIO_VERSIONS.values())]
+        audio_sections = [section for _, section in AUDIO_VERSIONS.values()]
+
+        if self.platform != PLATFORMS["ESP32"] and any(section in audio_sections for section in selected):
+            raise ValueError("The audio module is available for the ESP32 only")
+
+        base = f"env:{self.platform}"
+        unselected = [section for section in all_sections if section not in selected]
+
+        def option(key, values):
+            """ One multi-line option, one value per line """
+            return [f"{key:<16} ="] + [f"    {value}" for value in values]
+
+        def references(name, sections):
+            """ ${section.name} for each section """
+            return [f"${{{section}.{name}}}" for section in sections]
+
+        # The platform's own filter removes every module source; the selected ones are added back
+        lines = [f"; Generated by rtc_setup for {self.environment}. Rewritten before every build, do not edit",
+                 f"[env:{self.environment}]",
+                 f"{'extends':<16} = {base}",
+                 *option("build_flags", [f"${{{base}.build_flags}}"] + references("build_flags", selected)),
+                 *option("lib_deps", [f"${{{base}.lib_deps}}"] + references("lib_deps", selected)),
+                 *option("lib_ignore", references("lib_ignore_off", unselected)),
+                 *option("build_src_filter",
+                         [f"${{{base}.build_src_filter}}"] + references("src_filter", selected))]
+
+        with open(self.compiled(BUILD_CONFIG_FILE), "w", encoding="utf8") as config_file:
+            config_file.write("\n".join(lines) + "\n")
+
+        self.report.append(f"Build environment {self.environment} written to {BUILD_CONFIG_FILE}")
 
 
 class StatusArea(tk.Frame):

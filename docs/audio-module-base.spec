@@ -122,24 +122,18 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
 
 3. FIRMWARE
 -----------
-3.1 Build configuration (platformio.ini + rtc_setup)
-  STATUS: proposal under discussion (2026-10-21). The mechanism was validated with PlatformIO; the
-  decision between "audio only" and "all modules" is still open (see the discussion). This section
-  describes the audio-only variant.
-  - New configuration section, like the other modules:
+3.1 Build configuration (platformio.ini + rtc_setup) - DONE (2026-10-21)
+  - All modules use generated environments (see README "Build targets" and docs/rtc-firmware.md 2).
+    The audio section already exists in platformio.ini:
         [audio_module_base]
-        build_flags      = -D AUDIO_MODULE_BASE
-        build_src_filter = +<esp32/AudioModule.cpp> +<esp32/AudioPlayerDfPlayer.cpp>
-    No lib_deps (own DFPlayer driver, see 7.1).
-  - The ESP32 source filter excludes the audio sources by default:
-        [filters] esp32 = +<*> -<esp8266/> -<esp32/Audio*.cpp>
-  - No new build targets. rtc_setup builds the audio firmware from the selected ESP32 environment by
-    writing a derived environment into the compile copy of platformio.ini (see 5), e.g.:
-        [env:esp32_temp_bright_audio_base]
-        extends          = env:esp32_temp_bright
-        build_flags      = ${env:esp32_temp_bright.build_flags} ${audio_module_base.build_flags}
-        build_src_filter = ${env:esp32_temp_bright.build_src_filter} ${audio_module_base.build_src_filter}
-  - Building without rtc_setup: add the same derived environment to platformio.ini locally.
+        build_flags    = -D AUDIO_MODULE_BASE
+        lib_deps       =                      (own DFPlayer driver, see 7.1)
+        src_filter     = +<esp32/AudioModule.cpp> +<esp32/AudioPlayerDfPlayer.cpp>
+        lib_ignore_off =
+  - The ESP32 source filter excludes the audio sources by default ([filters] esp32: -<esp32/Audio*.cpp>).
+  - rtc_setup writes the environment of the selection (e.g. esp32_bright_temp_audio_base) into
+    rtc_build.ini in the compile copy; platformio.ini loads it through extra_configs.
+  - Building without rtc_setup: an environment like that in rtc_build_local.ini (see README).
 
 3.2 Globals.h
   - `#if defined(AUDIO_MODULE_BASE) || defined(AUDIO_MODULE_EXTENDED)` block: includes AudioModule.h,
@@ -288,26 +282,21 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
     (opening the tab or any confirmed action); no polling while idle.
 
 
-5. rtc_setup
+5. rtc_setup - DONE (2026-10-21)
 ------------
-  STATUS: requirements agreed; the build mechanism is part of the discussion of 2026-10-21 (see 3.1).
-  - New "Audio Module" checkbox below the environment dropdown, unchecked by default.
-  - When checked: the dropdown lists only ESP32 environments, and a toggle appears below the checkbox
-    with "Base" on the left and "Extended" on the right. The toggle is set to "Base" and disabled
-    until the extended version is implemented.
-  - Firmware build with the checkbox ticked: the derived environment of 3.1 is written into the
-    compile copy of platformio.ini (name: <selected env>_audio_base) and built and uploaded instead
-    of the selected environment. The serial monitor uses the selected environment (same board).
-  - File system build with the checkbox ticked: the audio addon files of 4.1 are inlined. CompileFolder
-    gets the audio version as a parameter and adds "audio" to its module list, so the addon logic
-    (placeholders and appended .js/.css) works unchanged.
-  - Verification: prepare_filesystem() with and without audio, check that the audio markup/JS/CSS
-    appear only in the audio build, and node --check the minified mainScript.js.
+  - "Audio Module" checkbox below the module list, unchecked by default. Ticking it selects the
+    ESP32, disables the ESP8266 choice and shows the "Base | Extended" toggle below the checkbox,
+    set to "Base" and disabled until the extended version is implemented.
+  - With the checkbox ticked, the generated environment adds the audio_module_base section and its
+    name ends with "_audio_base"; its "audio" token makes the file system build inline the audio
+    addon files of 4.1 (MODULE_TOKENS includes "audio").
+  - Still to verify with the implementation: prepare_filesystem() with and without audio, check that
+    the audio markup/JS/CSS appear only in the audio build, and node --check the minified mainScript.js.
 
 
 6. VERIFICATION PLAN
 --------------------
-  - Build every ESP32 environment with and without the base configuration, with the strict flags;
+  - Build all 8 ESP32 module combinations with and without the audio module, with the strict flags;
     ESP8266 builds must not change.
   - Host tests of the CSV parsing/writing, notification validation and the minute-matching logic
     (including DST jump and duplicate-minute protection).
