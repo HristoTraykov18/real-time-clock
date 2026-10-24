@@ -20,7 +20,8 @@ import tkinter as tk
 from tkinter import ttk
 
 from rtc_setup_utils import (ACCENT_RED, AUDIO_VERSIONS, MODULES, PLATFORMS, PROJECT_FILE, TASK_RUNNER,
-                             TEXT_COLOR, WINDOW_BACKGROUND, CompileFolder, StatusArea, ToggleSwitch)
+                             TEXT_COLOR, UPDATE_FOLDER, WINDOW_BACKGROUND, CompileFolder, StatusArea,
+                             ToggleSwitch)
 
 
 CREATE_NEW_CONSOLE = 0x00000010  # Opens the spawned command in its own console window on Windows
@@ -123,8 +124,7 @@ class SetupApp:
         self.root.title("Real Time Clock setup")
         self.set_colors()
 
-        self.is_production_setup = tk.IntVar()
-        self.is_edit_id = tk.IntVar(value=0)
+        self.is_production_setup = tk.IntVar()  # 0 = Test Environment ticked
         self.is_auto_monitor = tk.IntVar(value=1)
         self.is_auto_upload = tk.IntVar(value=1)
         self.platform = tk.StringVar(value=PLATFORMS["ESP32"])
@@ -178,7 +178,7 @@ class SetupApp:
         return CompileFolder(platform=self.platform.get(),
                              modules=modules,
                              timezone=self.timezone_value,
-                             clock_id=self.clock_id_value if self.is_edit_id.get() == 1 else None,
+                             clock_id=self.clock_id_value if self.is_production_setup.get() == 1 else None,
                              production=self.is_production_setup.get() == 1)
 
     def create_stepper_row(self, parent, text, initial_value, display_width, adjust):
@@ -201,7 +201,8 @@ class SetupApp:
         Run PlatformIO steps in one terminal and lock the action buttons until it closes.
         `steps` is a list of dicts: "arguments" (PlatformIO arguments without the Core command
         prefix), optional "prompt" (asked before the step) and optional "retry_prompt" (asked
-        after the step fails, until it succeeds or the answer is N)
+        after the step fails, until it succeeds or the answer is N). A {"copy": pairs} step is
+        passed on as it is (see rtc_setup_utils.run_step)
         """
         if self.pio_command is None:  # Kept once found, looked up again while it is missing
             self.pio_command = find_platformio()
@@ -212,7 +213,8 @@ class SetupApp:
             return False
 
         self.running_process = spawn_terminal(
-            title, [{"command": self.pio_command + step["arguments"],
+            title, [step if "copy" in step else
+                    {"command": self.pio_command + step["arguments"],
                      "prompt": step.get("prompt"),
                      "retry_prompt": step.get("retry_prompt")} for step in steps])
         self.set_action_buttons_enabled(False)
@@ -254,7 +256,7 @@ class SetupApp:
             return False
 
         # The ID is written into Globals.h, so only a firmware build consumes one
-        if self.is_edit_id.get() == 1 and prepare_step is CompileFolder.prepare_firmware:
+        if self.is_production_setup.get() == 1 and prepare_step is CompileFolder.prepare_firmware:
             self.save_and_increment_clock_id()
 
         return True
@@ -286,7 +288,8 @@ class SetupApp:
         With Auto-Upload ticked the upload starts right after a successful build, otherwise it is
         offered with a prompt. A failed upload offers a retry until the answer is N; a failed build
         ends the task without a retry. With Auto-Monitor ticked the serial monitor follows a
-        successful upload in that same terminal
+        successful upload in that same terminal. A production build (Test Environment unticked)
+        copies its image to UPDATE_FOLDER after a successful build, before the upload
         """
         self.status.clear()
         folder = self.compile_folder()
@@ -295,8 +298,15 @@ class SetupApp:
         if not self.prepare_compile_folder(folder, prepare_step):
             return
 
-        steps = [{"arguments": self.run_arguments(environment, *build_targets)},
-                 {"arguments": self.run_arguments(environment, *upload_targets),
+        steps = [{"arguments": self.run_arguments(environment, *build_targets)}]
+
+        if folder.production:
+            image, copy_name = self.update_copy_names(folder, prepare_step)
+            steps.append({"copy": [[os.path.abspath(folder.compiled(".pio", "build", environment, image)),
+                                    os.path.abspath(os.path.join(UPDATE_FOLDER, copy_name))]]})
+            self.status += f"{image} will be copied to {UPDATE_FOLDER}/{copy_name}"
+
+        steps += [{"arguments": self.run_arguments(environment, *upload_targets),
                   "prompt": None if self.is_auto_upload.get() == 1 else "Upload now?",
                   "retry_prompt": "Upload failed. Retry?"}]
 
@@ -343,9 +353,8 @@ class SetupApp:
     def set_app_widgets(self):
         """ Create widgets in the application """
         cb = ttk.Checkbutton(self.root, text="Test Environment",
-                             variable=self.is_production_setup, onvalue=0, offvalue=1)
-        self.cb_edit_id = ttk.Checkbutton(self.root, text="Edit Clock ID",
-                                          variable=self.is_edit_id, command=self.toggle_edit_id)
+                             variable=self.is_production_setup, onvalue=0, offvalue=1,
+                             command=self.toggle_test_environment)
         # The clock ID row and the audio version switch keep their space while hidden (see reserve_space)
         id_slot = tk.Frame(self.root)
         self.id_frame, self.id_display = self.create_stepper_row(
@@ -393,7 +402,7 @@ class SetupApp:
         self.action_buttons += build_buttons + [monitor_button]
         self.status = StatusArea(self.root)
 
-        for element in [cb, self.cb_edit_id, id_slot, timezone_frame, processor_label,
+        for element in [cb, id_slot, timezone_frame, processor_label,
                         self.platform_switch, modules_label, modules_frame, self.cb_audio, audio_slot,
                         auto_upload_cb, *build_buttons, auto_monitor_cb, monitor_button, self.status]:
             element.pack(pady=3)
@@ -434,9 +443,13 @@ class SetupApp:
             self.platform_switch.set_enabled(True)
             self.audio_switch.pack_forget()
 
-    def toggle_edit_id(self):
-        """ Show or hide the clock ID row depending on the checkbox state """
-        if self.is_edit_id.get() != 1:
+    def toggle_test_environment(self):
+        """
+        A production build (Test Environment unticked) always uses a clock ID: show the clock ID row
+        with the ID from LAST_ID_FILE. When the file cannot be read, Test Environment is ticked
+        again. Ticking Test Environment hides the row and builds without an ID
+        """
+        if self.is_production_setup.get() != 1:
             self.id_frame.pack_forget()
 
             return
@@ -448,12 +461,23 @@ class SetupApp:
         except (OSError, ValueError) as error:
             error_detail = ("Create it in the project root" if isinstance(error, OSError)
                             else "Verify the file is not empty")
-            self.is_edit_id.set(0)
+            self.is_production_setup.set(0)  # Back to Test Environment: no production build without an ID
             self.status.show(f"Could not read \"{self.LAST_ID_FILE}\"\n{error_detail}")
 
             return
 
         self.id_frame.pack()
+
+    @staticmethod
+    def update_copy_names(folder, prepare_step):
+        """
+        Image a production build copies to UPDATE_FOLDER, and its name there: firmware.bin becomes
+        <clock ID>.bin and littlefs.bin becomes FS.bin
+        """
+        if prepare_step is CompileFolder.prepare_firmware:
+            return "firmware.bin", f"{folder.clock_id:05d}.bin" if folder.clock_id is not None else "firmware.bin"
+
+        return "littlefs.bin", "FS.bin"
 
     def watch_running_process(self):
         """ Re-enable the buttons once the spawned terminal is gone """

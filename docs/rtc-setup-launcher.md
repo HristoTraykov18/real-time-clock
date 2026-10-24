@@ -28,8 +28,8 @@ For the firmware itself see `docs/rtc-firmware.md` (also used as the `real-time-
 
 | Control | Effect |
 |---|---|
-| **Test Environment** checkbox (called "RTC Info Messages" before Oct 2026) | Inverted variable: checked → `production=False` → debug serial output stays on, and in the copied `src/CoreUtils.cpp` and `src/DisplayUtils.cpp` the second `tm1637.showNumber()` argument 32 becomes 64 (test display hardware). Unchecked → `DEBUG_MESSAGES` set to `false` in the copied `Globals.h`, `showNumber()` untouched. Checked by default. |
-| **Edit Clock ID** checkbox | Reads `last_id.txt`; shows a `Clock ID: - 00068 +` stepper (1–99999). Fails with a status message if the file is missing or empty. |
+| **Test Environment** checkbox (called "RTC Info Messages" before Oct 2026) | Inverted variable: checked → `production=False` → debug serial output stays on, and in the copied `src/CoreUtils.cpp` and `src/DisplayUtils.cpp` the second `tm1637.showNumber()` argument 32 becomes 64 (test display hardware). Unchecked → `DEBUG_MESSAGES` set to `false` in the copied `Globals.h`, `showNumber()` untouched, and after a successful build the image is copied to `update/` (`UPDATE_FOLDER`, gitignored): `firmware.bin` → `update/<clock ID>.bin` (5 digits, e.g. `00053.bin`), `littlefs.bin` → `update/FS.bin`. Checked by default. |
+| **Clock ID** row | Shown while Test Environment is unticked (production): `toggle_test_environment()` reads `last_id.txt` and shows a `Clock ID: - 00068 +` stepper (1–99999); every production firmware build uses that ID. If the file is missing or empty, a status message appears and Test Environment is ticked again (no production build without an ID). Ticked: row hidden, no ID (repository access point `Test` / `Test1234`). The separate "Edit Clock ID" checkbox was removed in Oct 2026. |
 | **Timezone offset** stepper | −12…+12, wraps around, default **+2**. Written only into the copied `espSettings.xml` (filesystem build). |
 | **Processor** switch | `ToggleSwitch` (see below): ESP32 (default) / ESP8266, values `esp32` / `esp8266` = the plain environments in `platformio.ini` (`PLATFORMS`). Replaced the environment combobox in Oct 2026. |
 | **Modules** grid | Checkboxes from `MODULES` in a grid of `MODULE_COLUMNS = 3` columns, alphabetical row by row (today one row: Brightness, GPS, Temperature), all unticked by default. The Audio Module checkbox sits below the grid. |
@@ -39,7 +39,7 @@ For the firmware itself see `docs/rtc-firmware.md` (also used as the `real-time-
 | **Build and Upload File System** | Prepare `data/` → `pio run -t buildfs` → upload (auto or after the prompt) `pio run -t uploadfs` → optional monitor. A failed upload (either button) asks "Upload failed. Retry? [Y/n]" until it succeeds or N is answered; a failed build ends the task without a retry prompt. |
 | **Auto-Monitor** checkbox | Appends `pio device monitor` to the same terminal after a successful upload. Default on. |
 | **Serial Monitor** | Opens a monitor only, against the repo root `platformio.ini` and the plain platform environment (`esp32` / `esp8266`; board, speed and filters do not depend on the modules), no preparation. The Auto-Monitor step uses the same. |
-| Status area | Green progress lines or red error, auto-cleared after 5 s. |
+| Status area | Green progress lines or red error, auto-cleared after 5 s (`SHOW_DURATION`). Reserves 11 text lines (`StatusArea.HEIGHT`), the longest report (a production file system build with long module names and the one-time minifier install line); raise it when reports get longer, because the window has a fixed size and longer text is cut off. |
 
 The three action buttons are disabled while the spawned terminal is open (polled every 500 ms) and re-enabled when it closes.
 
@@ -76,7 +76,7 @@ The Clock ID row and the Base / Extended switch sit in fixed-size slot frames (`
 Failures raise; the launcher shows "Failed to prepare the compile folder" with the exception text and does not start PlatformIO. Already-written lines remain in the status area.
 
 ### Clock ID bookkeeping
-After a **successful firmware preparation** with Edit Clock ID ticked, `save_and_increment_clock_id()` increments the ID and writes it to `last_id.txt`. Filesystem builds never consume an ID.
+After a **successful firmware preparation** of a production build (Test Environment unticked), `save_and_increment_clock_id()` increments the ID and writes it to `last_id.txt`. Filesystem builds never consume an ID.
 
 ## 4. Terminal command chain
 
@@ -85,9 +85,9 @@ Since Oct 2026 the terminal runs a Python step runner instead of a cmd/bash one-
 - `spawn_terminal()` writes `{"title", "steps": [{"command", "prompt", "retry_prompt"}]}` to a temp JSON file (`rtc_task_*.json`) and starts `[console_python(), TASK_RUNNER, "--run-task", <file>]`. `TASK_RUNNER` is `rtc_setup_utils.py` itself (`__main__` block). Windows: new console (`CREATE_NEW_CONSOLE`). Linux/macOS: first of `x-terminal-emulator -e`, `gnome-terminal --`, `xterm -e`; without one the runner starts detached and every prompt counts as no.
 - `console_python()` returns `python.exe` next to `pythonw.exe` (a .pyw has no console); also used by `find_platformio()`.
 - `run_terminal_task(path)` (in `rtc_setup_utils`): reads and deletes the task file, sets the window title (`SetConsoleTitleW` / OSC escape), runs `run_step()` per step and stops at the first failed or declined step, catches Ctrl+C (`Stopped`, e.g. leaving the monitor), then waits for "Press Enter to close".
-- `run_step(step)`: asks `prompt` first if set; runs the command; on a non-zero exit asks `retry_prompt` (if set) and repeats until success or N.
+- `run_step(step)`: a `{"copy": [[source, destination], ...]}` step runs `copy_files()` (creates the folders, prints each copy; a failed copy is printed but the task goes on, so it never blocks the upload). Otherwise asks `prompt` first if set; runs the command; on a non-zero exit asks `retry_prompt` (if set) and repeats until success or N.
 - `ask()`: `[Y/n]` prompt; Enter, Y or anything except n/N is yes; EOF is no. (The old Windows `choice /c YN` ignored Enter, which is why Enter did not work as Y.)
-- Steps built by `run_build_and_upload`: build (no prompt, no retry) → upload (`prompt` = None with Auto-Upload, else "Upload now?"; `retry_prompt` = "Upload failed. Retry?") → monitor if Auto-Monitor. `run_monitor` sends one monitor step.
+- Steps built by `run_build_and_upload`: build (no prompt, no retry) → copy to `update/` (production builds only, names from `update_copy_names()`) → upload (`prompt` = None with Auto-Upload, else "Upload now?"; `retry_prompt` = "Upload failed. Retry?") → monitor if Auto-Monitor. `run_monitor` sends one monitor step.
 
 Equivalent manual commands (from the repo root, after a preparation wrote `Real_Time_Clock_Compile/rtc_build.ini` for `esp8266_bright_temp`):
 ```
@@ -102,7 +102,7 @@ pio device monitor -d . -e esp8266
 ## 5. Typical workflows
 
 - **First use on a machine**: copy `rtc_secrets.example.ini` to `rtc_secrets.ini` and set the access point password and the software update login. The minifiers install themselves on the first filesystem build (internet access needed once).
-- **New clock**: tick Edit Clock ID (check the ID), untick Test Environment for production, set timezone, select the processor and tick the fitted modules, Build and Upload Firmware, then Build and Upload File System. Both are needed on a blank board.
+- **New clock**: untick Test Environment for production (check the clock ID it shows), set timezone, select the processor and tick the fitted modules, Build and Upload Firmware, then Build and Upload File System. Both are needed on a blank board.
 - **Firmware-only update**: firmware button only; settings and saved Wi-Fi on the device survive. Over the air is also possible: build, then upload `Real_Time_Clock_Compile/.pio/build/<env>/firmware.bin` through the clock's update page (port 1394, `/sourceControl`).
 - **Web UI or default-settings change**: filesystem button.
 - **Debugging**: keep Test Environment ticked (also switches the display colon value to 64) and Auto-Monitor on; the monitor uses 115200 baud with the platform exception decoder.

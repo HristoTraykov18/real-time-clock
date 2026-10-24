@@ -39,8 +39,7 @@ Launcher options:
 - **Processor**: ESP32 (default) or ESP8266.
 - **Modules**: Brightness, GPS, Temperature.
 - **Audio Module** (ESP32 only, not implemented yet): selects the ESP32 and shows the Base / Extended choice (Base only for now).
-- **Test Environment** (ticked by default): keeps the debug serial messages on and sets the display colon value for the test hardware. Untick it for a clock that is delivered.
-- **Edit Clock ID**: gives the firmware the next clock number from `last_id.txt` (access point `NBG_CLOCK_<ID>`).
+- **Test Environment** (ticked by default): keeps the debug serial messages on and sets the display colon value for the test hardware. Untick it for a clock that is delivered: the Clock ID row appears, the firmware gets the next clock number from `last_id.txt` (access point `NBG_CLOCK_<ID>`), and such a production build also copies its image to `update/` in the project root after a successful build, the firmware as `<clock ID>.bin` (e.g. `00053.bin`) and the file system as `FS.bin`.
 - **Auto-Upload** (ticked by default): uploads right after a successful build. Unticked, the terminal asks first. A failed upload asks to retry until it succeeds or you answer N; a failed build is not retried. In the terminal, Enter counts as Y.
 - **Auto-Monitor** (ticked by default): opens the serial monitor after a successful upload.
 

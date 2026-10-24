@@ -20,6 +20,7 @@ SECRETS_EXAMPLE_FILE = "rtc_secrets.example.ini"  # Committed template of SECRET
 MINIFIER_PACKAGES = ["rjsmin", "rcssmin"]  # Webpage minifiers, installed with pip on first use
 TASK_RUNNER = os.path.abspath(__file__)  # Run as a script inside the build terminal, see run_terminal_task()
 BUILD_CONFIG_FILE = "rtc_build.ini"  # Environment of the current build, loaded by platformio.ini (extra_configs)
+UPDATE_FOLDER = "update"  # Production builds copy their image here: <clock ID>.bin and FS.bin
 
 # Processors offered by the launcher: label -> plain platform environment in platformio.ini
 PLATFORMS = {"ESP32": "esp32", "ESP8266": "esp8266"}
@@ -48,6 +49,20 @@ def ask(question):
         return input(f"{question} [Y/n] ").strip().lower() != "n"
     except EOFError:
         return False
+
+
+def copy_files(pairs):
+    """
+    Copy (source, destination) file pairs, creating the destination folders, and report each
+    result in the terminal. A failed copy is reported but not raised
+    """
+    for source, destination in pairs:
+        try:
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            shutil.copyfile(source, destination)
+            print(f"Copied {os.path.basename(source)} to update/{os.path.basename(destination)}.")
+        except OSError as error:
+            print(f"Copy failed: {error}")
 
 
 def import_minifiers():
@@ -90,9 +105,16 @@ def import_minifiers():
 def run_step(step):
     """
     Run one terminal task step and return True when it succeeded.
-    A step with a prompt runs only when the answer is not N. A failed step with a retry prompt is
-    offered again until it succeeds or the answer is N; a failed step without one is not retried
+    A copy step ({"copy": [[source, destination], ...]}) copies files and always counts as done, so a
+    failed copy never blocks the upload. A step with a prompt runs only when the answer is not N.
+    A failed step with a retry prompt is offered again until it succeeds or the answer is N; a failed
+    step without one is not retried
     """
+    if "copy" in step:
+        copy_files(step["copy"])
+
+        return True
+
     if step.get("prompt") and not ask(step["prompt"]):
         return False
 
@@ -111,7 +133,8 @@ def run_terminal_task(task_path):
     """
     Run the steps of a task file in the current terminal, then wait for Enter so the output stays
     readable. The task file is JSON written by the launcher and deleted once read:
-    {"title": str, "steps": [{"command": [str, ...], "prompt": str|null, "retry_prompt": str|null}]}
+    {"title": str, "steps": [{"command": [str, ...], "prompt": str|null, "retry_prompt": str|null}
+                            or {"copy": [[source, destination], ...]}]}
     The first failed or declined step ends the task, so a failed build never reaches the upload
     and a declined or failed upload never opens the serial monitor
     """
@@ -513,8 +536,8 @@ class StatusArea(tk.Frame):
     scheduled on itself, so it needs no reference back to the window.
     """
 
-    SHOW_DURATION = 5000
-    HEIGHT = 7  # Reserved height
+    SHOW_DURATION = 8000
+    HEIGHT = 11  # Reserved height
     WRAP_LENGTH = 380
 
     def __init__(self, master):

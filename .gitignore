@@ -3,6 +3,7 @@ last_id.txt
 rtc_secrets.ini
 docs/instructions/EN.txt
 rtc_build*.ini
+update/
 venv
 .pio
 .vscode
