@@ -1,12 +1,14 @@
-AUDIO MODULE EXTENDED - SPECIFICATION (v1, 2026-10-21)
+AUDIO MODULE EXTENDED - SPECIFICATION (v2, 2026-10-25)
 ======================================================
 
 Status: draft for approval. Nothing is implemented yet; the base version comes first.
 Version: EXTENDED. Everything of the base version plus full management of the audio files from the
          web UI: upload, delete, rename, real file names, file sizes, free space, duplicate check.
 Platform: ESP32 only (esp32dev, WROOM-32). The module must not compile into ESP8266 builds.
-Hardware: VS1053 decoder board with a micro SD slot + a small audio amplifier + speaker
-          (option B of "Audio module hardware research"). The DFPlayer board is not used.
+Hardware: VS1053 decoder board with a micro SD slot + PAM8403 (or similar) amplifier + speaker
+          (option B of "Audio module hardware research", chosen). The VS1053 decodes the audio;
+          the ESP32 only reads the files from the SD card and streams their bytes to the VS1053.
+          The DFPlayer board is not used.
 
 Relation to audio-module-base.spec ("BASE"): this spec only lists what differs. Every section of
 BASE that is not mentioned here applies unchanged (conventions, notifications, volume setting,
@@ -20,9 +22,9 @@ the BASE text does not apply to the extended version.
   - Files:
       include/esp32/AudioModule.h, src/esp32/AudioModule.cpp
           Common part from BASE, reused (generalized where 3.3 says so).
-      include/esp32/AudioPlayer.h, src/esp32/AudioPlayerVs1053.cpp
+      include/esp32/AudioPlayer.h, src/esp32/AudioPlayerExtended.cpp
           Extended player: VS1053 driver, SD card, playback streaming. Implements the same
-          AudioPlayer.h functions as BASE's AudioPlayerDfPlayer.cpp.
+          AudioPlayer.h functions as BASE's AudioPlayerBase.cpp.
       include/esp32/AudioFiles.h, src/esp32/AudioFiles.cpp
           File management: list, upload, delete, rename, sizes, free space, duplicate check.
   - The SD card and the VS1053 share one SPI bus. Every access goes through SPI transactions, and
@@ -35,12 +37,17 @@ the BASE text does not apply to the extended version.
   - VS1053 MP3 decoder board with micro SD slot (5 V input with on-board 3.3 V regulator, 3.3 V logic).
     Decodes MP3, WAV, AAC, Ogg Vorbis (and FLAC with a plugin). Many cheap boards start in MIDI mode
     and need a register write at start-up to switch to MP3 mode (see 3.4).
-  - Amplifier: the VS1053 output is line/headphone level. One mono amplifier fed from one channel
-    (e.g. PAM8302, 2.5 W) or a PAM8403 with one channel used. 5 V supply.
+  - Amplifier: PAM8403 module (class D, 2 x 3 W into 4 Ohm at 5 V, single-ended inputs) or a similar
+    5 V amplifier; the VS1053 output is only line/headphone level. One channel is used for one
+    speaker. The PAM8403 outputs are bridge-tied (BTL): the two channels cannot be bridged into one,
+    and no speaker wire goes to GND.
   - Speaker 4-8 Ohm, rated above the amplifier output (the speaker of the base build can be reused).
   - 100-470 uF capacitor across 5 V/GND at the amplifier.
+  - Supply: the amplifier can draw about 0.7-1 A at full volume into 4 Ohm, the VS1053 board about
+    50 mA. Take the amplifier's 5 V from the clock's 5 V supply directly, not through the ESP32
+    board's 5V pin, and use a supply of at least 2 A.
 
-2.2 Pinout (existing pins unchanged; the base version's GPIO16/17/34 are free again)
+2.2 Pinout (existing pins unchanged; GPIO16/17 of the base version are reused, GPIO34 is DREQ)
 
   Signal                         ESP32 pin   Peripheral pin
   ----------------------------   ---------   ---------------------------------
@@ -48,23 +55,28 @@ the BASE text does not apply to the extended version.
   SPI SCK           NEW          GPIO18      VS1053 board SCK  (shared by VS1053 and SD)
   SPI MISO          NEW          GPIO19      VS1053 board MISO (shared)
   SPI MOSI          NEW          GPIO23      VS1053 board MOSI (shared)
-  VS1053 XCS        NEW          GPIO5       VS1053 command chip select (boot strapping pin; idle high, OK)
+  VS1053 XCS        NEW          GPIO25      VS1053 command chip select
   VS1053 XDCS       NEW          GPIO16      VS1053 data chip select
-  VS1053 DREQ       NEW          GPIO4       VS1053 data request (input)
+  VS1053 DREQ       NEW          GPIO34      VS1053 data request (input-only pin, driven by the VS1053)
   VS1053 XRESET     NEW          GPIO17      VS1053 reset
   SD CS             NEW          GPIO26      SD slot chip select on the VS1053 board
   Power             NEW          5V (VIN)    VS1053 board 5V, amplifier VCC
   Ground            NEW          GND         VS1053 board GND, amplifier GND
-  Audio             NEW          -           VS1053 LOUT (or ROUT) + AGND -> amplifier input
+  Audio             NEW          -           VS1053 LOUT -> PAM8403 L input; board GND -> PAM8403 input GND
 
   Notes:
   - VSPI default pins (18/19/23) are used through SPI.begin(18, 19, 23).
   - Constants in include/esp32/EspPlatform.h: AUDIO_SCK, AUDIO_MISO, AUDIO_MOSI, AUDIO_XCS, AUDIO_XDCS,
     AUDIO_DREQ, AUDIO_XRESET, AUDIO_SD_CS (inside the extended block, so the base build keeps its
     AUDIO_RX/TX/BUSY constants).
-  - The VS1053 audio ground (AGND / GBUF) must not be tied to the main ground on some boards when a
-    headphone output with GBUF is used; take the line output to the amplifier. To be checked on the
-    board you buy.
+  - Many VS1053 boards drive the headphone jack against GBUF, a buffered reference of about 1.2 V,
+    not GND. GBUF must never be connected to GND or to the amplifier. Take LOUT to the amplifier's
+    L input and the amplifier's input GND to the board GND; the PAM8403 module's input capacitor
+    removes the DC level of LOUT. To be checked on the board you buy.
+  - Pin check (WROOM-32): none of the pins is a flash pin (6-11) or an input-only pin (34-39) used as
+    an output, and none is a strapping pin (0, 2, 5, 12, 15); GPIO16/17 are free on WROOM (used by
+    PSRAM only on WROVER). XCS is on GPIO25 instead of the strapping pin GPIO5, and DREQ, an input,
+    on the input-only GPIO34 (decision 7.4).
 
 2.3 Connection diagram
 
@@ -75,23 +87,23 @@ the BASE text does not apply to the extended version.
                          |                    GPIO18   | ----|-|--------------> SCK
                          |                    GPIO19   | <---|-|--------------- MISO
                          |                    GPIO23   | ----|-|--------------> MOSI
-                         |                     GPIO5   | ----|-|--------------> XCS
+                         |                    GPIO25   | ----|-|--------------> XCS
                          |                    GPIO16   | ----|-|--------------> XDCS
-                         |                     GPIO4   | <---|-|--------------- DREQ
+                         |                    GPIO34   | <---|-|--------------- DREQ
                          |                    GPIO17   | ----|-|--------------> XRESET
                          |                    GPIO26   | ----|-|--------------> SD CS
                          +-----------------------------+     | |
                                                              | +--> amplifier VCC   === 100-470 uF
                                                              +----> amplifier GND
-                          VS1053 LOUT ---> amplifier IN+ ; VS1053 AGND ---> amplifier IN-
-                          amplifier OUT+ / OUT- ---> speaker (BTL: neither speaker wire to GND)
+                          VS1053 LOUT ---> PAM8403 L in ; VS1053 board GND ---> PAM8403 in GND (never GBUF)
+                          PAM8403 L+ / L- ---> speaker (BTL: neither speaker wire to GND)
 
 2.4 SD card (replaces BASE 2.3)
   - FAT32, up to 32 GB, inserted in the VS1053 board's slot.
   - Audio files live in /audio with their real names (UTF-8 long file names are enabled in the
     Arduino ESP32 libraries). No number prefix is needed.
   - Formats: MP3 and WAV (see Q2 for AAC/Ogg).
-  - Up to 30 files are managed (same RAM arrays as BASE; see Q1).
+  - Up to MAX_AUDIO_TRACKS = 30 files are managed (same constant and RAM arrays as BASE; see Q1).
   - "Default files": the files copied to the card before the clock is delivered. They are ordinary
     files (no special markers, as agreed for BASE); see Q3 for protection from deletion.
 
@@ -103,7 +115,7 @@ the BASE text does not apply to the extended version.
         [audio_module_extended]
         build_flags    = -D AUDIO_MODULE_EXTENDED
         lib_deps       = (the VS1053 driver, see 7.1)
-        src_filter     = +<esp32/AudioModule.cpp> +<esp32/AudioPlayerVs1053.cpp> +<esp32/AudioFiles.cpp>
+        src_filter     = +<esp32/AudioModule.cpp> +<esp32/AudioPlayerExtended.cpp> +<esp32/AudioFiles.cpp>
         lib_ignore_off =
   - Generated environment: <platform>_<modules>_audio_extended, written by rtc_setup like BASE 3.1.
   - SD support comes from the ESP32 core (SD, FS, SPI libraries); no extra lib_deps.
@@ -118,12 +130,13 @@ the BASE text does not apply to the extended version.
   - /notifications.csv: `id|file name|HH:MM|weekdays` (same format as BASE; the track field holds the
     file name, max 64 bytes). The common parser already treats the field as text.
   - Renaming a file rewrites the notifications that use it; deleting a file removes them.
-  - /audioTracks.csv is not used (real names are read from the card).
+  - /audio.csv is not used: the ESP32 reads the SD card itself (the VS1053 only decodes), so the real
+    names, sizes and the file count come from the card.
   - The file list (name, size) is read from /audio at boot and after every upload, delete or rename,
     into a fixed RAM array (30 entries).
 
 3.4 Functions
-  AudioPlayerVs1053.cpp (implements AudioPlayer.h; replaces BASE's player functions):
+  AudioPlayerExtended.cpp (implements AudioPlayer.h; replaces BASE's player functions):
   - beginAudioPlayer()       SPI.begin, SD.begin(AUDIO_SD_CS), VS1053 hardware reset, clock setup,
                              switch from MIDI to MP3 mode when needed, stored volume.
   - audioPlayerIsPlaying()   a file is open and not finished.
@@ -233,6 +246,9 @@ the BASE text does not apply to the extended version.
 7.2 Playback in a FreeRTOS task (core 1, 4-8 KB ring buffer) instead of serviceAudioPlayer() in
     loop(), so blocking network calls do not cause gaps. Needs a mutex around SD access.
 7.3 Keep the 30-file limit and the fixed RAM arrays of BASE for the first version.
+7.4 Decided: VS1053 XCS on GPIO25 instead of the strapping pin GPIO5, and DREQ on the input-only
+    GPIO34 (the base version's BUSY pin) instead of GPIO4 (2.2). DREQ is driven by the VS1053, so
+    the missing pull-up of GPIO34 does not matter. GPIO4 and GPIO5 stay free.
 
 
 8. OPEN QUESTIONS
@@ -243,4 +259,4 @@ Q3. Should the default files be protected from deletion, or behave like any othe
 Q4. A notification due during an upload: play it right after the upload (spec), or skip it?
 Q5. "Total size check" of the original requirements: is the free space check (file <= free space
     - 1 MB) enough, or should the audio folder also have its own size limit?
-Q6. Amplifier: single-channel PAM8302 or PAM8403 with one channel used?
+Q6. Answered: PAM8403 or a similar 5 V amplifier (2.1).

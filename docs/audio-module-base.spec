@@ -1,7 +1,7 @@
-AUDIO MODULE BASE - SPECIFICATION (v1, after review answers, 2026-10-21)
+AUDIO MODULE BASE - SPECIFICATION (v2, after the second review answers, 2026-10-25)
 =====================================================================
 
-Status: draft for approval. Nothing is implemented yet.
+Status: ready for implementation (all review items decided, 2026-10-25). Nothing is implemented yet.
 Version: BASE. Plays audio files that are pre-loaded on the SD card, controls the volume and plays
          scheduled notifications. Managing the files from the clock (upload, delete, rename) is not
          part of this version; it is specified in audio-module-extended.spec, which builds on this one.
@@ -20,9 +20,10 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
       include/esp32/AudioModule.h, src/esp32/AudioModule.cpp
           Common part, shared with the extended version: notifications, volume setting, data
           response, request validation.
-      include/esp32/AudioPlayer.h, src/esp32/AudioPlayerDfPlayer.cpp
-          Base player: DFPlayer driver, track count, track names. The extended version provides
-          the same functions in its own file (see 3.4), so the common part does not change.
+      include/esp32/AudioPlayer.h, src/esp32/AudioPlayerBase.cpp
+          Base player: own driver for the DFPlayer serial protocol, track count, track names.
+          The extended version provides the same functions in its own file (see 3.4), so the
+          common part does not change.
     ESP32 builds without the module exclude all audio .cpp files in build_src_filter (see 3.1).
   - Doxygen file header + @brief/@param/@return per function in the header; function definitions in
     alphabetical order in every .cpp touched; trailing "// Audio module function" comments on calls.
@@ -49,8 +50,9 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
          "is playing" uses a short grace time after a play command (see 3.4).
       c) The chip needs time after power-on to read the SD card before it accepts commands, so the
          start-up commands are sent from loop() after a delay, not from setup() (see 3.4).
-      d) Command support (0x12 play /mp3/NNNN, 0x16 stop, 0x06 volume, 0x48 track count) is not
-         documented for JL chips. It has to be confirmed on the module (see 6, hardware checks).
+      d) Command support (0x12 play /mp3/NNNN, 0x16 stop, 0x06 volume) is not documented for JL
+         chips. It has to be confirmed on the module (see 6, hardware checks). The track count
+         query (0x48) is not used: the count comes from /audio.csv (3.3, decision Q5).
 
 2.1 Pinout (ESP32 DevKit, WROOM-32). Existing pins unchanged.
 
@@ -113,10 +115,10 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
   - Files in folder /mp3, named 0001.mp3 ... 0030.mp3 (4-digit prefix is what the DFPlayer uses;
     the rest of the name is ignored by the player, e.g. "0003_Morning bell.mp3" is allowed).
   - Formats: those the DFPlayer decodes - MP3 and WAV, 8-48 kHz sample rate.
-  - No other audio files on the card (the track count query counts every file on the card).
+  - Every file on the card has a line in data/audio.csv with the same number (3.3).
   - Copy with a PC that leaves no hidden files on the card (macOS "._" files and "System Volume
-    Information" can be counted or played by clones). Formatting before copying is recommended.
-  - Up to 30 tracks are managed by the clock (tracks above 30 are ignored).
+    Information" can be played by clones). Formatting before copying is recommended.
+  - Up to MAX_AUDIO_TRACKS = 30 tracks are managed by the clock (audio.csv lines above 30 are ignored).
   - Tracks are played with command 0x12 (play /mp3/NNNN), which does not depend on copy order.
 
 
@@ -127,8 +129,8 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
     The audio section already exists in platformio.ini:
         [audio_module_base]
         build_flags    = -D AUDIO_MODULE_BASE
-        lib_deps       =                      (own DFPlayer driver, see 7.1)
-        src_filter     = +<esp32/AudioModule.cpp> +<esp32/AudioPlayerDfPlayer.cpp>
+        lib_deps       =                      (own driver, see 7.1)
+        src_filter     = +<esp32/AudioModule.cpp> +<esp32/AudioPlayerBase.cpp>
         lib_ignore_off =
   - The ESP32 source filter excludes the audio sources by default ([filters] esp32: -<esp32/Audio*.cpp>).
   - rtc_setup writes the environment of the selection (e.g. esp32_bright_temp_audio_base) into
@@ -149,10 +151,18 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
                         (bit0 = Monday ... bit6 = Sunday); id 1-255, unique; max 30 lines.
                         The common part treats the track field as text (max 64 bytes), so the
                         extended version can reuse the parser.
-  - /audioTracks.csv  : optional, read only. `track|name` lines with display names, UTF-8, max 32 bytes,
-                        no `|` or newline. Prepared on a PC as data/audioTracks.csv and uploaded with
-                        the file system (see 7.5, Q6). Tracks without an entry show "Файл NNNN".
-  - Both are read once into fixed RAM arrays at boot (30 entries each); /notifications.csv is
+  - /audio.csv        : required, read only. `NNNN|name` lines, one per file on the SD card
+                        (NNNN = the 4-digit number of /mp3/NNNN.mp3), display name UTF-8, max 32 bytes,
+                        no `|` or newline. Prepared on a PC as data/audio.csv and uploaded with the file
+                        system. The names are fixed: the web UI cannot change them. The web UI shows
+                        the name of the line whose NNNN matches the SD file (decision 7.5, Q6).
+                        The track count is the number of valid lines, at most MAX_AUDIO_TRACKS = 30
+                        (a constant in AudioModule.h, also the size of the RAM array); a track
+                        exists when it has a line (decision Q5). Lines with a bad number, a
+                        duplicate number or an empty name are skipped (debug message).
+                        Missing or empty file: the audio tab shows "Липсва файл audio.csv" and no files.
+  - Both are read once into fixed RAM arrays at boot (30 entries each, MAX_AUDIO_TRACKS for
+    audio.csv); /notifications.csv is
     rewritten whole on change.
   - A file system upload (uploadfs) replaces both files, as it erases the saved network today.
 
@@ -164,38 +174,41 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
   - editNotificationsFile()  writes the RAM notification array to /notifications.csv (single writer).
   - initializeAudio()        loads /notifications.csv, applies the stored volume setting, calls
                              beginAudioPlayer().
-  - playTrack(track)         track exists (readTrackCount()) -> playAudioTrack() -> confirmation text.
+  - playTrack(track)         track listed in /audio.csv -> playAudioTrack() -> confirmation text.
   - readAudioData(buffer)    builds the data response (see 3.5): volume, playing track, track count,
                              track names, notifications. No confirmation message.
   - saveNotification(id, track, time, weekdays, is_edit)
                              time valid (00:00-23:59), weekdays mask non-zero, track exists,
-                             no other notification at the same HH:MM (see open question Q1),
+                             no other notification at the same HH:MM on a shared weekday
+                             (masks AND-ed non-zero; 07:00 Пн-Пт and 07:00 Сб-Нд are both allowed, Q1),
                              limit 30 (create only), on edit replace the entry with the same id,
                              rewrite file -> confirmation text.
   - serviceAudio()           called from loop() every pass; calls serviceAudioPlayer() (cheap: returns
                              at once when nothing is pending).
   - serviceNotifications()   called once per RTC second from loop(); at second 0 compares HH:MM and
-                             weekday with the table and plays the match (this replaces any track that
-                             is playing; the interrupted track is not resumed - see Q2). Remembers the
+                             weekday with the table and plays the match in every clock mode, timer
+                             mode included (Q3). It replaces any track that is playing; the interrupted
+                             track is stopped for good, and the next Play press starts it from the
+                             beginning (Q2). Remembers the
                              last fired minute so a repeated minute (DST change, time sync) does not
                              fire twice. Non-blocking.
   - setVolume(level)         0..10 -> setAudioPlayerVolume(), store via editSettingsFile.
   - stopTrack()              audioPlayerIsPlaying() -> stopAudioTrack() -> confirmation text.
 
-  AudioPlayerDfPlayer.cpp (base player, implements AudioPlayer.h):
+  AudioPlayerBase.cpp (base player, implements AudioPlayer.h):
   - audioPlayerIsPlaying()   BUSY pin LOW, or a play command was sent less than 1 s ago
                              (BUSY can lag the command on clone chips). No serial round trip.
-  - beginAudioPlayer()       Serial1 start, BUSY pin input, loads /audioTracks.csv. Sends nothing yet.
+  - beginAudioPlayer()       Serial1 start, BUSY pin input, loads /audio.csv. Sends nothing yet.
   - playAudioTrack(track)    command 0x12 (play /mp3/NNNN).
-  - readTrackCount()         track count from the 0x48 reply, or the fallback (see serviceAudioPlayer).
+  - readTrackCount()         number of valid /audio.csv lines (max MAX_AUDIO_TRACKS), counted when the
+                             file is loaded. No query to the module.
   - readTrackName(track, buffer, size)
-                             name from /audioTracks.csv, else "Файл NNNN".
+                             name from /audio.csv.
   - serviceAudioPlayer()     non-blocking:
-                               - 2 s after boot: send the stored volume, then (next pass) the track
-                                 count query 0x48; at least 100 ms between two commands.
-                               - reads any reply bytes that arrived (10-byte frames, checksum checked);
-                                 a valid 0x48 reply sets the track count; other frames are dropped.
-                               - no valid count within 3 s: track count from the fallback (see Q5).
+                               - 2 s after boot: send the stored volume.
+                               - at least 100 ms between two commands.
+                               - never reads replies: the module's TX line is not used by the
+                                 firmware (it stays wired for the hardware test sketch).
   - setAudioPlayerVolume(level)
                              0..10 -> DFPlayer 0..30 (x3), command 0x06.
   - stopAudioTrack()         command 0x16.
@@ -208,7 +221,7 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
                                         V|volume
                                         P|playing track (0 = none)
                                         C|track count
-                                        T|track|name             (one per track, 1..count)
+                                        T|track|name             (one per audio.csv line, file order)
                                         N|id|track|HH:MM|weekdays (one per notification)
   POST /audio-play       track=N
   POST /audio-stop
@@ -242,6 +255,9 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
   - The first opening requests GET /audio once; the loader is shown until the tables are filled;
     on failure the disconnected indicator and an error message are shown (same pattern as the side panels).
   - Data is kept in JS (tracks, notifications) and re-rendered locally after each confirmed change.
+  - Tab switching (decision 7.2): switchTab() works over all tab buttons and panels through data-tab
+    attributes (today it knows only "rtc" and "timer"), so the audio addon only adds markup and does
+    not override switchTab().
 
 4.3 Volume control
   - "−" button, value (0-10), "+" button. Each change is sent to /audio-volume; the shown value changes
@@ -256,7 +272,8 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
     - Files:         [name, left, 70%, horizontal auto-scroll when too long] [Play button: rounded
                      triangle; turns into Stop (rounded square) while that track plays]
     - Notifications: [checkbox] [name, left, 40%, auto-scroll] [time HH:MM + weekday letters,
-                     left, 40%] [Edit button: paper with pen] [Delete button: bin]
+                     e.g. "07:30  Пн-Пт" (decision 7.4), left, 40%] [Edit button: paper with pen]
+                     [Delete button: bin]. "Изтрий избраните" sends one bulk request (decision 7.3).
                      A notification whose track is missing on the card is shown greyed with a warning.
   Footer
     - Centre: two tab buttons - "Файлове" (left: table slides right, files view) and
@@ -273,8 +290,8 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
   - Time: HH:MM input with scrollable hours (00-23) and minutes (00-59), styled like the timer picker.
   - Weekdays: seven toggles Пн Вт Ср Чт Пт Сб Нд; at least one must be selected.
   - "Запази" / "Отказ". Edit opens the popup prefilled.
-  - Client-side checks (limit 30, duplicate time, missing file, no weekday) before the request;
-    the clock repeats the checks.
+  - Client-side checks (limit 30, same time on a shared weekday, missing file, no weekday) before the
+    request; the clock repeats the checks.
 
 4.6 Play / Stop
   - Play sends /audio-play; on success that row's button becomes Stop and the others Play.
@@ -304,39 +321,27 @@ Hardware: "MP3-TF-16P" board (DFPlayer Mini compatible, JieLi decoder), its micr
     on success / HTTP 400 / no connection, single delegated listeners.
   - Before the implementation (by you, 10 minutes, recommended): run the DFPlayerAnalyzer sketch or a
     short test sketch I provide on the ESP32 with your module, to confirm on the JL chip that
-    0x12 plays /mp3/0001.mp3, 0x16 stops, 0x06 changes the volume, 0x48 returns the right count,
-    and how long BUSY takes to go LOW. The results fix the open values in 2.0 d) and Q5.
+    0x12 plays /mp3/0001.mp3, 0x16 stops, 0x06 changes the volume, and how long BUSY takes to go
+    LOW. The results fix the open values in 2.0 d).
   - On hardware (by you): play/stop, volume, a notification firing while another track plays, BUSY pin.
 
 
-7. PROPOSALS (better ways, need your OK)
-----------------------------------------
-7.1 DFPlayer driver: own minimal driver inside AudioPlayerDfPlayer.cpp (~60-80 lines: frame build with
-    checksum, ACK flag 0, commands 0x06/0x12/0x16/0x48, non-blocking reply parser). With the JL chip
-    this is the stronger choice: DFRobotDFPlayerMini's read functions assume the reply order of the
-    original chip (data before ACK) and block while waiting, which is the known failure on newer
-    and clone chips. No lib_deps entry is needed then (3.1).
-7.2 Generic tab switching: switchTab() today knows only "rtc" and "timer". Proposal: make it work over
-    all tab buttons/panels via data-tab attributes, so the audio addon only adds markup. Otherwise
-    audioAddon.js has to override switchTab().
-7.3 Bulk delete of notifications in one request (ids list) instead of one request per selected row.
-7.4 Weekday letters in the time column (e.g. "07:30  Пн-Пт") so rows stay readable without a popup.
-7.5 Track names from an optional data/audioTracks.csv uploaded with the file system (3.3), so the
-    list can show real names without a rename function. Without the file the list shows "Файл NNNN".
-
-
-8. OPEN QUESTIONS
------------------
-Q1. Duplicate time rule with weekdays: forbid the same HH:MM in any two notifications, or only when
-    their weekdays overlap (07:00 Пн-Пт and 07:00 Сб-Нд allowed)?
-Q2. Interrupted audio: stop it for good (spec above), or resume it after the notification? Resuming is
-    possible only with the DFPlayer's ADVERT feature, which needs a copy of each notification file in an
-    /ADVERT folder and works only while something is playing.
-Q3. Should notifications also play while the clock is in timer mode? (Spec above: yes, in every mode.)
-Q4. Default volume for new clocks: 5 of 10?
-Q5. Track count when the 0x48 query gives no valid answer:
-    a) a "Брой файлове" number (1-30) set in the audio tab and stored in espSettings.xml as
-       <audioTrackCount> - used as fallback, or always if you prefer (no query at all);
-    b) assume 30 and let a play request for a missing track fail silently on the player.
-    Proposal: a) as fallback only.
-Q6. Keep the optional names file of 7.5, or show only "Файл NNNN"?
+7. DECISIONS (from the review answers)
+-------------------------------------
+7.1 Player driver: own minimal driver in AudioPlayerBase.cpp (~40 lines: frame build with checksum,
+    ACK flag 0, commands 0x06/0x12/0x16, non-blocking start-up wait and command spacing), no
+    lib_deps entry. Chosen over the vendor libraries ("Audio player library research.md" in the chat):
+    the only one naming the JL chip sends byte-identical frames but is GPL-3.0, and DFMiniMp3 blocks
+    up to 2.7 s per command.
+7.2 Generic tab switching through data-tab attributes (4.2).
+7.3 Bulk delete of notifications in one request (3.5, 4.4).
+7.4 Weekday letters in the time column (4.4).
+7.5 Track names from the required data/audio.csv, fixed, no rename (3.3). Q6: no optional file.
+Q1. The same HH:MM is forbidden only for notifications that share a weekday (3.4).
+Q2. A notification stops the playing track for good; the next Play press restarts it (3.4).
+Q3. Notifications play in every clock mode (3.4).
+Q4. Default volume 5 of 10 (3.2).
+N1. Player file names follow the versions: AudioPlayerBase.cpp and AudioPlayerExtended.cpp.
+Q5. The track count is the number of valid lines in /audio.csv; MAX_AUDIO_TRACKS = 30 is only the
+    upper limit. No 0x48 query, so the driver only sends commands (3.3, 3.4). The extended version
+    counts the files it lists in /audio on its own SD card (audio-module-extended.spec 3.3, 3.4).

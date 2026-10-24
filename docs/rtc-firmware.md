@@ -71,8 +71,8 @@ Keep README.md and docs/ in step with changes to features, build targets or libr
 | `brightness_module` | `-D BRIGHTNESS_MODULE` | – | `+<BrightnessModule.cpp>` | – |
 | `gps_module` | `-D GPS_MODULE` | TinyGPSPlus 1.0.3 | `+<GPSModule.cpp>` | – |
 | `temperature_module` | `-D TEMPERATURE_MODULE` | OneWire ^2.3.8 | `+<TemperatureModule.cpp>` | `DallasTemperature` |
-| `audio_module_base` (ESP32) | `-D AUDIO_MODULE_BASE` | – | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerDfPlayer.cpp>` | – |
-| `audio_module_extended` (ESP32) | `-D AUDIO_MODULE_EXTENDED` | (VS1053 driver later) | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerVs1053.cpp> +<esp32/AudioFiles.cpp>` | – |
+| `audio_module_base` (ESP32) | `-D AUDIO_MODULE_BASE` | – | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerBase.cpp>` | – |
+| `audio_module_extended` (ESP32) | `-D AUDIO_MODULE_EXTENDED` | (VS1053 driver later) | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerExtended.cpp> +<esp32/AudioFiles.cpp>` | – |
 
 A build with modules uses an environment that `extends = env:<platform>` and lists, as multi-line options: `build_flags`, `lib_deps` and `build_src_filter` = the platform value followed by the selected sections' `build_flags` / `lib_deps` / `src_filter`, and `lib_ignore` = the `lib_ignore_off` of every module that is NOT selected. rtc_setup writes it to `rtc_build.ini` in the compile copy for every build; `platformio.ini` loads `rtc_build*.ini` through `extra_configs` (a missing file is ignored). Name: `<platform>_<tokens>` with the module tokens in alphabetical module order (`bright`, `gps`, `temp`, then `audio_base` / `audio_extended`), or `<platform>_only`; e.g. `esp32_bright_gps_temp`. By hand: put such an environment in `rtc_build_local.ini` in the project root (gitignored), see README.
 - Validated Oct 2026: all 8 ESP32 combinations built from generated environments give the same firmware sizes as the former fixed environments; `DallasTemperature` is linked only with the temperature module. Letting the LDF evaluate `#ifdef`s instead of `lib_ignore` (`lib_ldf_mode = chain+` / `deep+`) does not work with ESP32 core 3.3.11 (`Network.h` not found in the WiFi library).
