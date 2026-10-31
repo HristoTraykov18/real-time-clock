@@ -7,6 +7,11 @@ const NETWORK_REQUEST_TIMEOUT_MS = 20000;
 // SSID of the row the user tapped, carried into the password popup
 let selectedNetworkSSID = "";
 
+// Called after switching to a tab, by the data-tab name. Addons add their own tabs here
+const TAB_OPEN_HANDLERS = {
+    rtc: function() { submitManualTime(); }
+};
+
 
 async function initializeApp () { // Add event listeners for the javascript functionalities
     document.getElementById("js-main-form").addEventListener("submit", submitNetworkRequest);
@@ -16,8 +21,16 @@ async function initializeApp () { // Add event listeners for the javascript func
     document.getElementById("js-password-button-container").addEventListener("click", togglePasswordVisibility);
 
     // Tab switching
-    document.getElementById("js-rtc-menu-button").addEventListener("click", function() { switchTab("rtc"); submitManualTime(); });
-    document.getElementById("js-timer-menu-button").addEventListener("click", function() { switchTab("timer"); });
+    document.querySelector(".option-buttons-container").addEventListener("click", function(event) {
+        const button = event.target.closest("[data-tab]");
+
+        if (!button) return;
+
+        switchTab(button.dataset.tab);
+
+        if (TAB_OPEN_HANDLERS[button.dataset.tab])
+            TAB_OPEN_HANDLERS[button.dataset.tab]();
+    });
 
     // Networks list and password popup
     document.getElementById("js-network-list-rows").addEventListener("click", function(event) {
@@ -403,7 +416,7 @@ async function sendServerRequest(params, loader = true, route = '/') {
 
         if (loader) toggleLoader();
 
-        showStatusPopup(response.ok ? await response.text() : "Възникна грешка!");
+        showStatusPopup(response.ok || response.status === 400 ? await response.text() : "Възникна грешка!");
 
         return response.ok;
     } catch {
@@ -535,20 +548,14 @@ function updateSlider(slider, thumb) {
 }
 
 function switchTab(tabName) {
-    let rtcPanel = document.getElementById("js-main-settings");
-    let timerPanel = document.getElementById("js-timer-settings");
-    let rtcBtn = document.getElementById("js-rtc-menu-button");
-    let timerBtn = document.getElementById("js-timer-menu-button");
+    for (const button of document.querySelectorAll(".option-button[data-tab]")) {
+        const isActive = button.dataset.tab === tabName;
+        button.classList.toggle("active-tab-button", isActive);
+        button.classList.toggle("inactive-tab-button", !isActive);
+    }
 
-    let isTimer = (tabName === "timer");
-
-    rtcPanel.classList.toggle("active-content", !isTimer);
-    timerPanel.classList.toggle("active-content", isTimer);
-
-    rtcBtn.classList.toggle("active-tab-button", !isTimer);
-    rtcBtn.classList.toggle("inactive-tab-button", isTimer);
-    timerBtn.classList.toggle("active-tab-button", isTimer);
-    timerBtn.classList.toggle("inactive-tab-button", !isTimer);
+    for (const panel of document.querySelectorAll(".content[data-tab]"))
+        panel.classList.toggle("active-content", panel.dataset.tab === tabName);
 }
 
 // Side panels common functionality

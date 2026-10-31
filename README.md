@@ -14,7 +14,7 @@ Personal clock project for **ESP8266** (NodeMCU v2) and **ESP32** (ESP32 DevKit)
   - **Temperature** - DS18B20 sensor, alternates time and temperature on the display
   - **Brightness** - light sensor for automatic display brightness
   - **GPS** - u-blox receiver as a time source (not fully tested)
-- Planned: **Audio** module for the ESP32 (scheduled notifications and audio playback), see [Documentation](#documentation)
+  - **Audio** (ESP32 only) - plays the audio files of an MP3-TF-16P board and scheduled notifications, see [Audio module](#audio-module) (base version; not tested on the hardware yet)
 
 ## Build targets
 
@@ -38,7 +38,7 @@ Launcher options:
 
 - **Processor**: ESP32 (default) or ESP8266.
 - **Modules**: Brightness, GPS, Temperature.
-- **Audio Module** (ESP32 only, not implemented yet): selects the ESP32 and shows the Base / Extended choice (Base only for now).
+- **Audio Module** (ESP32 only): selects the ESP32 and shows the Base / Extended choice (Base only for now; the extended version is not implemented).
 - **Test Environment** (ticked by default): keeps the debug serial messages on and sets the display colon value for the test hardware. Untick it for a clock that is delivered: the Clock ID row appears, the firmware gets the next clock number from `last_id.txt` (access point `NBG_CLOCK_<ID>`), and such a production build also copies its image to `update/` in the project root after a successful build, the firmware as `<clock ID>.bin` (e.g. `00053.bin`) and the file system as `FS.bin`.
 - **Auto-Upload** (ticked by default): uploads right after a successful build. Unticked, the terminal asks first. A failed upload asks to retry until it succeeds or you answer N; a failed build is not retried. In the terminal, Enter counts as Y.
 - **Auto-Monitor** (ticked by default): opens the serial monitor after a successful upload.
@@ -76,11 +76,21 @@ build_src_filter =
 
 `lib_ignore` lists the `lib_ignore_off` value of every module that is not selected (it keeps their vendored libraries out of the build).
 
-Uploading the file system replaces the whole LittleFS partition, including the saved network and any settings changed from the web interface.
+Uploading the file system replaces the whole LittleFS partition, including the saved network, any settings changed from the web interface and the audio notifications.
 
 ### Credentials
 
 The access point password of numbered clocks and the login of the software update page are not stored in the repository. Copy `rtc_secrets.example.ini` to `rtc_secrets.ini` (ignored by git) and set your own values. The launcher refuses to prepare a firmware build without this file.
+
+## Audio module
+
+The base version uses an MP3-TF-16P board (DFPlayer Mini compatible) with a micro SD card and a speaker; wiring in [docs/audio-module-base.spec](docs/audio-module-base.spec), section 2.
+
+1. Copy the audio files to the folder `/mp3` of the SD card, named `0001.mp3`, `0002.mp3`, ... (MP3 or WAV; the player uses only the 4-digit number, e.g. `0003_Bell.mp3` is fine). Up to 30 files. The `mp3/` folder of the repository holds 10 generated sample tracks matching `data/audio.csv`; copy the whole folder to the root of the card.
+2. List every file in `data/audio.csv`, one `NNNN|name` line per file, e.g. `0003|Обедна почивка`. The name is what the web interface shows (up to 32 bytes of UTF-8, i.e. 16 Cyrillic letters; no `|`). The clock takes the number of files from this list, so keep it in step with the card.
+3. Build and upload the firmware and the file system with the Audio Module ticked. `audio.csv` is part of the file system, so changing a name needs a file system upload, which also erases the notifications.
+
+The web interface then has an **Аудио** tab: volume, playing and stopping the files, and up to 30 notifications that play a file at a set time on chosen weekdays.
 
 ## Usage
 
@@ -100,7 +110,7 @@ In short:
 |---|---|
 | [docs/rtc-firmware.md](docs/rtc-firmware.md) | Firmware reference: layout, build targets and modules, pinout, runtime flow, HTTP API, conventions |
 | [docs/rtc-setup-launcher.md](docs/rtc-setup-launcher.md) | Launcher reference: window controls, compile folder preparation, terminal steps |
-| [docs/audio-module-base.spec](docs/audio-module-base.spec) | Audio module, base version (MP3-TF-16P / DFPlayer compatible board, files pre-loaded on the SD card) - draft |
+| [docs/audio-module-base.spec](docs/audio-module-base.spec) | Audio module, base version (MP3-TF-16P / DFPlayer compatible board, files pre-loaded on the SD card) |
 | [docs/audio-module-extended.spec](docs/audio-module-extended.spec) | Audio module, extended version (VS1053 board with SD card, file upload, delete and rename from the web interface) - draft |
 | [docs/instructions/BG.txt](docs/instructions/BG.txt) | User instructions in Bulgarian |
 
@@ -110,6 +120,7 @@ In short:
 src/, include/   Firmware sources and headers (platform specific code in esp32/ and esp8266/ subfolders)
 lib/             Vendored libraries (trimmed or modified)
 data/            Web interface and default settings, uploaded to LittleFS
+mp3/             Sample tracks for the audio module's SD card (copied to the card, not to the clock)
 docs/            Reference documents, specifications and user instructions (docs/instructions/)
 rtc_setup.pyw    Build and upload launcher (with rtc_setup_utils.py and rtc_secrets.example.ini)
 ```
@@ -123,6 +134,7 @@ rtc_setup.pyw    Build and upload launcher (with rtc_setup_utils.py and rtc_secr
 | [RTClib](https://github.com/adafruit/RTClib) | 2.1.4 | Vendored in `lib/`, trimmed to the DS3231; needs Adafruit BusIO ^1.14.1 |
 | [TM1637](https://github.com/avishorp/TM1637) | - | Vendored in `lib/`, modified (reversed digit logic, leading zero handling) |
 | [DallasTemperature](https://github.com/milesburton/Arduino-Temperature-Control-Library) | 4.0.6 | Vendored in `lib/`, trimmed; temperature builds only |
+| [DFRobotDFPlayerMini](https://github.com/DFRobot/DFRobotDFPlayerMini) | 1.0.6 | Vendored in `lib/`, trimmed and modified (send only, no delays); audio builds only |
 | [OneWire](https://github.com/PaulStoffregen/OneWire) | ^2.3.8 | Temperature builds only |
 | [TinyGPSPlus](https://github.com/mikalhart/TinyGPSPlus) | 1.0.3 | GPS builds only |
 | [EspSoftwareSerial](https://github.com/plerup/espsoftwareserial) | - | ESP8266 GPS builds only |

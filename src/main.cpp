@@ -10,6 +10,7 @@
 // TM1637 library is edited
 // RTClib version 2.1.4
 // DallasTemperature version 4.0.6
+// DFRobotDFPlayerMini version 1.0.6 is trimmed and edited
 
 #include "Globals.h" // Global definitions, constants, variables, and core library imports
 
@@ -26,16 +27,11 @@ void setup() {
 
   pinMode(LED_PIN, OUTPUT);
   LED_OFF();
+  initializeFileSystem(); // Core Utils | Loads the settings, which initializePeripherals() uses
   initializePeripherals(); // Core Utils
-  initializeFileSystem(); // Core Utils
   tm1637.setBrightness(display_brightness); // Set brightness of the 7-digit display (TM1637)
 
   daylight_saving_active = daylight_saving_enabled && isDaylightSavingPeriod();
-
-  if constexpr (HAS_GPS_MODULE) {
-    if (set_time_with_gps)
-      activateGPS(); // GPS module function
-  }
 
   WiFi.persistent(false);
   WiFi.setAutoReconnect(false);
@@ -70,10 +66,16 @@ void loop() {
   if constexpr (HAS_GPS_MODULE)
     serviceGPS(); // GPS module function
 
+  if constexpr (HAS_AUDIO_MODULE)
+    serviceAudio(); // Audio module function
+
   yield();
   second_now = rtc.now().second();
 
   if (second_now != last_second) {
+    if constexpr (HAS_AUDIO_MODULE)
+      serviceNotifications(); // Audio module function | Plays in every work mode
+
     if (work_mode_is_timer)
       timerCountdown(); // Core Utils
     else

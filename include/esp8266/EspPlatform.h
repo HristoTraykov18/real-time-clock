@@ -21,6 +21,8 @@ extern "C" bool wifi_softap_deauth(uint8_t mac[6]); // Declared by no SDK header
 
 using WebServerClass = ESP8266WebServer;
 
+constexpr bool PLATFORM_IS_ESP32 = false; // This header is picked by the -Iinclude/esp8266 build flag
+
 /* -------------------------------------- Pin assignments -------------------------------------- */
 // SCL is D1 (GPIO5) and SDA is D2 (GPIO4) by default on the ESP8266
 constexpr uint8_t CLK              = D4;

@@ -21,6 +21,8 @@
 
 using WebServerClass = WebServer;
 
+constexpr bool PLATFORM_IS_ESP32 = true; // This header is picked by the -Iinclude/esp32 build flag
+
 /* -------------------------------------- Pin assignments -------------------------------------- */
 // SCL is GPIO22 and SDA is GPIO21 by default on the ESP32.
 constexpr uint8_t CLK              = 14;
@@ -44,6 +46,13 @@ static_assert(ONE_WIRE_BUS <= 33, "OneWire cannot drive ESP32 pins above GPIO33"
 
 constexpr int     GPS_RX           = 27; // UART2 RX
 constexpr int     GPS_TX           = 33; // UART2 TX
+
+// Audio module, base version: MP3-TF-16P player on UART1 (its default pins GPIO9/10 belong to the flash chip)
+constexpr int     AUDIO_RX         = 16; // UART1 RX <- player TX
+constexpr int     AUDIO_TX         = 17; // UART1 TX -> player RX (through 1 kOhm)
+constexpr int     AUDIO_BUSY       = 34; // Player BUSY, LOW while playing. Input only pin
+
+static_assert(AUDIO_TX < 34, "GPIO34 to GPIO39 are input only and cannot drive the player RX line");
 
 /* ----------------------------------- Status LED switching ----------------------------------- */
 inline void LED_ON()  { digitalWrite(LED_PIN, HIGH); }

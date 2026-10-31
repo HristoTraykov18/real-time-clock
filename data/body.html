@@ -1,8 +1,10 @@
     <header>Добре дошли в настройките за часовник</header>
     <div class="main-container">
       <div class="option-buttons-container">
-        <div id="js-rtc-menu-button" class="option-button active-tab-button">Часовник</div>
-        <div id="js-timer-menu-button" class="option-button inactive-tab-button">Таймер</div>
+        <div id="js-rtc-menu-button" class="option-button active-tab-button" data-tab="rtc">Часовник</div>
+        <div id="js-timer-menu-button" class="option-button inactive-tab-button" data-tab="timer">Таймер</div>
+        <!-- PLACEHOLDER FOR audioAddonTabBtn.html -->
+        <!-- END OF PLACEHOLDER FOR audioAddonTabBtn.html -->
       </div>
       <form id="js-main-form">
         <div class="form-content">
@@ -40,7 +42,7 @@
                 </g>
             </svg>
             <!-- RTC PANEL -->
-            <div id="js-main-settings" class="content active-content">
+            <div id="js-main-settings" class="content active-content" data-tab="rtc">
               <p class="message">Изберете мрежа от списъка</p>
               <div id="js-info-panel" class="side-panel">
                 <div id="js-info-button" class="side-panel-button">&#x2139;</div>
@@ -187,7 +189,7 @@
             </div>
 
             <!-- TIMER PANEL -->
-            <div id="js-timer-settings" class="content">
+            <div id="js-timer-settings" class="content" data-tab="timer">
               <p class="message">Въведете продължителност на таймера</p>
               <div class="timer-duration-picker">
                 <div class="timer-duration-display">
@@ -215,6 +217,8 @@
                 <button type="button" id="js-timer-pause-control" class="button-red timer-control-btn">&#9646;&#9646; Пауза</button>
               </div>
             </div>
+            <!-- PLACEHOLDER FOR audioAddonTab.html -->
+            <!-- END OF PLACEHOLDER FOR audioAddonTab.html -->
           </div>
         </div>
         <div class="form-content loader-container">
@@ -285,3 +289,5 @@
       </div>
       <div class="popup-background"></div>
     </div>
+    <!-- PLACEHOLDER FOR audioAddonPopup.html -->
+    <!-- END OF PLACEHOLDER FOR audioAddonPopup.html -->

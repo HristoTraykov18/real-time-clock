@@ -1,0 +1,70 @@
+            <!-- AUDIO PANEL -->
+            <div id="js-audio-settings" class="content" data-tab="audio">
+              <p class="message">Аудио файлове и известия</p>
+              <div class="audio-volume-row">
+                <span>Сила на звука:</span>
+                <button type="button" id="js-audio-volume-minus" class="button-red button-red-small">&#8722;</button>
+                <span id="js-audio-volume-value" class="audio-volume-value">-</span>
+                <button type="button" id="js-audio-volume-plus" class="button-red button-red-small">&#43;</button>
+              </div>
+              <div id="js-audio-table" class="audio-table" data-view="files">
+                <div id="js-audio-table-header" class="audio-table-header">
+                  <div class="audio-header-files">
+                    <button type="button" class="audio-sort-button" data-action="sort">Име на файл
+                      <span class="audio-sort-arrows"><span id="js-audio-sort-up" class="audio-sort-arrow audio-sort-arrow-active">&#9650;</span><span id="js-audio-sort-down" class="audio-sort-arrow">&#9660;</span></span>
+                    </button>
+                  </div>
+                  <div class="audio-header-notifications">
+                    <div class="audio-header-actions">
+                      <label class="audio-checkbox audio-select-all">
+                        <input type="checkbox" id="js-audio-select-all" class="hidden-element" data-action="select-all">
+                        <span class="audio-checkbox-box"></span>
+                        <span>Избери всички</span>
+                      </label>
+                      <button type="button" id="js-audio-delete-selected" class="button-red audio-header-button inactive" data-action="delete-selected">Изтрий избраните</button>
+                      <button type="button" id="js-audio-new" class="button-red audio-header-button" data-action="new">Ново</button>
+                    </div>
+                    <div class="audio-row audio-header-labels">
+                      <span class="audio-col-check"></span>
+                      <span class="audio-col-name">Файл</span>
+                      <span class="audio-col-time">Час</span>
+                      <span class="audio-col-buttons"></span>
+                    </div>
+                  </div>
+                </div>
+                <div class="audio-table-body">
+                  <div id="js-audio-loader" class="loader side-panel-loader"></div>
+                  <div id="js-audio-disconnected" class="disconnected-indicator">
+                    <svg viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" class="disconnected-indicator-icon">
+                      <polygon points="50,5 95,85 5,85" fill="none" stroke="var(--red)" stroke-width="6" stroke-linejoin="round"/>
+                      <text x="50" y="73" text-anchor="middle" fill="var(--red)" font-size="52" font-weight="bold" font-family="Verdana, Arial, sans-serif">!</text>
+                    </svg>
+                  </div>
+                  <div id="js-audio-views" class="audio-views">
+                    <div id="js-audio-files-rows" class="audio-rows"></div>
+                    <div id="js-audio-notifications-rows" class="audio-rows"></div>
+                  </div>
+                </div>
+                <div id="js-audio-table-footer" class="audio-table-footer">
+                  <div class="audio-view-buttons">
+                    <button type="button" class="audio-view-button audio-view-button-active" data-view="files">Файлове</button>
+                    <button type="button" class="audio-view-button" data-view="notifications">Известия</button>
+                  </div>
+                  <div class="audio-pagination">
+                    <button type="button" class="audio-page-button" data-page="first" aria-label="Първа страница">
+                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18 6l-6 6 6 6M11 6l-6 6 6 6"/></svg>
+                    </button>
+                    <button type="button" class="audio-page-button" data-page="previous" aria-label="Предишна страница">
+                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 6l-6 6 6 6"/></svg>
+                    </button>
+                    <span id="js-audio-page" class="audio-page-label">Страница 1 / 1</span>
+                    <button type="button" class="audio-page-button" data-page="next" aria-label="Следваща страница">
+                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 6l6 6-6 6"/></svg>
+                    </button>
+                    <button type="button" class="audio-page-button" data-page="last" aria-label="Последна страница">
+                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l6 6-6 6M13 6l6 6-6 6"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>

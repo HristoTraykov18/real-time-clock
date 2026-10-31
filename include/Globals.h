@@ -46,6 +46,7 @@ enum class SettingId : uint8_t {
   TimezoneOffset,
   WorkMode,
   TimerDuration,
+  AudioVolume,
   Count
 };
 
@@ -56,7 +57,8 @@ constexpr SettingTag SETTING_TAGS[] = {
   { "<manualBrightnessLevel>",  "</manualBrightnessLevel>"  },
   { "<timezoneHoursOffset>",    "</timezoneHoursOffset>"    },
   { "<workMode>",               "</workMode>"               },
-  { "<timerDuration>",          "</timerDuration>"          }
+  { "<timerDuration>",          "</timerDuration>"          },
+  { "<audioVolume>",            "</audioVolume>"            }
 };
 
 static_assert(sizeof(SETTING_TAGS) / sizeof(SETTING_TAGS[0]) == (size_t)SettingId::Count,
@@ -176,3 +178,33 @@ enum class GpsState : uint8_t { Disabled, Searching, Locked, TimedOut };
     constexpr bool HAS_TEMPERATURE_MODULE = false;
 /* ----------------------------------------------------------------------------------------------- */
 #endif
+
+
+/* ----------------------------------------- AUDIO MODULE ----------------------------------------- */
+// The build flags are read once here; everything else uses the constants (if constexpr, static_assert)
+#ifdef  AUDIO_MODULE_BASE
+    constexpr bool HAS_AUDIO_MODULE_BASE = true;
+#else
+    constexpr bool HAS_AUDIO_MODULE_BASE = false;
+#endif
+
+#ifdef  AUDIO_MODULE_EXTENDED
+    constexpr bool HAS_AUDIO_MODULE_EXTENDED = true;
+#else
+    constexpr bool HAS_AUDIO_MODULE_EXTENDED = false;
+#endif
+
+constexpr bool HAS_AUDIO_MODULE = HAS_AUDIO_MODULE_BASE || HAS_AUDIO_MODULE_EXTENDED;
+
+static_assert(!HAS_AUDIO_MODULE || PLATFORM_IS_ESP32, "The audio module is available for the ESP32 only");
+static_assert(!(HAS_AUDIO_MODULE_BASE && HAS_AUDIO_MODULE_EXTENDED),
+              "Select one version of the audio module: AUDIO_MODULE_BASE or AUDIO_MODULE_EXTENDED");
+
+constexpr uint8_t DEFAULT_AUDIO_VOLUME = 5; // Volume of a new clock, 0 to 10 (<audioVolume> in espSettings.xml)
+
+inline uint8_t audio_volume = DEFAULT_AUDIO_VOLUME; // 0 to 10
+
+// Declarations only, in every build: the definitions are compiled into audio builds only, and every call is
+// guarded with if constexpr (HAS_AUDIO_MODULE), so the other builds never link them
+#include "AudioModule.h"
+/* ----------------------------------------------------------------------------------------------- */

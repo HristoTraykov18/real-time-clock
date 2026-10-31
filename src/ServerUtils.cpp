@@ -260,6 +260,25 @@ void initializeServers() {
   server.on("/mainScript.js", [] () { streamFileToClient("/mainScript.js", "text/javascript"); });
   server.on("/settings", [] () { streamFileToClient(SETTINGS_FILE, "text/xml"); });
   server.on("/m", handleDeviceMonitoring);
+
+  if constexpr (HAS_AUDIO_MODULE) {
+    server.on("/audio", [] () {
+      static char audio_data[AUDIO_DATA_SIZE]; // Static: no heap use, and too large for the loop() stack
+      readAudioData(audio_data, sizeof(audio_data)); // Audio module function
+      sendWebpageResponse(audio_data);
+    });
+    server.on("/audio-play", [] () { sendAudioReply(playTrack(server.arg("track").c_str())); }); // Audio module function
+    server.on("/audio-stop", [] () { sendAudioReply(stopTrack()); }); // Audio module function
+    server.on("/audio-volume", [] () { sendAudioReply(setVolume(server.arg("volume").c_str())); }); // Audio module function
+    server.on("/audio-notification", [] () {
+      sendAudioReply(saveNotification(server.arg("id").c_str(), server.arg("track").c_str(), server.arg("time").c_str(),
+                                      server.arg("weekdays").c_str(), server.arg("edit").c_str())); // Audio module function
+    });
+    server.on("/audio-notification-delete", [] () {
+      sendAudioReply(deleteNotifications(server.arg("ids").c_str(), server.arg("tracks").c_str())); // Audio module function
+    });
+  }
+
   server.begin();
 
   const char *OTA_PATH = "/sourceControl";
@@ -319,6 +338,11 @@ void sendAdditionalSettings() {
     Serial.print(F("[sendAdditionalSettings] Additional settings: "));
     Serial.println(response);
   }
+}
+
+
+void sendAudioReply(const AudioReply& reply) {
+  sendWebpageResponse(reply.text, reply.ok ? 200 : 400);
 }
 
 
@@ -398,7 +422,9 @@ void sendNetworksList() {
 
 
 void sendWebpageResponse(const char *webpage_response, int status_code) {
-  server.send(status_code, "text/plain", webpage_response);
+  // send_P writes straight from the text; send() would copy it into a heap String first on the ESP32
+  // (on the ESP8266 send() with a C string calls send_P anyway)
+  server.send_P(status_code, "text/plain", webpage_response);
   last_http_activity_ms = millis();
 
   if constexpr (DEBUG_MESSAGES) {

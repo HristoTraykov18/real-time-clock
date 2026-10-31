@@ -28,17 +28,22 @@ include/
   EspUtils.h            Platform abstraction API (implemented twice, see below)
   BrightnessModule.h / TemperatureModule.h / GPSModule.h
   esp32/EspPlatform.h   ESP32 libs, pinout, LED polarity, I2C bus-recovery primitives
+  AudioModule.h         Audio module, common part (notifications, volume, data response, request validation);
+                        included by Globals.h in every build, declarations only
+  AudioPlayer.h         Audio player interface, implemented by esp32/AudioPlayerBase.cpp (and later AudioPlayerExtended.cpp)
   esp8266/EspPlatform.h ESP8266 equivalents
 src/
   main.cpp              setup() / loop()
   CoreUtils.cpp ConfigUtils.cpp DisplayUtils.cpp NetworkUtils.cpp ServerUtils.cpp
   BrightnessModule.cpp TemperatureModule.cpp GPSModule.cpp
   esp32/EspUtils.cpp    ESP32 implementation of EspUtils.h
+  esp32/AudioModule.cpp, esp32/AudioPlayerBase.cpp   Audio module, base version (only in audio builds)
   esp8266/EspUtils.cpp  ESP8266 implementation of EspUtils.h
 lib/                    Vendored, trimmed libraries
   RTClib/               Adafruit RTClib 2.1.4 cut down to DateTime + RTC_DS3231 (begin/adjust/now)
   TM1637/               avishorp TM1637 library, MODIFIED (see section 8)
   DallasTemperature/    Trimmed DallasTemperature (only compiled for temperature builds)
+  DFRobotDFPlayerMini/  DFRobot DFPlayer library V1.0.6, trimmed and MODIFIED (send only, no ACK, no delays; audio base builds only)
 data/                   LittleFS image contents (web UI + settings)
   index.html            Tiny loader page (minified, one line)
   body.html             Page markup, contains <!-- PLACEHOLDER FOR gpsAddon.html --> block
@@ -46,11 +51,15 @@ data/                   LittleFS image contents (web UI + settings)
   mainStyle.css         Styling (CSS vars on :root, desktop media query at 1000px)
   espSettings.xml       Default settings
   gpsAddon.html         GPS/Wi-Fi toggle, inlined into body.html only for GPS builds
+  audioAddonTabBtn.html, audioAddonTab.html, audioAddonPopup.html, audioAddon.js, audioAddon.css
+                        Audio tab, inlined/appended only for audio builds
+  audio.csv             Names of the files on the audio module's SD card (`NNNN|name`), copied only for audio builds
   neonLogoIcon.ico      Favicon (also used as the rtc_setup window icon)
 rtc_setup.pyw, rtc_setup_utils.py, last_id.txt   Build launcher (see docs/rtc-setup-launcher.md)
 README.md               Overview, build targets, build/upload commands, credentials, usage, library versions
 docs/                   rtc-firmware.md (this document) and rtc-setup-launcher.md (references, also used as skills),
-                        audio-module-base.spec and audio-module-extended.spec (audio module drafts)
+                        audio-module-base.spec (audio module, base version, implemented) and
+                        audio-module-extended.spec (extended version, draft)
   instructions/         End-user instructions, UTF-8 with CRLF: BG.txt (linked from the README "Usage" section) and
                         EN.txt (English translation, gitignored and not linked until an English UI exists).
                         Keep both in step with web UI changes; quote UI labels exactly as the page shows them
@@ -71,7 +80,7 @@ Keep README.md and docs/ in step with changes to features, build targets or libr
 | `brightness_module` | `-D BRIGHTNESS_MODULE` | – | `+<BrightnessModule.cpp>` | – |
 | `gps_module` | `-D GPS_MODULE` | TinyGPSPlus 1.0.3 | `+<GPSModule.cpp>` | – |
 | `temperature_module` | `-D TEMPERATURE_MODULE` | OneWire ^2.3.8 | `+<TemperatureModule.cpp>` | `DallasTemperature` |
-| `audio_module_base` (ESP32) | `-D AUDIO_MODULE_BASE` | – | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerBase.cpp>` | – |
+| `audio_module_base` (ESP32) | `-D AUDIO_MODULE_BASE` | – | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerBase.cpp>` | `DFRobotDFPlayerMini` |
 | `audio_module_extended` (ESP32) | `-D AUDIO_MODULE_EXTENDED` | (VS1053 driver later) | `+<esp32/AudioModule.cpp> +<esp32/AudioPlayerExtended.cpp> +<esp32/AudioFiles.cpp>` | – |
 
 A build with modules uses an environment that `extends = env:<platform>` and lists, as multi-line options: `build_flags`, `lib_deps` and `build_src_filter` = the platform value followed by the selected sections' `build_flags` / `lib_deps` / `src_filter`, and `lib_ignore` = the `lib_ignore_off` of every module that is NOT selected. rtc_setup writes it to `rtc_build.ini` in the compile copy for every build; `platformio.ini` loads `rtc_build*.ini` through `extra_configs` (a missing file is ignored). Name: `<platform>_<tokens>` with the module tokens in alphabetical module order (`bright`, `gps`, `temp`, then `audio_base` / `audio_extended`), or `<platform>_only`; e.g. `esp32_bright_gps_temp`. By hand: put such an environment in `rtc_build_local.ini` in the project root (gitignored), see README.
@@ -80,7 +89,7 @@ A build with modules uses an environment that `extends = env:<platform>` and lis
 - `[esp32_base]`: pioarduino platform-espressif32 release `55.03.311` (installs as espressif32 55.3.311, Arduino core 3.3.11), `board = esp32dev`, `default.csv` partitions, upload 921600, `-D PLATFORM_ESP32 -Iinclude/esp32`, exception decoder.
 - `[esp8266_base]`: `platform = platformio/espressif8266 @ 4.2.1` (pinned; framework-arduinoespressif8266 3.30102.0 = Arduino core 3.1.2), `board = nodemcuv2`, upload 256000, `-D PLATFORM_ESP8266 -Iinclude/esp8266`, adds `EspSoftwareSerial`.
 - `[filters]` exclude the other platform's `src/esp*/` folder and every module source (`BrightnessModule.cpp`, `GPSModule.cpp`, `TemperatureModule.cpp`, ESP32 `esp32/Audio*.cpp`); the module sections add theirs back.
-- `lib_ignore = DallasTemperature` globally (plain environments); generated environments replace it with the `lib_ignore_off` of the unselected modules. All environments pull `Adafruit BusIO` (needed by vendored RTClib).
+- `lib_ignore = DallasTemperature, DFRobotDFPlayerMini` globally (plain environments); generated environments replace it with the `lib_ignore_off` of the unselected modules. All environments pull `Adafruit BusIO` (needed by vendored RTClib).
 - `[diagnostics]` applies strict warnings to project sources only (`build_src_flags`): `-Wall -Wextra -Wdouble-promotion` and `-Werror` for return-type, uninitialized, implicit-fallthrough, format, write-strings, sign-compare. New code must compile clean under these.
 - `pio check` is configured with cppcheck over `src/` and `include/`.
 - Filesystem is LittleFS (`board_build.filesystem = littlefs`), monitor 115200.
@@ -100,8 +109,10 @@ Call sites are always wrapped in `if constexpr (HAS_X_MODULE) { ... }`. The decl
 
 `set_time_with_gps` exists in both branches (always `false` without GPS). `GpsState` enum is defined unconditionally.
 
+The audio module reads its two flags only once, in `#ifdef`/`#else` pairs that set `HAS_AUDIO_MODULE_BASE` and `HAS_AUDIO_MODULE_EXTENDED`; `HAS_AUDIO_MODULE` is their `||`. The rules are `static_assert`s (`!HAS_AUDIO_MODULE || PLATFORM_IS_ESP32`, not both versions). Its headers need no library, so `AudioModule.h` is included in every build (declarations only) and needs no stubs; its calls are guarded with `if constexpr (HAS_AUDIO_MODULE)` like the other modules.
+
 ### Platform abstraction
-- `#include "EspPlatform.h"` resolves to `include/esp32/` or `include/esp8266/` through the `-I` flag. It provides libraries, `using WebServerClass = WebServer | ESP8266WebServer`, pin constants, `LIGHT_LEVELS`, `LED_ON/LED_OFF`, I2C bus-recovery primitives (`SDA_LOW/HIGH`, `SCL_LOW/HIGH`, `SDA_READ`, `I2C_RESTART`) and, for GPS builds, `gpsSerial`.
+- `#include "EspPlatform.h"` resolves to `include/esp32/` or `include/esp8266/` through the `-I` flag. It provides libraries, `using WebServerClass = WebServer | ESP8266WebServer`, `PLATFORM_IS_ESP32` (`true`/`false`, so platform checks need no preprocessor), pin constants, `LIGHT_LEVELS`, `LED_ON/LED_OFF`, I2C bus-recovery primitives (`SDA_LOW/HIGH`, `SCL_LOW/HIGH`, `SDA_READ`, `I2C_RESTART`) and, for GPS builds, `gpsSerial`.
 - `EspUtils.h` declares `esp*` wrappers implemented separately in `src/esp32/EspUtils.cpp` and `src/esp8266/EspUtils.cpp`: Wi-Fi event subscriptions, softAP station eviction, `LittleFS.begin` (ESP32 passes `formatOnFail=true`), heap stats, auth-failure detection, EU country code, modem sleep, HTTP updater setup, station SSID read, scan helpers (`espScanNetworks/Ssid/Bssid/Channel/Delete`), `espGpsSerialBegin`.
 - **Rule:** platform-specific API calls go into both `EspUtils.cpp` files behind a wrapper; shared code calls only `esp*` functions.
 
@@ -121,6 +132,7 @@ Notable platform differences:
 | Light sensor (brightness module) | A0, 10-bit | GPIO35 (ADC1), 12-bit |
 | DS18B20 1-Wire (temperature module) | D3 (GPIO0) | GPIO32 (static_assert ≤ 33) |
 | GPS RX / TX (GPS module) | D7 / D8 via SoftwareSerial | GPIO27 / GPIO33 via UART2 (`Serial2`) |
+| Audio player RX / TX / BUSY (audio module, base) | – | GPIO16 / GPIO17 via UART1 (`Serial1`) / GPIO34 (MP3-TF-16P TX / RX through 1 kOhm / BUSY) |
 
 `LIGHT_LEVELS` = `{sensor ceiling, display brightness}` rows: ESP8266 `{75,0},{200,2},{500,3},{1023,7}`; ESP32 `{300,0},{700,2},{1500,3},{4095,7}`.
 
@@ -130,16 +142,16 @@ ESP32 pin rules: GPIO34–39 are input-only (fine for the light sensor, never fo
 
 ### setup() (`main.cpp`)
 1. `Serial.begin(115200)` only when `DEBUG_MESSAGES`.
-2. LED off; `initializePeripherals()`: display shows `88:88`, `rtc.begin()` retried forever with `resetRTC()` (I2C bus recovery: clock SCL until SDA is released, LED lit during reset), then retried while the RTC returns impossible hour/min/sec; init temperature sensor if built.
-3. `initializeFileSystem()`: mount LittleFS (loops until success) then `getInitialClockSettings()` parses `/espSettings.xml` into globals.
-4. Apply brightness, compute `daylight_saving_active`, `activateGPS()` if GPS is the saved source. (The GPS activation inside `initializePeripherals` never fires because settings are not loaded yet; the one in setup is the effective one.)
+2. LED off; `initializeFileSystem()`: mount LittleFS (loops until success) then `getInitialClockSettings()` parses `/espSettings.xml` into globals. Runs first because the modules started by `initializePeripherals()` use the settings and files (order swapped in Oct 2026; before, the GPS activation inside `initializePeripherals()` never fired and `setup()` repeated it).
+3. `initializePeripherals()`: display shows `88:88`, `rtc.begin()` retried forever with `resetRTC()` (I2C bus recovery: clock SCL until SDA is released, LED lit during reset), then retried while the RTC returns impossible hour/min/sec; init temperature sensor if built; `activateGPS()` if GPS is the saved source; `initializeAudio()` on audio builds (loads `/notifications.csv`, starts UART1, loads `/audio.csv`, queues the stored volume).
+4. Apply brightness, compute `daylight_saving_active`.
 5. Wi-Fi: `persistent(false)`, `setAutoReconnect(false)`, `WIFI_AP_STA`, attach event handlers, `initializeSoftAP()`, disconnect STA, modem sleep off, EU country, start 5 s radio-settle window.
 6. `initializeServers()`: UDP 2390 for NTP, register HTTP routes, configure (not start) OTA server.
 7. `delay(5000)`, then if `networkReconnect()` connects, `autoUpdateTime(true)`.
 
 ### loop()
-- `server.handleClient()`; OTA server `handleClient()` only while active; `serviceGPS()` on GPS builds (must run every iteration).
-- Once per RTC second (`rtc.now().second()` changed): timer mode → `timerCountdown()`, clock mode → `autoUpdateTime()` (fires at 03:00:00); `visualizeOnDisplay()`; debug status line; `checkForClientConnection()`; `manageStaReconnect()`.
+- `server.handleClient()`; OTA server `handleClient()` only while active; `serviceGPS()` on GPS builds (must run every iteration); `serviceAudio()` on audio builds (sends at most one queued player command, returns at once when nothing is queued).
+- Once per RTC second (`rtc.now().second()` changed): `serviceNotifications()` on audio builds (in both work modes), then timer mode → `timerCountdown()`, clock mode → `autoUpdateTime()` (fires at 03:00:00); `visualizeOnDisplay()`; debug status line; `checkForClientConnection()`; `manageStaReconnect()`.
 
 Many paths block (Wi-Fi connect up to 18 s, scans, NTP wait 1.5 s x up to 5, update animation ~0.7 s). The 03:00:00 sync only runs if loop() sees that exact second.
 
@@ -175,6 +187,7 @@ Many paths block (Wi-Fi connect up to 18 s, scans, NTP wait 1.5 s x up to 5, upd
 <timezoneHoursOffset>-12..12</timezoneHoursOffset>
 <workMode>rtc|timer</workMode>
 <timerDuration>seconds, 0-359999</timerDuration>
+<audioVolume>0-10, default 5 (used by audio builds only)</audioVolume>
 ```
 - Order of `enum class SettingId` must match `SETTING_TAGS[]` (enforced by `static_assert`).
 - Parsing and editing use `strstr` on a 512-byte buffer; values are cut at 15 chars. `editSettingsFile()` replaces the text between existing tags; **it cannot add a tag that is missing** from the file on the device. New settings therefore need a filesystem upload (which also wipes `/creds.txt`).
@@ -194,6 +207,12 @@ Many paths block (Wi-Fi connect up to 18 s, scans, NTP wait 1.5 s x up to 5, upd
 | `/settings` | raw `espSettings.xml` |
 | `/m` | heap: max block, free heap, fragmentation % |
 | `/body.html`, `/mainStyle.css`, `/mainScript.js`, `/neonLogoIcon.ico` | static, with HTTP Range support |
+| `/audio` (audio builds) | lines (built in a static `AUDIO_DATA_SIZE` buffer, 5.5 KB worst case, sent with `sendWebpageResponse()`): `V|volume`, `P|playing track or 0`, `C|track count`, `T|track|name` per track, `N|id|track|HH:MM|weekdays` per notification |
+| `/audio-play` `track=0003`, `/audio-stop`, `/audio-volume` `volume=0..10` | play / stop / volume (stored in `<audioVolume>`) |
+| `/audio-notification` `id=0|N&track&time=HH:MM&weekdays=1..127&edit=0|1` | create (`id=0`, the clock assigns the smallest free id) or edit a notification |
+| `/audio-notification-delete` `ids=1,4&tracks=0002,0003` | bulk delete; every id must exist with that track, otherwise nothing is deleted |
+
+The audio routes are registered only when `HAS_AUDIO_MODULE`, as lambdas inside `if constexpr` in `initializeServers()`. Each answers through `sendAudioReply()`: HTTP 200 with the confirmation, or HTTP 400 with the Bulgarian reason when the module rejected the request (`AudioReply { text, ok }`, defined in `Globals.h`).
 
 `handleWebInterface()` argument dispatch (order matters, `else if` chain):
 1. `workMode=rtc|timer` is applied first if present.
@@ -226,14 +245,21 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
 
 **GPS** (u-blox, 9600 baud, TinyGPS++): on activation sends UBX-CFG-MSG frames leaving only RMC enabled, then sets `GPS_TX` to INPUT (boot strapping pin). States `Disabled → Searching → Locked`, `TimedOut` after 180 s without a fix (NTP is then used). Fix is fresh if date+location valid and age < 2 s. The README calls the GPS module not fully tested. Web UI shows an enabled GPS/Wi-Fi toggle only in GPS builds (via `gpsAddon.html`).
 
-**Audio** (planned, ESP32 only, not implemented yet): two versions specified in `docs/audio-module-base.spec` (MP3-TF-16P / DFPlayer compatible board, files pre-loaded on its SD card, notifications and volume; switch `-D AUDIO_MODULE_BASE`) and `docs/audio-module-extended.spec` (VS1053 board with SD card, adds upload, delete and rename from the web UI; switch `-D AUDIO_MODULE_EXTENDED`). Both set `HAS_AUDIO_MODULE`. Their `platformio.ini` sections exist (`audio_module_base`, `audio_module_extended`); the module code does not exist yet.
+**Audio** (ESP32 only; `static_assert` on another platform or with both versions selected). Two versions: base (implemented, `docs/audio-module-base.spec`, switch `-D AUDIO_MODULE_BASE`) and extended (draft, `docs/audio-module-extended.spec`, VS1053 board, switch `-D AUDIO_MODULE_EXTENDED`). Both set `HAS_AUDIO_MODULE` and share `AudioModule.cpp`; the hardware sits behind `AudioPlayer.h` (tracks addressed by their index in the track list; the "track field" a notification stores is `readTrackKey(index)`).
+- Base hardware: MP3-TF-16P board (DFPlayer serial protocol, JL decoder). `AudioPlayerBase.cpp` sends through the vendored, trimmed `DFRobotDFPlayerMini` (`volume()` 0–10 × 3, `playMp3Folder()` plays `/mp3/NNNN`, `stop()`), without ACK requests, never reading replies (the clone chips answer queries unreliably) and without the library's `delay(10)` (see `lib/DFRobotDFPlayerMini/README.md`). The pins `AUDIO_RX/TX/BUSY` are defined in `esp32/EspPlatform.h` in every ESP32 build. One queued volume and one queued play/stop are sent from `serviceAudioPlayer()`, the volume first, not before 2 s after boot and at least 100 ms apart. "Playing" = a play was sent less than 1 s ago (BUSY lags on clones) or BUSY (GPIO34) is LOW; a stop clears it at once.
+- Track list: `/audio.csv` in LittleFS, `NNNN|name` lines (UTF-8, BOM and CRLF accepted), track count = number of valid lines, at most `MAX_AUDIO_TRACKS = 30`. Bad number, `0000`, duplicate number or empty name → line skipped; a name longer than 32 bytes is cut at a UTF-8 character boundary. The names are fixed (no rename); the clock never asks the module for its track count (no 0x48).
+- Notifications: `/notifications.csv`, `id|track|HH:MM|weekdays` (weekday mask bit0 = Monday … bit6 = Sunday), at most 30, rewritten whole by `editNotificationsFile()` on every change. Saving rejects the same HH:MM on a shared weekday (07:00 Пн-Пт and 07:00 Сб-Нд are both allowed). A notification whose track is not listed is kept but does not play (the web UI greys it).
+- `serviceNotifications()` runs once per RTC second and evaluates each minute once, on its first pass (not only at second 0, so a blocked loop at hh:mm:00 still fires). A minute that repeats within 60 minutes (DST change back, time sync back) does not fire again; a larger step back does. The played notification replaces a playing track for good.
+- A file system upload replaces `/audio.csv` and erases `/notifications.csv` (like `/creds.txt`).
 
 ## 10. Web UI (`data/`)
 
 - `index.html` shows a placeholder, then fetches `mainStyle.css`, `body.html`, `mainScript.js` in parallel with `fetchWithRangeRetry` (resumes partial downloads with `Range`, up to 30 tries) and injects them. This exists because large responses over the softAP drop; keep `streamFileToClient()` Range support intact.
-- Two tabs: Clock (network list, hidden-network manual entry, sync method, DST and auto-brightness checkboxes, brightness slider) and Timer (HH:MM:SS picker up to 99 h, start, pause/resume). Side panels: info (`/info`, ticking clock) and additional settings (timezone ±, delete saved network, software update).
+- Two tabs: Clock (network list, hidden-network manual entry, sync method, DST and auto-brightness checkboxes, brightness slider) and Timer (HH:MM:SS picker up to 99 h, start, pause/resume); audio builds add a third tab, Audio. Side panels: info (`/info`, ticking clock) and additional settings (timezone ±, delete saved network, software update).
+- Tab buttons (`.option-button[data-tab]`) and panels (`.content[data-tab]`) are paired by their `data-tab` value; `switchTab(name)` toggles every pair and one delegated listener on `.option-buttons-container` calls `TAB_OPEN_HANDLERS[name]` after switching (`rtc` posts the phone's time). Addons register their own handler, so a new tab only adds markup.
+- Audio tab (`audioAddon*.html/js/css`): volume −/+, a table with two views that slide (Файлове: name sortable, play/stop; Известия: select-all, "Изтрий избраните" (one bulk request), "Ново", rows with time + weekday letters, edit and delete), 10 rows per page, one delegated listener each for header, rows and footer. Data from `GET /audio`: loader on the first opening, quiet refresh on later openings and after a confirmed change. Play, stop and volume show a popup only on failure; notification save/delete use `sendServerRequest()`. The create/edit popup (`audioAddonPopup.html`, outside the form so it is not clipped) has a file list, an HH:MM picker (arrows and mouse wheel) and seven weekday toggles; the client checks repeat the clock's checks.
 - On load: `/settings` + `/networks` in parallel; in clock mode it immediately posts the phone's time (`timeSyncMode=js`). Clicking the Clock tab posts it again (which triggers a reconnect attempt on the device).
-- Settings controls change only after the clock confirms the request. `sendServerRequest()` returns `true` only for an HTTP 200 answer. The daylight-saving and auto-brightness checkboxes and the Wi-Fi/GPS switch (`toggleDaylightSaving`, `toggleBrightnessControl`, `toggleTimeSyncMode`) call `event.preventDefault()` in their `click` handler, which keeps the box unchanged, and set `checked` (and the slider visibility) after a successful answer. The brightness slider keeps the last accepted level in `dataset.confirmedValue` and moves back when saving fails; the timezone number goes back to `confirmedTimezone`. New controls should follow the same pattern.
+- Settings controls change only after the clock confirms the request. `sendServerRequest()` returns `true` only for an HTTP 200 answer; for HTTP 400 it shows the clock's own text (the reason of the rejection), for other errors "Възникна грешка!". The daylight-saving and auto-brightness checkboxes and the Wi-Fi/GPS switch (`toggleDaylightSaving`, `toggleBrightnessControl`, `toggleTimeSyncMode`) call `event.preventDefault()` in their `click` handler, which keeps the box unchanged, and set `checked` (and the slider visibility) after a successful answer. The brightness slider keeps the last accepted level in `dataset.confirmedValue` and moves back when saving fails; the timezone number goes back to `confirmedTimezone`. New controls should follow the same pattern.
 - All POSTs are `application/x-www-form-urlencoded` bodies built by string concatenation. Free-text values (`ssid`, `pass`) are wrapped in `encodeURIComponent()` in `connectToSelectedNetwork()` and `submitNetworkRequest()`; the ESP8266 and ESP32 WebServer libraries split the body on `&`/`=` and then decode `%XX` and `+`, so the handlers receive the original text. Numbers, booleans and `currentTime` (digits and commas) are sent raw. **Any new free-text field must be encoded the same way**, or `&`, `=`, `+` and `%` in it will corrupt the request.
 - `rtc_setup` minifies the JS/CSS (comment stripping + whitespace collapse) and inlines addons, so: keep statements semicolon-terminated, keep the `/* END OF MAIN <file> FILE */` marker as the last line of `mainScript.js`/`mainStyle.css`, and keep placeholder comments exact.
 
@@ -255,14 +281,14 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
 5. Dispatch it in `handleWebInterface()` (mind the `else if` order) and read/send it in `mainScript.js` (`requestConfig()` and a sender).
 6. Devices need a filesystem upload to get the new tag.
 
-**Add an HTTP endpoint**: declare/define the handler in `ServerUtils`, `server.on(...)` in `initializeServers()`, reply via `sendWebpageResponse()` (refreshes the session timestamp) or set `last_http_activity_ms` yourself.
+**Add an HTTP endpoint**: declare/define the handler in `ServerUtils`, `server.on(...)` in `initializeServers()`, reply via `sendWebpageResponse()` (refreshes the session timestamp; sends with `send_P()`, straight from the text: plain `send()` with a C string copies it into a heap `String` first on the ESP32, while on the ESP8266 it already calls `send_P()`) or set `last_http_activity_ms` yourself.
 
 **Add a hardware module**
 1. `[x_module]` section in `platformio.ini` with all four options (`build_flags = -D X_MODULE`, `lib_deps`, `src_filter = +<XModule.cpp>`, `lib_ignore_off`, empty values allowed), and `-<XModule.cpp>` in the `[filters]` line of each platform it supports. Add it to `MODULES` in `rtc_setup_utils.py` (label → token, section); the launcher then shows it in the module list. No new environments.
 2. `#ifdef X_MODULE` block in `Globals.h` with includes/objects and `HAS_X_MODULE = true`, `#else` block with declared-only stubs and `false`.
 3. Guard every call with `if constexpr (HAS_X_MODULE)`.
 4. Pins in both `EspPlatform.h` files; platform-specific calls via `EspUtils`.
-5. For web UI parts, add `<token>Addon.html/.js/.css` and a placeholder, where `<token>` is the module's env-name token (`bright`, `gps`, `temp`, ...); register the token in `rtc_setup_utils.MODULE_TOKENS`.
+5. For web UI parts, add `<token>Addon.js/.css` and HTML addons named `<token>Addon<Part>.html` (e.g. `audioAddonTab.html`) with a placeholder each, where `<token>` is the module's env-name token (`bright`, `gps`, `temp`, `audio`); register the token in `rtc_setup_utils.MODULE_TOKENS`. A new tab needs only its button (`data-tab`), its panel (`class="content" data-tab`) and, if it loads data, a `TAB_OPEN_HANDLERS.<name>` entry.
 
 **Add platform-specific behaviour**: declare in `EspUtils.h`, implement in both `src/esp32/EspUtils.cpp` and `src/esp8266/EspUtils.cpp`.
 
@@ -285,3 +311,5 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
   - DNS works but NTP does not answer: 5 × 1.5 s = 7.5 s more. If the link drops again during the NTP attempts, each attempt also runs `networkReconnect()` (up to about 26 s more each).
   - The softAP also moves to the router's channel when the station connects (one radio, one channel), which drops the phone's connection mid-request on a first connect to a router not on the AP's channel. The page can then report a failure although the clock connected. Proposed remedies if needed: stop the 5 attempts after a DNS failure, raise the page timeout for this request, or reply at once and let the page poll for the result.
 - [Certain] The timer duration is range-checked only by the web page (99:59:59); a direct request can store larger or negative values.
+- [Certain] The audio module (base) is not tested on the hardware yet. That the JL chip of the MP3-TF-16P accepts 0x06, 0x12 and 0x16, and how long BUSY lags a play command, is to be confirmed with the module test of `docs/audio-module-base.spec` section 6.
+- [Certain] Audio track names in `/audio.csv` are limited to 32 bytes, which is 16 Cyrillic letters; longer names are cut.

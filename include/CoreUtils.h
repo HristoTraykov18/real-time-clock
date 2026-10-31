@@ -54,7 +54,9 @@ uint8_t getLastSundayDate(DateTime &now);
 void initializeFileSystem();
 
 /**
- * @brief Tests all display segments and initializes I2C bus for the DS3231 module.
+ * @brief Tests all display segments, initializes I2C bus for the DS3231 module and starts the modules
+ * (temperature sensor, GPS when it is the time source, audio player).
+ * Called after initializeFileSystem(), because the modules use the loaded settings and files.
  */
 void initializePeripherals();
 

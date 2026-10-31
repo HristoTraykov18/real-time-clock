@@ -1,0 +1,341 @@
+/* ------------------- AUDIO MODULE (base version) - appended to mainStyle.css by rtc_setup ------------------- */
+
+/* Three tabs: an inactive tab rounds the corner next to the active one */
+#js-rtc-menu-button, #js-timer-menu-button, #js-audio-menu-button {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+#js-rtc-menu-button:has(+ .active-tab-button),
+#js-timer-menu-button:has(+ .active-tab-button) { border-bottom-right-radius: 30px; }
+.active-tab-button + #js-timer-menu-button,
+.active-tab-button + #js-audio-menu-button { border-bottom-left-radius: 30px; }
+
+.audio-volume-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin: 8px auto;
+    cursor: default;
+}
+.audio-volume-value {
+    min-width: 28px;
+    text-align: center;
+}
+
+/* ------------------- Table ------------------- */
+.audio-table {
+    width: 100%;
+    box-sizing: border-box;
+    border: 2px solid rgba(0,0,0,0.75);
+    border-radius: 10px;
+    background-color: rgba(0,0,0,0.25);
+    overflow: hidden;
+    font-size: 14px;
+}
+.audio-table-header {
+    background-color: var(--pale-purple);
+    border-bottom: 2px solid rgba(0,0,0,0.75);
+    padding: 4px 6px;
+}
+.audio-table[data-view="files"] .audio-header-notifications,
+.audio-table[data-view="notifications"] .audio-header-files { display: none; }
+.audio-header-files {
+    display: flex;
+    justify-content: flex-start;
+    min-height: 32px;
+    align-items: center;
+}
+.audio-sort-button {
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: white;
+    font: inherit;
+    font-weight: bold;
+    text-shadow: 1px 1px 1px black;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+}
+.audio-sort-arrows {
+    display: inline-flex;
+    flex-direction: column;
+    font-size: 9px;
+    line-height: 1;
+}
+.audio-sort-arrow { color: rgba(255,255,255,0.35); }
+.audio-sort-arrow-active { color: var(--red); }
+.audio-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.audio-header-button {
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+.audio-row.audio-header-labels {
+    border-bottom: none;
+    min-height: 0;
+    padding: 0 4px;
+    cursor: default;
+}
+
+/* Custom checkbox, like the settings checkboxes */
+.audio-checkbox {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.audio-checkbox-box {
+    position: relative;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border: 2px solid white;
+    border-radius: 20%;
+    background-color: var(--dark-blue);
+}
+.audio-checkbox-box::after {
+    content: "";
+    display: none;
+    position: absolute;
+    left: 5px;
+    top: 0px;
+    width: 5px;
+    height: 11px;
+    border: solid var(--red);
+    border-width: 0 3px 3px 0;
+    transform: rotate(30deg);
+}
+.audio-checkbox input:checked ~ .audio-checkbox-box::after { display: block; }
+.audio-checkbox:hover .audio-checkbox-box { border-color: var(--red); }
+
+.audio-table-body {
+    position: relative;
+    height: calc(10 * 38px);
+}
+.audio-table-body .disconnected-indicator {
+    height: 130px;
+    width: 100%;
+    margin-top: 100px;
+}
+#js-audio-loader { display: none; }
+
+/* Both views side by side; the footer buttons slide them */
+.audio-views {
+    display: flex;
+    width: 200%;
+    height: 100%;
+    transition: transform var(--animation-speed) ease;
+}
+.audio-table[data-view="notifications"] .audio-views { transform: translateX(-50%); }
+.audio-rows {
+    width: 50%;
+    height: 100%;
+    overflow: hidden;
+}
+.audio-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    box-sizing: border-box;
+    padding: 0 6px;
+    text-align: left;
+    border-bottom: 1px solid rgba(0,0,0,0.5);
+}
+.audio-rows .audio-row:nth-child(even) { background-color: rgba(82,103,180,0.35); } /* Pale purple zebra stripes */
+.audio-row-missing { color: #999; }
+.audio-empty {
+    padding: 20px 10px;
+    text-align: center;
+    cursor: default;
+}
+
+.audio-name {
+    overflow: hidden;
+    white-space: nowrap;
+}
+.audio-name-text { display: inline-block; }
+.audio-name-scroll { animation: audio-name-scroll var(--audio-scroll-duration, 4s) ease-in-out infinite alternate; }
+@keyframes audio-name-scroll {
+    0%, 15% { transform: translateX(0); }
+    85%, 100% { transform: translateX(var(--audio-scroll-distance, 0)); }
+}
+.audio-col-file { width: 70%; flex-grow: 1; }
+.audio-col-check { width: 22px; flex-shrink: 0; }
+.audio-col-name { width: 40%; }
+.audio-col-time { width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.audio-col-buttons {
+    display: flex;
+    flex-shrink: 0;
+    gap: 2px;
+    min-width: 64px;
+    justify-content: flex-end;
+}
+
+.audio-icon-button {
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    padding: 3px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    flex-shrink: 0;
+    -webkit-transition: background-color var(--animation-speed);
+    transition: background-color var(--animation-speed);
+}
+.audio-icon-button svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    pointer-events: none;
+}
+.audio-icon-button .audio-icon-line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.audio-icon-button:hover { color: var(--red); }
+.audio-icon-button:active { background-color: var(--pale-purple); }
+.audio-play-button { color: var(--red); }
+.audio-play-button:hover { color: white; }
+
+/* ------------------- Footer ------------------- */
+.audio-table-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 12px;
+    padding: 6px;
+    background-color: var(--pale-purple);
+    border-top: 2px solid rgba(0,0,0,0.75);
+}
+.audio-view-buttons { /* A row of its own, centred; the pagination goes right below it */
+    display: flex;
+    flex-basis: 100%;
+    justify-content: center;
+    gap: 4px;
+}
+.audio-view-button {
+    cursor: pointer;
+    font: inherit;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 1px black;
+    background-color: var(--dark-blue);
+    border: 2px solid #000;
+    border-radius: 8px;
+    padding: 4px 10px;
+}
+.audio-view-button-active { background-color: var(--red); }
+.audio-pagination {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+}
+.audio-page-label {
+    white-space: nowrap;
+    padding: 0 4px;
+    cursor: default;
+}
+.audio-page-button {
+    cursor: pointer;
+    width: 26px;
+    height: 26px;
+    padding: 2px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+}
+.audio-page-button svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: white;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+.audio-page-button:hover svg { stroke: var(--red); }
+
+/* ------------------- Notification popup ------------------- */
+#js-popup-container .popup { z-index: 120; }          /* Status messages stay above the notification popup */
+#js-popup-container .popup-background { z-index: 110; }
+.audio-popup {
+    position: fixed;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-height: 95vh;
+    overflow-y: auto;
+}
+.audio-popup-files {
+    width: 85%;
+    max-height: 150px;
+    margin: 0 auto 10px;
+    overflow-y: auto;
+    text-align: left;
+    border: 2px solid rgba(0,0,0,0.75);
+    border-radius: 8px;
+    background-color: rgba(0,0,0,0.25);
+}
+.audio-popup-file {
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(0,0,0,0.5);
+}
+.audio-popup-file:hover { background-color: var(--pale-purple); }
+.audio-popup-file-selected,
+.audio-popup-file-selected:hover { background-color: var(--red); }
+.audio-time-picker {
+    justify-content: center;
+    margin: 0 auto 10px;
+}
+.audio-time-picker .timer-digit { font-size: 36px; }
+.audio-time-picker .timer-arrow-btn { font-size: 30px; }
+.audio-weekdays {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0 auto 6px;
+}
+.audio-weekday {
+    cursor: pointer;
+    min-width: 38px;
+    padding: 6px 4px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 1px black;
+    background-color: var(--dark-blue);
+    border: 2px solid var(--pale-purple);
+    border-radius: 8px;
+}
+.audio-weekday-selected {
+    background-color: var(--red);
+    border-color: #000;
+}
+
+@media only screen and (min-width: 1000px) {
+    .audio-popup { top: 50%; }
+}

@@ -119,6 +119,14 @@ void getInitialClockSettings() {
       case SettingId::TimezoneOffset: timezone_offset = atoi(val); break;
       case SettingId::WorkMode: work_mode_is_timer = strcmp(val, "timer") == 0; break;
       case SettingId::TimerDuration: timer_duration = atoi(val); break;
+      case SettingId::AudioVolume:
+        if constexpr (HAS_AUDIO_MODULE) {
+          const int volume = atoi(val);
+
+          if (val[0] >= '0' && val[0] <= '9' && volume <= 10) // Anything else keeps DEFAULT_AUDIO_VOLUME
+            audio_volume = (uint8_t)volume;
+        }
+        break;
       case SettingId::Count: break; // Prevent missing enum cases warning
     }
   }
@@ -164,6 +172,9 @@ void initializePeripherals() {
     if (set_time_with_gps)
       activateGPS(); // GPS module function
   }
+
+  if constexpr (HAS_AUDIO_MODULE)
+    initializeAudio(); // Audio module function
 }
 
 

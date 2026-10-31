@@ -108,6 +108,12 @@ const char* joinRequestedNetwork(const String& ssid, const String& pass, const S
 void sendAdditionalSettings();
 
 /**
+ * @brief Sends the reply of an audio module request: HTTP 200 when it was applied, 400 when it was rejected.
+ * @param reply Message and outcome returned by the audio module.
+ */
+void sendAudioReply(const AudioReply& reply);
+
+/**
  * @brief Sends connection status, signal strength, IP, MAC, and current time as a formatted response to the client.
  */
 void sendClockInfo();
@@ -119,6 +125,7 @@ void sendNetworksList();
 
 /**
  * @brief Sends a plain text response to the client and refreshes the HTTP activity timestamp.
+ * The text is sent straight from its buffer, without a heap copy.
  * @param webpage_response Text message payload to deliver.
  * @param status_code HTTP status code (200 by default, 400 for a rejected value).
  */

@@ -188,6 +188,7 @@ class CompileFolder:
     # Sources whose tm1637.showNumber() colon value changes in test environment builds
     TEST_DISPLAY_SOURCES = [os.path.join("src", "CoreUtils.cpp"), os.path.join("src", "DisplayUtils.cpp")]
     SETTINGS_XML = os.path.join("data", "espSettings.xml")
+    AUDIO_TRACKS_CSV = "audio.csv"  # Names of the files on the audio module's SD card
 
     # Webpage files with addon markers
     WEBPAGE_MAIN_FILES = ["body.html", "mainScript.js", "mainStyle.css"]
@@ -311,9 +312,10 @@ class CompileFolder:
             destination = self.compiled(source_dir)
 
             if source_dir == self.DATA_DIR:
-                # Superseded files and addons are not copied; Addons get inlined
-                shutil.copytree(source_dir, destination,
-                                ignore=shutil.ignore_patterns("*.old.*", "*Addon.*"))
+                # Superseded files and addons are not copied; Addons get inlined.
+                # The audio track list is needed by the audio module only
+                skipped = ["*.old.*", "*Addon*.*"] + ([] if "audio" in self.modules else [self.AUDIO_TRACKS_CSV])
+                shutil.copytree(source_dir, destination, ignore=shutil.ignore_patterns(*skipped))
             else:
                 shutil.copytree(source_dir, destination)
 

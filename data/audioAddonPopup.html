@@ -1,0 +1,33 @@
+    <div id="js-audio-popup-container" class="popup-container">
+      <div class="popup audio-popup">
+        <p id="js-audio-popup-title" class="message">Ново известие</p>
+        <div id="js-audio-popup-files" class="audio-popup-files"></div>
+        <div id="js-audio-popup-time" class="timer-duration-display audio-time-picker">
+          <div class="timer-unit-group">
+            <button type="button" class="timer-arrow-btn" data-unit="hours" data-step="1">&#9650;</button>
+            <span id="js-audio-popup-hours" class="timer-digit" data-unit="hours">07</span>
+            <button type="button" class="timer-arrow-btn" data-unit="hours" data-step="-1">&#9660;</button>
+          </div>
+          <span class="timer-colon">:</span>
+          <div class="timer-unit-group">
+            <button type="button" class="timer-arrow-btn" data-unit="minutes" data-step="1">&#9650;</button>
+            <span id="js-audio-popup-minutes" class="timer-digit" data-unit="minutes">00</span>
+            <button type="button" class="timer-arrow-btn" data-unit="minutes" data-step="-1">&#9660;</button>
+          </div>
+        </div>
+        <div id="js-audio-popup-weekdays" class="audio-weekdays">
+          <button type="button" class="audio-weekday" data-day="0">Пн</button>
+          <button type="button" class="audio-weekday" data-day="1">Вт</button>
+          <button type="button" class="audio-weekday" data-day="2">Ср</button>
+          <button type="button" class="audio-weekday" data-day="3">Чт</button>
+          <button type="button" class="audio-weekday" data-day="4">Пт</button>
+          <button type="button" class="audio-weekday" data-day="5">Сб</button>
+          <button type="button" class="audio-weekday" data-day="6">Нд</button>
+        </div>
+        <div class="button-container popup-btn-row">
+          <button type="button" id="js-audio-popup-save" class="button-red button-red-medium">Запази</button>
+          <button type="button" id="js-audio-popup-cancel" class="button-red button-red-medium">Отказ</button>
+        </div>
+      </div>
+      <div class="popup-background"></div>
+    </div>

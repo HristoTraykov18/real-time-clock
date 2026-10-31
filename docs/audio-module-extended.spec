@@ -20,9 +20,9 @@ the BASE text does not apply to the extended version.
 -----------------
   - Same as BASE 1, with the module switch `-D AUDIO_MODULE_EXTENDED` (HAS_AUDIO_MODULE = true).
   - Files:
-      include/esp32/AudioModule.h, src/esp32/AudioModule.cpp
+      include/AudioModule.h, src/esp32/AudioModule.cpp
           Common part from BASE, reused (generalized where 3.3 says so).
-      include/esp32/AudioPlayer.h, src/esp32/AudioPlayerExtended.cpp
+      include/AudioPlayer.h, src/esp32/AudioPlayerExtended.cpp
           Extended player: VS1053 driver, SD card, playback streaming. Implements the same
           AudioPlayer.h functions as BASE's AudioPlayerBase.cpp.
       include/esp32/AudioFiles.h, src/esp32/AudioFiles.cpp
@@ -67,8 +67,8 @@ the BASE text does not apply to the extended version.
   Notes:
   - VSPI default pins (18/19/23) are used through SPI.begin(18, 19, 23).
   - Constants in include/esp32/EspPlatform.h: AUDIO_SCK, AUDIO_MISO, AUDIO_MOSI, AUDIO_XCS, AUDIO_XDCS,
-    AUDIO_DREQ, AUDIO_XRESET, AUDIO_SD_CS (inside the extended block, so the base build keeps its
-    AUDIO_RX/TX/BUSY constants).
+    AUDIO_DREQ, AUDIO_XRESET, AUDIO_SD_CS, defined in every ESP32 build like the base version's
+    AUDIO_RX/TX/BUSY (different names, so both sets coexist).
   - Many VS1053 boards drive the headphone jack against GBUF, a buffered reference of about 1.2 V,
     not GND. GBUF must never be connected to GND or to the amplifier. Take LOUT to the amplifier's
     L input and the amplifier's input GND to the board GND; the PAM8403 module's input capacitor
