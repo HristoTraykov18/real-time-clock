@@ -115,6 +115,11 @@ uint32_t espMaxAllocHeap() {
 }
 
 
+void espResetReason(char* buf, size_t size) {
+  snprintf(buf, size, "%s", ESP.getResetReason().c_str()); // The core keeps the texts in flash
+}
+
+
 const uint8_t* espScanBssid(int index) {
   const bss_info* info = WiFi.getScanInfoByIndex(index);
 

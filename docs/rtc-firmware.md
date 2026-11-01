@@ -192,8 +192,8 @@ Many paths block (Wi-Fi connect up to 18 s, scans, NTP wait 1.5 s x up to 5, upd
 | `/timeout`, `/extend` | end session (deauth) / refresh activity timestamp |
 | `/activate-update` | starts OTA server, replies `OK` |
 | `/settings` | raw `espSettings.xml` |
-| `/m` | heap: max block, free heap, fragmentation % |
-| `/body.html`, `/mainStyle.css`, `/mainScript.js`, `/neonLogoIcon.ico` | static, with HTTP Range support |
+| `/m` | heap: max block, free heap, fragmentation %; `Reset reason: <reason>` (`espResetReason()`; the ESP8266 has no brownout reason) |
+| `/body.html`, `/mainStyle.css`, `/mainScript.js`, `/neonLogoIcon.ico` | static, with HTTP Range support; full (200) and partial (206) answers go through the same write loop in `streamFileToClient()`, which stops after `STREAM_STALL_TIMEOUT` (8 s) without send progress on the ESP8266 (`client.setTimeout()`; the ESP32 core keeps its own ~10 s). `server.streamFile()` is not used: on the ESP8266 it gives up after the file's 1 s stream timeout |
 
 `handleWebInterface()` argument dispatch (order matters, `else if` chain):
 1. `workMode=rtc|timer` is applied first if present.
@@ -230,7 +230,7 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
 
 ## 10. Web UI (`data/`)
 
-- `index.html` shows a placeholder, then fetches `mainStyle.css`, `body.html`, `mainScript.js` in parallel with `fetchWithRangeRetry` (resumes partial downloads with `Range`, up to 30 tries) and injects them. This exists because large responses over the softAP drop; keep `streamFileToClient()` Range support intact.
+- `index.html` shows a placeholder, then fetches `mainStyle.css`, `body.html`, `mainScript.js` in parallel with `fetchWithRangeRetry` and injects them. This exists because large responses over the softAP drop (`ERR_CONTENT_LENGTH_MISMATCH`); keep `streamFileToClient()` Range support intact. The loader reads each body as a stream and keeps the bytes that arrived when a transfer is cut, then asks for the rest with `Range: bytes=<received>-`. A 206 is used only when its `Content-Range` starts at `<received>` (and the total matches); a 200 replaces the bytes received, a 416 or a mismatching 206 starts the file over, other statuses fail at once. Each attempt aborts after 30 s without headers (requests wait behind each other on the synchronous server) or 15 s without new data. Up to 30 attempts, `min(500 ms × attempt, 5 s)` apart.
 - Two tabs: Clock (network list, hidden-network manual entry, sync method, DST and auto-brightness checkboxes, brightness slider) and Timer (HH:MM:SS picker up to 99 h, start, pause/resume). Side panels: info (`/info`, ticking clock) and additional settings (timezone ±, delete saved network, software update).
 - On load: `/settings` + `/networks` in parallel; in clock mode it immediately posts the phone's time (`timeSyncMode=js`). Clicking the Clock tab posts it again (which triggers a reconnect attempt on the device).
 - Settings controls change only after the clock confirms the request. `sendServerRequest()` returns `true` only for an HTTP 200 answer. The daylight-saving and auto-brightness checkboxes and the Wi-Fi/GPS switch (`toggleDaylightSaving`, `toggleBrightnessControl`, `toggleTimeSyncMode`) call `event.preventDefault()` in their `click` handler, which keeps the box unchanged, and set `checked` (and the slider visibility) after a successful answer. The brightness slider keeps the last accepted level in `dataset.confirmedValue` and moves back when saving fails; the timezone number goes back to `confirmedTimezone`. New controls should follow the same pattern.

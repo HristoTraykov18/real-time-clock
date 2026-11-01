@@ -114,6 +114,32 @@ uint32_t espMaxAllocHeap() {
 }
 
 
+void espResetReason(char* buf, size_t size) {
+  const char* reason;
+
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:    reason = "Power On"; break;
+    case ESP_RST_EXT:        reason = "External Pin"; break;
+    case ESP_RST_SW:         reason = "Software/System restart"; break;
+    case ESP_RST_PANIC:      reason = "Exception"; break;
+    case ESP_RST_INT_WDT:    reason = "Interrupt Watchdog"; break;
+    case ESP_RST_TASK_WDT:   reason = "Task Watchdog"; break;
+    case ESP_RST_WDT:        reason = "Other Watchdog"; break;
+    case ESP_RST_DEEPSLEEP:  reason = "Deep-Sleep Wake"; break;
+    case ESP_RST_BROWNOUT:   reason = "Brownout"; break;
+    case ESP_RST_SDIO:       reason = "SDIO"; break;
+    case ESP_RST_USB:        reason = "USB"; break;
+    case ESP_RST_JTAG:       reason = "JTAG"; break;
+    case ESP_RST_EFUSE:      reason = "eFuse Error"; break;
+    case ESP_RST_PWR_GLITCH: reason = "Power Glitch"; break;
+    case ESP_RST_CPU_LOCKUP: reason = "CPU Lockup"; break;
+    default:                 reason = "Unknown"; break;
+  }
+
+  snprintf(buf, size, "%s", reason);
+}
+
+
 const uint8_t* espScanBssid(int index) {
   const wifi_ap_record_t* info = (const wifi_ap_record_t*)WiFi.getScanInfoByIndex(index);
 

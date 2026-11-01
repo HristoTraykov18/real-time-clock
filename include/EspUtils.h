@@ -47,6 +47,14 @@ uint32_t espMaxAllocHeap();
 uint8_t espHeapFragmentation();
 
 /**
+ * @brief Fills the caller's buffer with the reason of the last reset, e.g. "Power On" or "Exception".
+ * The ESP8266 has no brownout reason: a supply dip usually shows as "Power On" or a watchdog.
+ * @param buf Destination buffer.
+ * @param size Size of the destination buffer in bytes.
+ */
+void espResetReason(char* buf, size_t size);
+
+/**
  * @brief Tells whether the current connection attempt failed because the network refused the association
  * (disconnect reason ASSOC_FAIL, 203), e.g. a WPA3-only network the ESP8266 cannot join.
  * Based on the reason of the last station disconnect event since espClearConnectFailures().

@@ -41,7 +41,7 @@ const char* handleBrightnessControl();
 void handleDeleteCreds();
 
 /**
- * @brief Reports device health metrics (free heap, max free block, heap fragmentation) to the client.
+ * @brief Reports device health metrics (free heap, max free block, heap fragmentation, last reset reason) to the client.
  */
 void handleDeviceMonitoring();
 
@@ -126,6 +126,7 @@ void sendWebpageResponse(const char *webpage_response, int status_code = 200);
 
 /**
  * @brief Streams a file from the filesystem to the client, honoring HTTP Range requests for partial content.
+ * Full and partial files go through the same write loop, which stops after STREAM_STALL_TIMEOUT without send progress.
  * @param filename Name of the file in the ESP's LittleFS storage.
  * @param content_type MIME type reported to the client.
  */

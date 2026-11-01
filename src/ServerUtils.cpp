@@ -6,6 +6,8 @@
 
 static char response_buf[256]; // 256 is enough to keep the longest response message
 
+constexpr unsigned long STREAM_STALL_TIMEOUT = 8000UL; // A file transfer stops after this long without send progress
+
 
 const char* createReply(const char* prefix, const char* ssid, bool time_updated) {
   snprintf(response_buf, sizeof(response_buf), "%s %s.\n%s", prefix, ssid,
@@ -63,11 +65,15 @@ void handleDeleteCreds() {
 
 
 void handleDeviceMonitoring() {
+  char reset_reason[32]; // Longest reason "Software/System restart" (23) + NUL fits
+  espResetReason(reset_reason, sizeof(reset_reason)); // Esp Utils
+
   snprintf(response_buf, sizeof(response_buf),
-    "Max free block size: %u\nCurrent Free Heap: %u\nHeap fragmentation: %u",
+    "Max free block size: %u\nCurrent Free Heap: %u\nHeap fragmentation: %u\nReset reason: %s",
     (unsigned) espMaxAllocHeap(), // Esp Utils
     (unsigned) ESP.getFreeHeap(),
-    (unsigned) espHeapFragmentation()); // Esp Utils
+    (unsigned) espHeapFragmentation(), // Esp Utils
+    reset_reason);
   sendWebpageResponse(response_buf);
 }
 
@@ -470,31 +476,31 @@ void streamFileToClient(const char *filename, const char *content_type) {
     snprintf(cr_buf, sizeof(cr_buf), "bytes %u-%u/%u", (unsigned) range_start, (unsigned) range_end, (unsigned) file_size);
 
     server.sendHeader("Content-Range", cr_buf);
-    server.setContentLength(length);
-    server.send(206, content_type, "");
-
-    WiFiClient client = server.client();
-    uint8_t buf[256];
-    size_t remaining = length;
-
-    while (remaining > 0 && client.connected()) {
-      size_t chunk = (remaining < sizeof(buf)) ? remaining : sizeof(buf);
-      int read = data_file.read(buf, chunk);
-
-      if (read <= 0)
-        break;
-
-      size_t wrote = client.write(buf, read);
-      sent += wrote;
-
-      if (wrote < (size_t)read)
-        break;
-
-      remaining -= read;
-    }
   }
-  else
-    sent = server.streamFile(data_file, content_type);
+
+  server.setContentLength(length);
+  server.send(is_partial ? 206 : 200, content_type, "");
+
+  WiFiClient client = server.client();
+  client.setTimeout(STREAM_STALL_TIMEOUT);
+  uint8_t buf[256];
+  size_t remaining = length;
+
+  while (remaining > 0 && client.connected()) {
+    size_t chunk = (remaining < sizeof(buf)) ? remaining : sizeof(buf);
+    int read = data_file.read(buf, chunk);
+
+    if (read <= 0)
+      break;
+
+    size_t wrote = client.write(buf, read);
+    sent += wrote;
+
+    if (wrote < (size_t)read)
+      break;
+
+    remaining -= read;
+  }
 
   data_file.close();
   last_http_activity_ms = millis();
