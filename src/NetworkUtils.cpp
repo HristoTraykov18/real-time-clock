@@ -35,7 +35,7 @@ void checkForClientConnection() {
 
 
 wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hidden,
-                                  uint8_t channel, const uint8_t* bssid) {
+                                  uint8_t channel, const uint8_t* bssid, bool ap_client_connected) {
   const uint16_t POLL_INTERVAL_MS = 10;
   const uint16_t CONNECT_TIMEOUT_MS = bssid ? 7500UL : 18000UL;
   wl_status_t status = WiFi.status();
@@ -87,6 +87,17 @@ wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hi
       break;
     }
 
+    // A background attempt gives way to a device that connected to the ESP access point
+    if (ap_client_connected && ap_station_associated) {
+      WiFi.disconnect();
+      status = WL_DISCONNECTED;
+
+      if constexpr (DEBUG_MESSAGES)
+        Serial.println(F("\n[connectClockToNetwork] Connection attempt stopped. STA connected"));
+
+      break;
+    }
+
     // Unrecoverable statuses
     if (status != WL_CONNECTED && sta_disconnect_count != prev_disconnect_count) {
       if (!espIsAuthFailure(status)) // Esp Utils
@@ -129,11 +140,14 @@ bool currentSsidEquals(const char* target) {
 }
 
 
-bool fastConnectCacheIsValid(uint8_t channel, const uint8_t* bssid) {
+bool fastConnectCacheIsValid(uint8_t channel, const uint8_t* bssid, bool ap_client_connected) {
   if (!channel || !bssid)
     return false;
 
   for (uint8_t scan_attempts = 5; scan_attempts > 0; scan_attempts--) {
+    if (ap_client_connected && ap_station_associated) // A device connected to the ESP access point
+      return false;
+
     int number_of_networks = espScanNetworks(channel); // Esp Utils
 
     if constexpr (DEBUG_MESSAGES) {
@@ -262,8 +276,11 @@ void manageStaReconnect() {
   }
 
   if (retry_count < 3) {
-    if (networkReconnect() == WL_CONNECTED)
+    if (networkReconnect() == WL_CONNECTED) // Background attempt
       retry_count = 0;
+    else if (ap_station_associated) {
+      // Stopped because a device connected to the ESP access point: not a failed retry
+    }
     else if (++retry_count >= 3) {
       back_off_active = true;
       back_off_hour = rtc.now().hour();
@@ -326,7 +343,8 @@ bool networkIsInRange(const char* ssid, bool* needs_password) {
 }
 
 
-wl_status_t networkReconnect() {
+wl_status_t networkReconnect(bool manual_request) {
+  const bool background = !manual_request;
   wl_status_t connection_status = WiFi.status();
 
   if (connection_status != WL_CONNECTED) {
@@ -354,14 +372,20 @@ wl_status_t networkReconnect() {
 
     bool is_hidden = network_data[2] && strcmp(network_data[2], "true") == 0;
 
-    if (bssid_ptr && fastConnectCacheIsValid(channel, bssid_ptr))
-      connection_status = connectClockToNetwork(network_data[0], network_data[1], is_hidden, channel, bssid_ptr);
+    if (manual_request)
+      showConnecting(); // Display Utils
+
+    if (bssid_ptr && fastConnectCacheIsValid(channel, bssid_ptr, background))
+      connection_status = connectClockToNetwork(network_data[0], network_data[1], is_hidden, channel, bssid_ptr, background);
+
+    if (background && ap_station_associated) // Skip the full scan due to STA connection
+      return connection_status;
 
     if (connection_status != WL_CONNECTED) {
       if constexpr (DEBUG_MESSAGES)
         Serial.println(F("[networkReconnect] Running full Wi-Fi scan"));
 
-      connection_status = connectClockToNetwork(network_data[0], network_data[1], is_hidden);
+      connection_status = connectClockToNetwork(network_data[0], network_data[1], is_hidden, 0, nullptr, background);
     }
   }
 

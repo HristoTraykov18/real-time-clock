@@ -2,7 +2,7 @@ const SLIDERS_THUMB_DIAMETER = 25;
 const INACTIVITY_TIMEOUT_MS = 600000;
 const INACTIVITY_WARNING_MS = 30000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 10000;
-const NETWORK_REQUEST_TIMEOUT_MS = 20000;
+const NETWORK_REQUEST_TIMEOUT_MS = 35000;
 
 // SSID of the row the user tapped, carried into the password popup
 let selectedNetworkSSID = "";

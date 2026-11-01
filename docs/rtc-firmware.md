@@ -135,7 +135,7 @@ ESP32 pin rules: GPIO34–39 are input-only (fine for the light sensor, never fo
 4. Apply brightness, compute `daylight_saving_active`, `activateGPS()` if GPS is the saved source. (The GPS activation inside `initializePeripherals` never fires because settings are not loaded yet; the one in setup is the effective one.)
 5. Wi-Fi: `persistent(false)`, `setAutoReconnect(false)`, `WIFI_AP_STA`, attach event handlers, `initializeSoftAP()`, disconnect STA, modem sleep off, EU country, start 5 s radio-settle window.
 6. `initializeServers()`: UDP 2390 for NTP, register HTTP routes, configure (not start) OTA server.
-7. `delay(5000)`, then if `networkReconnect()` connects, `autoUpdateTime(true)`.
+7. `delay(5000)`, then if `networkReconnect()` (background) connects, `autoUpdateTime(true)`.
 
 ### loop()
 - `server.handleClient()`; OTA server `handleClient()` only while active; `serviceGPS()` on GPS builds (must run every iteration).
@@ -146,7 +146,7 @@ Many paths block (Wi-Fi connect up to 18 s, scans, NTP wait 1.5 s x up to 5, upd
 ## 5. Timekeeping
 
 - RTC stores **local wall-clock time including DST**. `daylight_saving_active` records whether the +1 h is currently applied.
-- `updateTime()`: GPS if selected and not `TimedOut`, otherwise `networkReconnect()` + `updateTimeFromNTP()`.
+- `updateTime()`: GPS if selected and not `TimedOut`, otherwise `networkReconnect()` (background) + `updateTimeFromNTP()`.
 - `autoUpdateTime(force)`: at 03:00:00 (`UPDATE_HOUR`) or when forced, tries `updateTime()` up to 5 times. If all fail on the scheduled run and DST is enabled, `daylightSavingChange()` shifts the RTC by ±1 h through the Unix timestamp.
 - NTP: DNS for `0.europe.pool.ntp.org` (any `hostByName()` result other than `1` is a failure: ESP8266 returns `0`, the ESP32 core returns the negative error code, e.g. `-54`, so never test it with `!`), flush stale UDP, send 48-byte request, wait ≤ 1.5 s, reject wrong source IP, LI=3, mode≠4, stratum 0 or >15, or timestamps before 2020. Result: `ntp - 2208988800 + timezone_offset*3600 + 1` passed to `applyTimeUpdate()`. Sets `connected_to_ntp = true`.
 - GPS: UTC from TinyGPS++ RMC + `timezone_offset*3600` → `applyTimeUpdate(..., true)` (animation plays reversed).
@@ -159,8 +159,10 @@ Many paths block (Wi-Fi connect up to 18 s, scans, NTP wait 1.5 s x up to 5, upd
 
 - **SoftAP**: SSID/password `ESP_SSID`/`ESP_PASS` in `Globals.h` (repo defaults `Test`/`Test1234`; for numbered clocks rtc_setup rewrites them to `NBG_CLOCK_<5-digit id>` and `ap_password` from `rtc_secrets.ini`). Channel = saved STA channel or 1. **Max 1 client.** Web UI at `192.168.4.1`.
 - **Saved network** `/creds.txt` (plain text, 5 lines): `SSID\nPASSWORD\ntrue|false (hidden)\nCHANNEL\nAA:BB:CC:DD:EE:FF`. Written by `saveNetworkInfo()` after a successful connect (skips the write when unchanged). Read with `loadNetworkInfo()` into a 128-byte buffer.
-- `networkReconnect()`: if a cached channel+BSSID still answers a single-channel scan (`fastConnectCacheIsValid`, 5 tries), fast-connect (7.5 s timeout); otherwise full connect (18 s). `connectClockToNetwork()` aborts early when an STA-disconnect event arrives, returning the auth-failure status or `WL_NO_SSID_AVAIL`.
-- `manageStaReconnect()` (every second): only when creds exist, no phone is associated to the AP and the radio-settle window has passed. Up to 3 attempts, then backs off until the RTC hour changes.
+- `networkReconnect(manual_request = false)`: if a cached channel+BSSID still answers a single-channel scan (`fastConnectCacheIsValid`, 5 tries), fast-connect (7.5 s timeout); otherwise full connect (18 s). `connectClockToNetwork()` aborts early when an STA-disconnect event arrives, returning the auth-failure status or `WL_NO_SSID_AVAIL`.
+  - Background (default: boot, `manageStaReconnect()`, `updateTime()`): the attempt gives way to a phone. As soon as `ap_station_associated` is set, the scans in `fastConnectCacheIsValid()` stop, `connectClockToNetwork()` calls `WiFi.disconnect()` and returns `WL_DISCONNECTED` (polled every 10 ms), and the full-connect fallback is skipped. The web server answers the phone after at most about 1 s (a single-channel scan plus the 500 ms pause between scans; 10 ms during a connect) instead of after up to about 26 s. Before Nov 2026 the attempt ran to the end: the phone associated (event and debug line during `delay()`), but HTTP was not served until it finished, and a full connect could move the softAP to another channel.
+  - `manual_request = true` (`handleManualTimeSync()`: RTC tab click and the page-load sync in RTC mode; the fallback to the saved network after a failed join): runs to the end, shows "Conn" (`showConnecting()`) when a saved network exists and the clock is not connected. A join (`joinRequestedNetwork()`) always shows "Conn". "Conn" stays until the next `visualizeOnDisplay()`, because the attempt blocks `loop()`.
+- `manageStaReconnect()` (every second): only when creds exist, no phone is associated to the AP and the radio-settle window has passed. Up to 3 attempts, then backs off until the RTC hour changes. An attempt stopped because a phone associated does not count as a retry and does not start the back-off.
 - **Phone session**: `checkForClientConnection()` treats a client as present while associated **and** an HTTP request arrived in the last `AP_CONNECTION_TIMEOUT` (610 s). On leave: stop OTA server, evict stations. The page (only when opened at 192.168.4.1) counts 600 s of inactivity, warns for the last 30 s, then calls `/timeout` (server deauths) or `/extend`.
 - On AP association the display flashes 6 times (`flashDisplay`); phase differs depending on whether an NTP sync has happened.
 
@@ -204,7 +206,7 @@ Many paths block (Wi-Fi connect up to 18 s, scans, NTP wait 1.5 s x up to 5, upd
 6. else serve index.html.
 7. Independently afterwards: `timezoneHoursOffset=<int>`.
 
-Responses for long-running operations are produced only after the blocking work finishes; the UI uses a 20 s fetch timeout for POSTs.
+Responses for long-running operations are produced only after the blocking work finishes; the UI uses a 35 s fetch timeout for POSTs (`NETWORK_REQUEST_TIMEOUT_MS`, 20 s before Nov 2026).
 
 ### OTA
 Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authentication with `OTA_USER` / `OTA_PASS` from `Globals.h`. The repository holds the placeholders `admin` / `ChangeMe1234`; rtc_setup writes the real login from the gitignored `rtc_secrets.ini` into the compile copy. Never put real credentials in the repository sources. Started by `/activate-update`; the UI then navigates to `http://<host>:1394/sourceControl`. Stopped when the phone session ends.
@@ -212,6 +214,7 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
 ## 8. Display (TM1637)
 
 - Brightness 0–7 (`DEFAULT_BRIGHTNESS = 2`). Applied every second in `flashDisplay()`; the connect/NTP flash toggles between 0 and the top `LIGHT_LEVELS` brightness (`LIGHT_LEVELS[LIGHT_LEVELS_COUNT - 1][1]`, 7 on both platforms).
+- "Conn" (`showConnecting()`, raw segments `0x39 0x5C 0x54 0x54`) during a connect requested from the web UI (see `networkReconnect()`). It ends a running connect flash first and restores the normal brightness, so the text is never left dark.
 - **Vendored library is modified**: constructor has a 4th parameter `reverse_digit_logic` (inverted segment table for OSRAM-based units NBG_CLOCK_00001/00002; see commented lines in `printCurrentTime`), and `showNumber()` leading-zero behaviour differs from upstream: with `leading_zero=false` only the first digit is blanked when zero, later zeros are drawn (05:07 renders ` 5:07`, 00:05 renders ` 0:05`). `dots=32` turns the colon on with this hardware, `0` off. Do not replace with the upstream library.
 - Clock mode: `printCurrentTime()` H:MM with colon blinking each second. Timer mode: `printRemainingTime()` shows HH:MM, or MM:SS under 1 h; colon blinks while running, steady while paused.
 - Timer state: `timer_duration` is an `int32_t` count of remaining seconds (UI maximum 99:59:59 = 359999 s, which displays as `99:59`). It was `int16_t` before Oct 2026 and wrapped above 32767 s (9:06:07). `timer_status` 0 paused / 1 running; `timer_millis` and `timer_millis_offset` keep sub-second progress across pause/resume. `timerCountdown()` runs once per RTC second and stops at 0.
@@ -279,7 +282,7 @@ Separate `WebServerClass` on **port 1394**, path `/sourceControl`, HTTP authenti
 - [Certain] Saved Wi-Fi password is stored in plain text in `/creds.txt` (hashing options are on the TODO list).
 - [Certain] Daylight saving is EU-only.
 - [Likely] If loop() is blocked through 03:00:00 (e.g. a reconnect attempt), that day's scheduled sync and DST fallback are skipped.
-- [Certain] Joining a new network from the web page can outlast the page's 20 s request timeout (`NETWORK_REQUEST_TIMEOUT_MS`) in rare cases. Accepted as is (Oct 2026).
+- [Certain] Joining a new network from the web page can outlast the page's request timeout (`NETWORK_REQUEST_TIMEOUT_MS`, raised from 20 s to 35 s in Nov 2026, which covers a full `networkReconnect()` of about 26 s) in rare cases. Accepted as is (Oct 2026).
   - Measured (ESP32, Oct 2026): on a network without Internet the router answers the DNS query with an error at once (`hostByName(): DNS Failed ... error '-54'`) and all 5 NTP attempts were over in about 6–7 s. Until the fix of `readTimestamp()` each failed lookup was treated as a success and spent 1.5 s waiting for a reply from `0.0.0.0`; now a fast DNS failure ends each attempt immediately. A healthy connect takes about 5–11 s.
   - Worst case, only when the DNS server never answers: blocking scan (ESP8266 about 1.6 s, ESP32 ≤ about 4.3 s) + 18.0 s `connectClockToNetwork()` timeout + 5 DNS timeouts. Each lookup gives up after 7 lwIP timer ticks (1+1+2+3 s) = 6–7 s **per DNS server** the router hands out; ESP8266 caps `hostByName()` at 10.0 s, ESP32 has no cap. Totals: ESP8266 ≈ 54.6 s (1 server) / ≈ 69.6 s (2); ESP32 ≈ 57.3 s (1) / ≈ 92.3 s (2) / ≈ 127 s (3).
   - DNS works but NTP does not answer: 5 × 1.5 s = 7.5 s more. If the link drops again during the NTP attempts, each attempt also runs `networkReconnect()` (up to about 26 s more each).

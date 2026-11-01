@@ -24,6 +24,13 @@ void animateTimeUpdate(bool updated_from_gps = false);
 void flashDisplay();
 
 /**
+ * @brief Shows "Conn" at normal brightness while the clock connects to a network on request from the web UI.
+ * The attempt blocks loop(), so the text stays until the next visualizeOnDisplay() redraws the display.
+ * A running connect blink is ended first, so the text is not left dark or at full brightness.
+ */
+void showConnecting();
+
+/**
  * @brief Displays time in H:mm format on the TM1637 module while in RTC mode.
  */
 void printCurrentTime();

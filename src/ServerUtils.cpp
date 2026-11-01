@@ -117,7 +117,7 @@ const char* handleManualTimeSync() {
     return handleGPSTimeSync();
   }
 
-  if (networkReconnect() == WL_CONNECTED)
+  if (networkReconnect(true) == WL_CONNECTED) // Network Utils
     return createReply("Часовникът е свързан с мрежа", ssid_buf, autoUpdateTime(true));
 
   manualTimeUpdate();
@@ -232,8 +232,8 @@ const char* handleWifiTimeSync(const String& ssid) {
     WiFi.disconnect(true);
     response = joinRequestedNetwork(ssid, pass, server.arg("isHiddenNetwork"));
 
-    if (WiFi.status() != WL_CONNECTED)
-      networkReconnect();
+    if (WiFi.status() != WL_CONNECTED) // Back to the saved network
+      networkReconnect(true);
   }
   else
     response = createReply("Настоящата мрежа е", ssid_buf, autoUpdateTime(true));
@@ -285,6 +285,8 @@ const char* joinRequestedNetwork(const String& ssid, const String& pass, const S
   const bool no_password = pass.length() == 0;
   bool needs_password = false; // Known only for a visible network, from the scan
   const char* format;
+
+  showConnecting(); // Display Utils
 
   if (!hidden && !networkIsInRange(name, &needs_password)) // Network Utils
     format = "Мрежата %s не е в обхват, или е скрита.";

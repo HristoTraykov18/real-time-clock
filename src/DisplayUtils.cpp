@@ -6,6 +6,9 @@ constexpr uint8_t GLYPH_BLANK      = 0x00;
 constexpr uint8_t GLYPH_TOP_BOTTOM = 0x09; // A, D
 constexpr uint8_t GLYPH_BOX        = 0x0F; // A, B, C, D
 constexpr uint8_t GLYPH_LEFT_BAR   = 0x30; // E, F
+constexpr uint8_t GLYPH_C          = 0x39; // A, D, E, F
+constexpr uint8_t GLYPH_O_LOWER    = 0x5C; // C, D, E, G
+constexpr uint8_t GLYPH_N_LOWER    = 0x54; // C, E, G
 
 static bool last_auto_brightness = true;
 
@@ -76,6 +79,21 @@ void flashDisplay() {
   }
 
   tm1637.setBrightness(display_brightness);
+}
+
+
+void showConnecting() {
+  const uint8_t CONN[4] = { GLYPH_C, GLYPH_O_LOWER, GLYPH_N_LOWER, GLYPH_N_LOWER };
+
+  if (blink_count > 0) { // End the connect blink, as flashDisplay() does on its last step
+    blink_count = 0;
+    display_client_connected = false;
+    auto_brightness = last_auto_brightness;
+    display_brightness = last_display_brightness;
+  }
+
+  tm1637.setBrightness(display_brightness);
+  tm1637.setSegments(CONN);
 }
 
 

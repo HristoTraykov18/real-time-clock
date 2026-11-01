@@ -25,10 +25,13 @@ void checkForClientConnection();
  * @param is_hidden Set to true if target AP doesn't broadcast its SSID.
  * @param channel Optional cached Wi-Fi channel used for fast-connect (0 to perform a regular scan).
  * @param bssid Optional cached BSSID (MAC address) of the access point used for fast-connect (nullptr to ignore).
- * @return wl_status_t The Wi-Fi status reported at the end of the tracking window.
+ * @param ap_client_connected true for a background attempt: it stops (WiFi.disconnect()) as soon as a device
+ * connects to the ESP access point, so the web server can answer it.
+ * @return wl_status_t The Wi-Fi status reported at the end of the tracking window (WL_DISCONNECTED when stopped).
  */
 wl_status_t connectClockToNetwork(const char* ssid, const char* pass, bool is_hidden,
-                                  uint8_t channel = 0, const uint8_t* bssid = nullptr);
+                                  uint8_t channel = 0, const uint8_t* bssid = nullptr,
+                                  bool ap_client_connected = false);
 
 /**
  * @brief Compares the currently connected SSID against a target string (no heap allocation).
@@ -41,9 +44,10 @@ bool currentSsidEquals(const char* target);
  * @brief Validates the cached BSSID availability on the cached Wi-Fi channel before a fast-connect attempt.
  * @param channel Cached Wi-Fi channel to scan.
  * @param bssid Cached BSSID (MAC address) expected to be in range.
+ * @param ap_client_connected true for a background attempt: stops scanning as soon as a device connects to the ESP access point.
  * @return bool true if the cached BSSID was found broadcasting on the cached channel.
  */
-bool fastConnectCacheIsValid(uint8_t channel, const uint8_t* bssid);
+bool fastConnectCacheIsValid(uint8_t channel, const uint8_t* bssid, bool ap_client_connected = false);
 
 /**
  * @brief Sends a request to an NTP server and waits up to 1.5 seconds for the reply to arrive.
@@ -68,6 +72,7 @@ bool loadNetworkInfo(char* buf, size_t buf_size, const char* data[5]);
 
 /**
  * @brief Manages reconnection with retry limits and hourly back-off after the ESP disconnects from a known network.
+ * The attempts run in the background: one stopped because a device connected to the ESP access point does not count as a retry.
  */
 void manageStaReconnect();
 
@@ -81,9 +86,12 @@ bool networkIsInRange(const char* ssid, bool* needs_password = nullptr);
 
 /**
  * @brief Reads network credentials stored locally inside `/creds.txt` and attempts system re-association.
+ * @param manual_request true when the user requested it in the web UI: "Conn" is shown on the display during the attempt
+ * and the attempt runs to the end. false (background): no "Conn", and the attempt stops as soon as a device
+ * connects to the ESP access point.
  * @return wl_status_t The Wi-Fi status reported after the reconnect attempt.
  */
-wl_status_t networkReconnect();
+wl_status_t networkReconnect(bool manual_request = false);
 
 /**
  * @brief Parses a "XX:XX:XX:XX:XX:XX" formatted MAC address string into raw bytes.
