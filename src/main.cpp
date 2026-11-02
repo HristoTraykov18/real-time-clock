@@ -57,7 +57,7 @@ void setup() {
     Serial.println(F("[setup] Wi-Fi initialization delay"));
   }
 
-  delay(RADIO_SETTLE_PERIOD);
+  delay(RADIO_SETTLE_PERIOD / 2);
 
   if (networkReconnect() == WL_CONNECTED) // Network Utils
     autoUpdateTime(true); // Core Utils

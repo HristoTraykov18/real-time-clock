@@ -135,7 +135,7 @@ ESP32 pin rules: GPIO34–39 are input-only (fine for the light sensor, never fo
 4. Apply brightness, compute `daylight_saving_active`, `activateGPS()` if GPS is the saved source. (The GPS activation inside `initializePeripherals` never fires because settings are not loaded yet; the one in setup is the effective one.)
 5. Wi-Fi: `persistent(false)`, `setAutoReconnect(false)`, `WIFI_AP_STA`, attach event handlers, `initializeSoftAP()`, disconnect STA, modem sleep off, EU country, start 5 s radio-settle window.
 6. `initializeServers()`: UDP 2390 for NTP, register HTTP routes, configure (not start) OTA server.
-7. `delay(5000)`, then if `networkReconnect()` (background) connects, `autoUpdateTime(true)`.
+7. `delay(RADIO_SETTLE_PERIOD / 2)` (2.5 s), then if `networkReconnect()` (background) connects, `autoUpdateTime(true)`.
 
 ### loop()
 - `server.handleClient()`; OTA server `handleClient()` only while active; `serviceGPS()` on GPS builds (must run every iteration).
