@@ -47,6 +47,12 @@ uint32_t espMaxAllocHeap();
 uint8_t espHeapFragmentation();
 
 /**
+ * @brief Returns a 32-bit random number from the hardware random number generator.
+ * @return uint32_t Random number.
+ */
+uint32_t espRandom();
+
+/**
  * @brief Fills the caller's buffer with the reason of the last reset, e.g. "Power On" or "Exception".
  * The ESP8266 has no brownout reason: a supply dip usually shows as "Power On" or a watchdog.
  * @param buf Destination buffer.

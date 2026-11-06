@@ -99,6 +99,11 @@ uint8_t espHeapFragmentation() {
 }
 
 
+uint32_t espRandom() {
+  return esp_random();
+}
+
+
 bool espIsAssocFailure() {
   return sta_assoc_failed;
 }

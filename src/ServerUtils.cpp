@@ -5,6 +5,7 @@
 // _____________________________________________ Web interface handling functions _____________________________________________ //
 
 static char response_buf[256]; // 256 is enough to keep the longest response message
+static char boot_id_cookie[48]; // Cookie sent with index.html
 
 constexpr unsigned long STREAM_STALL_TIMEOUT = 8000UL; // A file transfer stops after this long without send progress
 
@@ -187,8 +188,10 @@ void handleWebInterface() {
     response = handleBrightnessControl();
   else if (server.hasArg("status") && work_mode_is_timer)
     response = handleTimerControl();
-  else
+  else {
+    server.sendHeader("Set-Cookie", boot_id_cookie);
     streamFileToClient("/index.html", "text/html"); // Show main page at the begining
+  }
 
   if (response)
     sendWebpageResponse(response);
@@ -248,6 +251,8 @@ void initializeServers() {
       Serial.println(F("[initializeServers] Initialized UDP port for NTP"));
   }
 
+  snprintf(boot_id_cookie, sizeof(boot_id_cookie), "rtcId=%08lx; Path=/; SameSite=Strict", (unsigned long)espRandom());
+
   const char* header_keys[] = { "Range" };
   const size_t header_keys_count = 1;
 
@@ -261,7 +266,10 @@ void initializeServers() {
   server.on("/extend", handleExtendSession);
   server.on("/activate-update", handleActivateSoftwareUpdate);
   server.on("/body.html", [] () { streamFileToClient("/body.html", "text/html"); });
-  server.on("/neonLogoIcon.ico", [] () { streamFileToClient("/neonLogoIcon.ico", "image/x-icon"); });
+  server.on("/neonLogoIcon.ico", [] () {
+    server.sendHeader("Cache-Control", "max-age=2592000"); // 2592000 = 30 days
+    streamFileToClient("/neonLogoIcon.ico", "image/x-icon");
+  });
   server.on("/mainStyle.css", [] () { streamFileToClient("/mainStyle.css", "text/css"); });
   server.on("/mainScript.js", [] () { streamFileToClient("/mainScript.js", "text/javascript"); });
   server.on("/settings", [] () { streamFileToClient(SETTINGS_FILE, "text/xml"); });

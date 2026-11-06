@@ -3,6 +3,7 @@ const INACTIVITY_TIMEOUT_MS = 600000;
 const INACTIVITY_WARNING_MS = 30000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 10000;
 const NETWORK_REQUEST_TIMEOUT_MS = 35000;
+const NETWORK_LIST_CACHE_MS = 86400000; // A saved networks list is shown for one day
 
 // SSID of the row the user tapped, carried into the password popup
 let selectedNetworkSSID = "";
@@ -10,9 +11,15 @@ let selectedNetworkSSID = "";
 
 async function initializeApp () { // Add event listeners for the javascript functionalities
     document.getElementById("js-main-form").addEventListener("submit", submitNetworkRequest);
-    document.getElementById("js-time-sync-mode").addEventListener("click", toggleTimeSyncMode);
-    document.getElementById("js-daylight-saving").addEventListener("click", toggleDaylightSaving);
-    document.getElementById("js-brightness-control").addEventListener("click", toggleBrightnessControl);
+    document.getElementById("js-time-sync-mode").addEventListener("click", event =>
+        toggleCheckbox(event, useWifi => "timeSyncMode=" + (useWifi ? "wifi" : "gps")));
+    document.getElementById("js-daylight-saving").addEventListener("click", event =>
+        toggleCheckbox(event, enabled => "daylightSavingEnabled=" + enabled));
+    document.getElementById("js-brightness-control").addEventListener("click", event =>
+        toggleCheckbox(event,
+            autoBrightness => `autoBrightnessControl=${autoBrightness}&manualBrightnessLevel=` +
+                document.getElementById("js-brightness-slider-input").value,
+            autoBrightness => setBrightnessSliderEnabled(!autoBrightness)));
     document.getElementById("js-password-button-container").addEventListener("click", togglePasswordVisibility);
 
     // Tab switching
@@ -100,7 +107,7 @@ async function initializeApp () { // Add event listeners for the javascript func
 
     toggleLoader();
     let shouldSyncTime = false;
-    [shouldSyncTime] = await Promise.all([requestConfig(), requestNetworks()]);
+    [shouldSyncTime] = await Promise.all([requestConfig(), requestNetworks(true)]);
 
     if (shouldSyncTime)
         await submitManualTime(false);
@@ -164,16 +171,30 @@ function closeNetworkPopup() {
     resetNetworkPopupPassword();
 }
 
-function renderNetworkRows(responseText) {
+// "dd.mm.YYYY HH:MM" in the phone's time
+function formatDateTime(ms) {
+    const date = new Date(ms);
+    const pad = number => String(number).padStart(2, "0");
+
+    return pad(date.getDate()) + "." + pad(date.getMonth() + 1) + "." + date.getFullYear() + " " +
+        pad(date.getHours()) + ":" + pad(date.getMinutes());
+}
+
+function renderNetworkRows(responseText, updatedAt) {
     let listElement = document.getElementById("js-network-list-rows");
+    let updatedElement = document.getElementById("js-network-list-updated");
+    let rowCount = 0;
+
     listElement.innerHTML = "";
+    listElement.appendChild(updatedElement);
+    updatedElement.textContent = "Последно обновяване: " + formatDateTime(updatedAt);
 
     let lines = responseText.trim().split("\n");
 
     if (lines.length === 0 || (lines.length === 1 && lines[0] === "")) {
-        listElement.innerHTML = '<div class="network-list-empty">Няма видими мрежи в обхват</div>';
+        listElement.insertAdjacentHTML("beforeend", '<div class="network-list-empty">Няма видими мрежи в обхват</div>');
 
-        return;
+        return rowCount;
     }
 
     for (const line of lines) {
@@ -203,10 +224,13 @@ function renderNetworkRows(responseText) {
         row.appendChild(ssidElement);
         row.appendChild(iconWrapper);
         listElement.appendChild(row);
+        rowCount++;
     }
+
+    return rowCount;
 }
 
-async function requestNetworks() {
+async function requestNetworks(useCache = false) {
     let listElement = document.getElementById("js-network-list-rows");
     let loaderElement = document.getElementById("js-network-list-loader");
     let headerElement = document.querySelector("#js-network-list-wrapper .network-list-header > span");
@@ -215,6 +239,16 @@ async function requestNetworks() {
     listElement.style.display = "none";
     document.getElementById("js-network-list-disconnected").style.display = "none";
     headerElement.innerText = "Мрежи в обхват";
+
+    const cachedList = useCache ? cacheRead("networks", NETWORK_LIST_CACHE_MS) : null;
+
+    if (cachedList && typeof cachedList.list === "string") { // Older page versions saved only the text
+        loaderElement.style.display = "none";
+        listElement.style.display = "";
+        renderNetworkRows(cachedList.list, cachedList.updated);
+        return;
+    }
+
     loaderElement.style.display = "block";
 
     try {
@@ -226,8 +260,12 @@ async function requestNetworks() {
             return;
         }
 
+        const responseText = await response.text();
+        const updated = Date.now();
         listElement.style.display = "";
-        renderNetworkRows(await response.text());
+
+        // A new scan replaces the saved list; an empty list is not saved
+        cacheWrite("networks", renderNetworkRows(responseText, updated) > 0 ? { list: responseText, updated } : null);
     } catch {
         loaderElement.style.display = "none";
         showNetworkListDisconnected();
@@ -263,7 +301,7 @@ function toggleHiddenNetworkMode() {
     document.getElementsByClassName("message")[0].innerText =
         isHidden ? "Моля въведете име и парола" : "Моля изберете мрежа от списъка";
 
-    if (!isHidden) requestNetworks();
+    if (!isHidden) requestNetworks(true);
 }
 
 function togglePopupPasswordVisibility() {
@@ -343,11 +381,8 @@ async function requestConfig() {
             daylightSavingCheckbox.checked = true;
 
         // Slider (for brightness) input and checkbox
-        let brightnessSliderContainer = document.getElementById("js-brightness-slider-container");
-
         if (xmlDoc.getElementsByTagName("autoBrightnessControl")[0].childNodes[0].nodeValue  != "true") {
-            brightnessSliderContainer.style.opacity = 1;
-            brightnessSliderContainer.style.pointerEvents = "all";
+            setBrightnessSliderEnabled(true);
             document.getElementById("js-brightness-control").checked = false;
         }
 
@@ -416,6 +451,12 @@ async function sendServerRequest(params, loader = true, route = '/') {
     }
 }
 
+function setBrightnessSliderEnabled(enabled) {
+    let sliderContainer = document.getElementById("js-brightness-slider-container");
+    sliderContainer.style.opacity = enabled ? 1 : 0;
+    sliderContainer.style.pointerEvents = enabled ? "all" : "none";
+}
+
 function showStatusPopup(popupText) {
     document.getElementById("js-popup-container").classList.add("show-popup");
     document.getElementById("js-popup-message").innerText = popupText;
@@ -453,33 +494,19 @@ function submitNetworkRequest(event) {
     sendServerRequest(submitData);
 }
 
-async function toggleBrightnessControl(event) {
-    let checkbox = event.currentTarget;
-    let autoBrightness = checkbox.checked; // The state this click asks for
+async function toggleCheckbox(event, requestData, onConfirmed) {
+    const checkbox = event.currentTarget;
+    const requested = checkbox.checked;
 
-    event.preventDefault(); // The box keeps its current state until the clock confirms the change
+    event.preventDefault(); // Keeps the current state until the clock answers
 
-    let submitData = `autoBrightnessControl=${autoBrightness}&manualBrightnessLevel=`;
-    submitData += document.getElementById("js-brightness-slider-input").value;
-
-    if (!await sendServerRequest(submitData))
+    if (!await sendServerRequest(requestData(requested)))
         return;
 
-    checkbox.checked = autoBrightness;
+    checkbox.checked = requested;
 
-    let sliderContainer = document.getElementById("js-brightness-slider-container");
-    sliderContainer.style.opacity = autoBrightness ? 0 : 1;
-    sliderContainer.style.pointerEvents = autoBrightness ? "none" : "all";
-}
-
-async function toggleDaylightSaving(event) {
-    let checkbox = event.currentTarget;
-    let daylightSavingEnabled = checkbox.checked; // The state this click asks for
-
-    event.preventDefault(); // The box keeps its current state until the clock confirms the change
-
-    if (await sendServerRequest("daylightSavingEnabled=" + daylightSavingEnabled))
-        checkbox.checked = daylightSavingEnabled;
+    if (onConfirmed)
+        onConfirmed(requested);
 }
 
 function toggleLoader() {
@@ -509,16 +536,6 @@ function togglePasswordVisibility() {
     }
 
     passInput.focus();
-}
-
-async function toggleTimeSyncMode(event) {
-    let timeSyncMode = event.currentTarget;
-    let useWifi = timeSyncMode.checked; // The state this click asks for (checked = Wi-Fi)
-
-    event.preventDefault(); // The switch keeps its current state until the clock confirms the change
-
-    if (await sendServerRequest("timeSyncMode=" + (useWifi ? "wifi" : "gps")))
-        timeSyncMode.checked = useWifi;
 }
 
 function updateSlider(slider, thumb) {

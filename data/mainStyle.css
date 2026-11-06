@@ -303,7 +303,7 @@ fieldset {
 .fading-section {
     overflow: hidden;
     transition: opacity var(--animation-speed) ease;
-    height: 25vh;
+    height: max(25vh, 200px);
     opacity: 1;
 }
 .fading-section.hidden {
@@ -322,8 +322,11 @@ fieldset {
     min-width: 250px;
     background-color: rgba(0,0,0,0.25);
     padding-bottom: 10px;
+    display: flex;
+    flex-direction: column;
 }
 .network-list-header {
+    flex-shrink: 0;
     display: flex;
     padding: 6px 10px;
     background-color: var(--pale-purple);
@@ -351,7 +354,8 @@ fieldset {
 }
 .network-refresh-btn:hover { animation: spin calc(var(--animation-speed) / 1.5) linear }
 .network-list-rows {
-    height: 160px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
 }
 .network-row {
@@ -386,6 +390,17 @@ fieldset {
     padding: 20px 10px;
     text-align: center;
     cursor: default;
+}
+.network-list-updated {
+    color: #BBB;
+    border-bottom: 2px solid rgba(0,0,0,0.75);
+    padding: 3px 6px;
+    font-size: 12px;
+    font-style: italic;
+    text-align: left;
+    pointer-events: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 /* ----------------------------------------------------- */
 
@@ -751,7 +766,7 @@ fieldset {
         padding: 5px 10px;
         margin: 10px auto;
     }
-    .fading-section { height:30vh; }
+    .fading-section { height: max(30vh, 200px); }
     #js-network-list-wrapper { width: 75%; }
 
     /* ----------------------- Side panel ----------------------- */
