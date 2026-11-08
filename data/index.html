@@ -1,1 +1,153 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Настройки на часовник</title><link rel="icon" type="image/x-icon" href="/neonLogoIcon.ico"><script>window.rtcIdId=(document.cookie.match(/(?:^|; )rtcId=(\w+)/)||[])[1]||"",window.cacheRead=function(t,e){try{const o=JSON.parse(localStorage.getItem("rtc:"+t)),n=o?Date.now()-o.time:-1;if(rtcIdId&&n>=0&&n<e&&o.boot===rtcIdId)return o.data}catch(t){}return null},window.cacheWrite=function(t,e){if(rtcIdId)try{localStorage.setItem("rtc:"+t,JSON.stringify({boot:rtcIdId,time:Date.now(),data:e}))}catch(t){}},window.fetchWithRangeRetry=async function(t,e=30){let o=[],n=0,a=-1;for(let c=1;c<=e;c++){const e={};n>0&&(e.Range="bytes="+n+"-");const r=new AbortController;let i;const d=t=>{clearTimeout(i),i=setTimeout((()=>r.abort()),t)};try{d(3e4);const c=await fetch(t,{headers:e,signal:r.signal});let s=!1;if(206===c.status){const t=(c.headers.get("Content-Range")||"").match(/^bytes (\d+)-\d+\/(\d+)$/);!t||+t[1]!==n||a>=0&&+t[2]!==a?s=!0:a=+t[2]}else if(200===c.status){o=[],n=0;const t=c.headers.get("Content-Length");a=t?+t:-1}else{if(416!==c.status)throw clearTimeout(i),c.body&&c.body.cancel(),Object.assign(new Error("HTTP "+c.status+" for "+t),{fatal:!0});s=!0}if(s)throw c.body&&c.body.cancel(),o=[],n=0,a=-1,new Error("Range mismatch for "+t);d(15e3);const l=c.body.getReader();for(;;){const{done:t,value:e}=await l.read();if(t)break;d(15e3),o.push(e),n+=e.length}if(clearTimeout(i),a<0||n===a){const t=new Uint8Array(n);let e=0;for(const n of o)t.set(n,e),e+=n.length;return t}n>a&&(o=[],n=0,a=-1)}catch(t){if(clearTimeout(i),t.fatal)throw t}await new Promise((t=>setTimeout(t,Math.min(500*c,5e3))))}throw new Error("Could not fetch full "+t)};const FILE_CACHE_MS=2592e6;async function loadPageFile(t){let e=cacheRead(t,2592e6);return null===e&&(e=(new TextDecoder).decode(await fetchWithRangeRetry(t)),cacheWrite(t,e)),e}window.addEventListener("DOMContentLoaded",(async function(){try{const[t,e,o]=await Promise.all([loadPageFile("/mainStyle.css"),loadPageFile("/body.html"),loadPageFile("/mainScript.js")]),n=document.createElement("style");n.textContent=t,document.head.appendChild(n),document.body.innerHTML=e;const a=document.createElement("script");a.textContent=o,document.body.appendChild(a)}catch(t){document.body.innerHTML='<p style="font-family:sans-serif;padding:20px;">Грешка при зареждане. Моля, презаредете страницата.</p>'}}));</script></head><body><p style="font-family:Tahoma;padding:20px;">Моля изчакайте.</p></body></html>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки на часовник</title>
+    <link rel="icon" type="image/x-icon" href="/neonLogoIcon.ico">
+    <script>
+      window.rtcId = (document.cookie.match(/(?:^|; )rtcId=(\w+)/) || [])[1] || "";
+
+      // Returns the cached data for key, or null when missing, older than maxAgeMs or saved in another clock boot
+      window.cacheRead = function (key, maxAgeMs) {
+        try {
+          const entry = JSON.parse(localStorage.getItem("rtc:" + key));
+          const age = entry ? Date.now() - entry.time : -1;
+          if (rtcId && age >= 0 && age < maxAgeMs && entry.boot === rtcId) return entry.data;
+        } catch (error) {}
+        return null;
+      };
+
+      // Saves data for key with the clock boot ID and the current time (null makes the key read as not cached)
+      window.cacheWrite = function (key, data) {
+        if (!rtcId) return;
+        try {
+          localStorage.setItem("rtc:" + key, JSON.stringify({ boot: rtcId, time: Date.now(), data }));
+        } catch (error) {}
+      };
+
+      // Downloads a file completely, resuming cut transfers with Range requests, up to maxAttempts attempts
+      window.fetchWithRangeRetry = async function (url, maxAttempts = 30) {
+        const HEADERS_TIMEOUT_MS = 30000;
+        const STALL_TIMEOUT_MS = 15000;
+        let chunks = [];
+        let received = 0;
+        let total = -1;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          const headers = {};
+          if (received > 0) headers.Range = "bytes=" + received + "-";
+
+          const controller = new AbortController();
+          let timer;
+
+          // Aborts the current attempt after ms without progress
+          const armTimer = ms => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), ms); };
+
+          try {
+            armTimer(HEADERS_TIMEOUT_MS);
+            const response = await fetch(url, { headers, signal: controller.signal });
+            let restart = false;
+
+            if (response.status === 206) {
+              const range = (response.headers.get("Content-Range") || "").match(/^bytes (\d+)-\d+\/(\d+)$/);
+              if (!range || +range[1] !== received || (total >= 0 && +range[2] !== total)) restart = true;
+              else total = +range[2];
+            } else if (response.status === 200) {
+              chunks = []; received = 0;
+              const length = response.headers.get("Content-Length");
+              total = length ? +length : -1;
+            } else if (response.status === 416) {
+              restart = true;
+            } else {
+              clearTimeout(timer);
+              response.body && response.body.cancel();
+              throw Object.assign(new Error("HTTP " + response.status + " for " + url), { fatal: true });
+            }
+
+            if (restart) {
+              response.body && response.body.cancel();
+              chunks = []; received = 0; total = -1;
+              throw new Error("Range mismatch for " + url);
+            }
+
+            armTimer(STALL_TIMEOUT_MS);
+            const reader = response.body.getReader();
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              armTimer(STALL_TIMEOUT_MS);
+              chunks.push(value);
+              received += value.length;
+            }
+            clearTimeout(timer);
+
+            if (total < 0 || received === total) {
+              const data = new Uint8Array(received);
+              let offset = 0;
+              for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.length; }
+              return data;
+            }
+            if (received > total) { chunks = []; received = 0; total = -1; }
+          } catch (error) {
+            clearTimeout(timer);
+            if (error.fatal) throw error;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, Math.min(500 * attempt, 5000)));
+        }
+
+        throw Object.assign(new Error("Could not fetch full " + url), { exhausted: true });
+      };
+
+      const FILE_CACHE_MS = 30 * 24 * 3600 * 1000;
+
+      // Downloads the packed copy (url.gz) and unpacks it, or the unpacked file when that is not possible
+      async function downloadPageFile(url) {
+        if (typeof DecompressionStream === "function") {
+          try {
+            const packed = await fetchWithRangeRetry(url + ".gz");
+            const stream = new Blob([packed]).stream().pipeThrough(new DecompressionStream("gzip"));
+            return await new Response(stream).text();
+          } catch (error) {
+            if (error.exhausted) throw error;
+          }
+        }
+        return new TextDecoder().decode(await fetchWithRangeRetry(url));
+      }
+
+      // Returns a page file from the cache, or downloads and caches it
+      async function loadPageFile(url) {
+        let text = cacheRead(url, FILE_CACHE_MS);
+        if (text === null) {
+          text = await downloadPageFile(url);
+          cacheWrite(url, text);
+        }
+        return text;
+      }
+
+      // Loads the three page files and puts the style, markup and script into the page
+      window.addEventListener("DOMContentLoaded", async function () {
+        try {
+          const [style, body, script] = await Promise.all([
+            loadPageFile("/mainStyle.css"),
+            loadPageFile("/body.html"),
+            loadPageFile("/mainScript.js"),
+          ]);
+          const styleElement = document.createElement("style");
+          styleElement.textContent = style;
+          document.head.appendChild(styleElement);
+          document.body.innerHTML = body;
+          const scriptElement = document.createElement("script");
+          scriptElement.textContent = script;
+          document.body.appendChild(scriptElement);
+        } catch (error) {
+          document.body.innerHTML = '<p style="font-family:sans-serif;padding:20px;">Грешка при зареждане. Моля, презаредете страницата.</p>';
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <p style="font-family:Tahoma;padding:20px;">Моля изчакайте.</p>
+  </body>
+</html>

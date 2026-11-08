@@ -190,7 +190,14 @@ void handleWebInterface() {
     response = handleTimerControl();
   else {
     server.sendHeader("Set-Cookie", boot_id_cookie);
-    streamFileToClient("/index.html", "text/html"); // Show main page at the begining
+
+    // Packed copy for browsers that accept gzip: the browser unpacks it itself
+    if (server.header("Accept-Encoding").indexOf("gzip") >= 0 && LittleFS.exists("/index.html.gz")) {
+      server.sendHeader("Content-Encoding", "gzip");
+      streamFileToClient("/index.html.gz", "text/html");
+    }
+    else
+      streamFileToClient("/index.html", "text/html"); // Show main page at the begining
   }
 
   if (response)
@@ -253,8 +260,8 @@ void initializeServers() {
 
   snprintf(boot_id_cookie, sizeof(boot_id_cookie), "rtcId=%08lx; Path=/; SameSite=Strict", (unsigned long)espRandom());
 
-  const char* header_keys[] = { "Range" };
-  const size_t header_keys_count = 1;
+  const char* header_keys[] = { "Range", "Accept-Encoding" };
+  const size_t header_keys_count = 2;
 
   server.collectHeaders(header_keys, header_keys_count);
   server.on("/", handleWebInterface); // 192.168.4.1 & IP in connected network
@@ -272,6 +279,10 @@ void initializeServers() {
   });
   server.on("/mainStyle.css", [] () { streamFileToClient("/mainStyle.css", "text/css"); });
   server.on("/mainScript.js", [] () { streamFileToClient("/mainScript.js", "text/javascript"); });
+  // Compressed copies, unpacked in index.html
+  server.on("/body.html.gz", [] () { streamFileToClient("/body.html.gz", "application/gzip"); });
+  server.on("/mainStyle.css.gz", [] () { streamFileToClient("/mainStyle.css.gz", "application/gzip"); });
+  server.on("/mainScript.js.gz", [] () { streamFileToClient("/mainScript.js.gz", "application/gzip"); });
   server.on("/settings", [] () { streamFileToClient(SETTINGS_FILE, "text/xml"); });
   server.on("/m", handleDeviceMonitoring);
   server.begin();

@@ -3,6 +3,7 @@ Support classes for the Real Time Clock setup launcher.
 """
 
 import configparser
+import gzip
 import importlib
 import json
 import os
@@ -157,6 +158,26 @@ def run_terminal_task(task_path):
         pass
 
 
+def minify_index_page(page, jsmin):
+    """
+    Minify index.html to one line: the scripts go through jsmin, the markup loses its comments and
+    the whitespace between tags (text inside the tags stays as it is).
+    jsmin keeps a line break after a closing brace, where automatic semicolon insertion could need it;
+    the break is dropped, so every statement in the scripts of index.html has to end with a semicolon
+    """
+    minified = []
+
+    for part in re.split(r"(<script>.*?</script>)", page, flags=re.S):
+        if part.startswith("<script>"):
+            script = jsmin(part[len("<script>"):-len("</script>")]).strip().replace("}\n", "}")
+            minified.append("<script>" + script + "</script>")
+        else:
+            part = re.sub(r"<!--.*?-->", "", part, flags=re.S)
+            minified.append(re.sub(r">\s+<", "><", part).strip())
+
+    return "".join(minified)
+
+
 def set_terminal_title(title):
     """ Show the task name in the title bar of the terminal window """
     if os.name == "nt":
@@ -191,6 +212,9 @@ class CompileFolder:
 
     # Webpage files with addon markers
     WEBPAGE_MAIN_FILES = ["body.html", "mainScript.js", "mainStyle.css"]
+    INDEX_PAGE = "index.html"
+    # Packed to <name>.gz; the unpacked files stay on the clock for browsers that cannot unpack
+    COMPRESSED_FILES = [INDEX_PAGE] + WEBPAGE_MAIN_FILES
 
     # Module tokens as they appear inside the PlatformIO environment names
     MODULE_TOKENS = ["audio", "bright", "gps", "temp"]
@@ -331,7 +355,8 @@ class CompileFolder:
     def minify_webpage_files(self):
         """
         Minify the javascript and css files inside the compile folder with rjsmin and rcssmin,
-        installing the two packages first when they are missing
+        installing the two packages first when they are missing, and index.html to one line.
+        Then write a gzip copy (<name>.gz) of each page file next to it
         """
         rjsmin, rcssmin, installed_now = import_minifiers()
 
@@ -347,7 +372,15 @@ class CompileFolder:
             if minify is not None:
                 self.rewrite_file(os.path.join(data_path, filename), minify)
 
-        self.report.append("Webpage files optimized")
+        self.rewrite_file(os.path.join(data_path, self.INDEX_PAGE), lambda page: minify_index_page(page, rjsmin.jsmin))
+
+        for filename in self.COMPRESSED_FILES:
+            path = os.path.join(data_path, filename)
+
+            with open(path, "rb") as source_file, open(path + ".gz", "wb") as packed_file:
+                packed_file.write(gzip.compress(source_file.read(), compresslevel=9, mtime=0))
+
+        self.report.append("Webpage files optimized and compressed")
 
     def prepare_filesystem(self):
         """
@@ -536,7 +569,7 @@ class StatusArea(tk.Frame):
     scheduled on itself, so it needs no reference back to the window.
     """
 
-    SHOW_DURATION = 8000
+    SHOW_DURATION = 10000
     HEIGHT = 11  # Reserved height
     WRAP_LENGTH = 380
 
