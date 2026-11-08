@@ -108,6 +108,9 @@ class SetupApp:
 
     TEXT_FONT = "Verdana 8 bold"
     BUTTON_WIDTH = 28  # Fits the longest caption
+    ENTRY_WIDTH = 26  # Network info inputs (an SSID has up to 32 characters, the field scrolls)
+    SSID_MAX_BYTES = 32
+    PASSWORD_LENGTHS = range(8, 65)  # WPA2: 8-63 characters, or 64 hexadecimal digits; empty = open network
     MODULE_COLUMNS = 3  # Columns of the module checkbox grid
     PROCESS_POLL_INTERVAL = 500  # How often the spawned terminal is checked, in milliseconds
 
@@ -131,6 +134,9 @@ class SetupApp:
         self.module_selections = {label: tk.IntVar(value=0) for label in MODULES}
         self.is_audio_module = tk.IntVar(value=0)
         self.audio_version = tk.StringVar(value="Base")
+        self.is_network_info = tk.IntVar(value=0)
+        self.network_ssid = tk.StringVar()
+        self.network_password = tk.StringVar()
 
         try:
             self.root.iconbitmap(self.ICON_FILE)
@@ -179,7 +185,8 @@ class SetupApp:
                              modules=modules,
                              timezone=self.timezone_value,
                              clock_id=self.clock_id_value if self.is_production_setup.get() == 1 else None,
-                             production=self.is_production_setup.get() == 1)
+                             production=self.is_production_setup.get() == 1,
+                             network=self.network_info())
 
     def create_stepper_row(self, parent, text, initial_value, display_width, adjust):
         """
@@ -228,6 +235,33 @@ class SetupApp:
         repository platformio.ini is enough: board, speed and filters do not depend on the modules
         """
         return ["device", "monitor", "-d", os.path.abspath("."), "-e", self.platform.get()]
+
+    def network_info(self):
+        """ (SSID, password) for creds.txt when Include Network Info is ticked and an SSID is entered, else None """
+        if self.is_network_info.get() != 1 or not self.network_ssid.get().strip():
+            return None
+
+        return self.network_ssid.get(), self.network_password.get()
+
+    def network_info_error(self):
+        """ Why the entered network info cannot work on the clock, or an empty string """
+        network = self.network_info()
+
+        if network is None:
+            return ""
+
+        ssid, password = network
+
+        if any(character in ssid + password for character in "\r\n"):
+            return "The SSID and the password cannot contain line breaks"
+
+        if len(ssid.encode("utf8")) > self.SSID_MAX_BYTES:
+            return f"The SSID is longer than {self.SSID_MAX_BYTES} bytes"
+
+        if password and len(password.encode("utf8")) not in self.PASSWORD_LENGTHS:
+            return "The password has to be empty (open network) or 8 to 64 characters long"
+
+        return ""
 
     def platform_is_known(self):
         """ Report a missing platform environment in platformio.ini and return False """
@@ -292,6 +326,14 @@ class SetupApp:
         copies its image to UPDATE_FOLDER after a successful build, before the upload
         """
         self.status.clear()
+        is_filesystem = prepare_step is CompileFolder.prepare_filesystem
+        network_error = self.network_info_error() if is_filesystem else ""
+
+        if network_error:
+            self.status.show(network_error)
+
+            return
+
         folder = self.compile_folder()
         environment = folder.environment
 
@@ -379,6 +421,16 @@ class SetupApp:
                                          *[(label, label) for label in AUDIO_VERSIONS])
         self.audio_switch.set_enabled(False)  # Only the base version exists for now
 
+        cb_network = ttk.Checkbutton(self.root, text="Include Network Info", variable=self.is_network_info,
+                                     command=self.toggle_network_info)
+        network_slot = tk.Frame(self.root)
+        self.network_frame = tk.Frame(network_slot)
+
+        for row, (text, variable) in enumerate((("SSID:", self.network_ssid), ("PASS:", self.network_password))):
+            tk.Label(self.network_frame, text=text).grid(row=row, column=0, sticky="e", padx=(0, 4), pady=1)
+            tk.Entry(self.network_frame, textvariable=variable, width=self.ENTRY_WIDTH, relief=tk.SUNKEN,
+                     insertbackground=TEXT_COLOR).grid(row=row, column=1, pady=1)
+
         # Each build refreshes only the files it owns, then offers its own upload in the
         # same terminal. Buttons are greyed out while that terminal is open
         build_buttons = []
@@ -404,11 +456,13 @@ class SetupApp:
 
         for element in [cb, id_slot, timezone_frame, processor_label,
                         self.platform_switch, modules_label, modules_frame, self.cb_audio, audio_slot,
-                        auto_upload_cb, *build_buttons, auto_monitor_cb, monitor_button, self.status]:
+                        auto_upload_cb, build_buttons[0], cb_network, network_slot, build_buttons[1],
+                        auto_monitor_cb, monitor_button, self.status]:
             element.pack(pady=3)
 
         self.reserve_space(id_slot, self.id_frame)
         self.reserve_space(audio_slot, self.audio_switch)
+        self.reserve_space(network_slot, self.network_frame)
 
     def set_colors(self):
         """
@@ -443,6 +497,13 @@ class SetupApp:
             self.platform_switch.set_enabled(True)
             self.audio_switch.pack_forget()
 
+    def toggle_network_info(self):
+        """ Show the SSID and password inputs while Include Network Info is ticked """
+        if self.is_network_info.get() == 1:
+            self.network_frame.pack()
+        else:
+            self.network_frame.pack_forget()
+
     def toggle_test_environment(self):
         """
         A production build (Test Environment unticked) always uses a clock ID: show the clock ID row
@@ -472,12 +533,12 @@ class SetupApp:
     def update_copy_names(folder, prepare_step):
         """
         Image a production build copies to UPDATE_FOLDER, and its name there: firmware.bin becomes
-        <clock ID>.bin and littlefs.bin becomes FS.bin
+        <clock ID>.bin and littlefs.bin becomes FS.bin, or FS_with_creds.bin when it carries creds.txt
         """
         if prepare_step is CompileFolder.prepare_firmware:
             return "firmware.bin", f"{folder.clock_id:05d}.bin" if folder.clock_id is not None else "firmware.bin"
 
-        return "littlefs.bin", "FS.bin"
+        return "littlefs.bin", "FS_with_creds.bin" if folder.network is not None else "FS.bin"
 
     def watch_running_process(self):
         """ Re-enable the buttons once the spawned terminal is gone """

@@ -209,6 +209,7 @@ class CompileFolder:
     # Sources whose tm1637.showNumber() colon value changes in test environment builds
     TEST_DISPLAY_SOURCES = [os.path.join("src", "CoreUtils.cpp"), os.path.join("src", "DisplayUtils.cpp")]
     SETTINGS_XML = os.path.join("data", "espSettings.xml")
+    CREDS_FILE = os.path.join("data", "creds.txt")  # CREDS_FILE in Globals.h
 
     # Webpage files with addon markers
     WEBPAGE_MAIN_FILES = ["body.html", "mainScript.js", "mainStyle.css"]
@@ -228,16 +229,18 @@ class CompileFolder:
         re.DOTALL)
     MAIN_FILE_END_MARKER = "/* END OF MAIN {filename} FILE */"
 
-    def __init__(self, platform, modules, timezone, clock_id=None, production=False):
+    def __init__(self, platform, modules, timezone, clock_id=None, production=False, network=None):
         """
         `platform` is a value of PLATFORMS, `modules` a list of (token, section) pairs taken from
-        MODULES and AUDIO_VERSIONS, in the order the environment name lists them
+        MODULES and AUDIO_VERSIONS, in the order the environment name lists them.
+        `network` is an (SSID, password) pair the file system build writes to creds.txt, or None
         """
         self.platform = platform
         self.module_entries = list(modules)
         self.timezone = timezone
         self.clock_id = clock_id
         self.production = production
+        self.network = network
         self.report = []
 
     @property
@@ -352,6 +355,23 @@ class CompileFolder:
 
         self.report.append(f"Timezone set to {self.timezone}")
 
+    def write_network_info(self):
+        """
+        Write creds.txt into the copied data folder when network info was given, laid out as the firmware
+        reads it (loadNetworkInfo): SSID, password and the hidden flag on separate lines. No line break at
+        the end, or the firmware would read an empty channel. The clock adds the channel and BSSID itself
+        after its first connection
+        """
+        if self.network is None:
+            return
+
+        ssid, password = self.network
+
+        with open(self.compiled(self.CREDS_FILE), "w", encoding="utf8", newline="") as creds_file:
+            creds_file.write(f"{ssid}\n{password}\nfalse")
+
+        self.report.append(f"Network info for \"{ssid}\" written to creds.txt")
+
     def minify_webpage_files(self):
         """
         Minify the javascript and css files inside the compile folder with rjsmin and rcssmin,
@@ -394,6 +414,7 @@ class CompileFolder:
         self.copy_sources(self.FILESYSTEM_DIRS)
         self.write_build_config()
         self.edit_timezone()
+        self.write_network_info()
         self.add_addon_content()
         self.minify_webpage_files()
 
