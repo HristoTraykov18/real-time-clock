@@ -1,0 +1,229 @@
+4.2.1
+Version label with platform and modules on the clock, shown in the web UI info panel and on /m.
+Version log and git tags.
+====================
+
+4.2.0
+Gzip transport of the web page files.
+Network info option in rtc_setup.
+====================
+
+4.1.0
+Web UI cache per clock boot for the page files and the network list, which shows its last update time.
+Smaller favicon.
+====================
+
+4.0.6
+ESP8266 CPU clock set to 160 MHz.
+Shorter radio settle delay at start-up.
+====================
+
+4.0.5
+Cut page transfers resume, file streaming has a stall limit and /m shows the reset reason.
+Background reconnects give way to a connecting phone.
+====================
+
+4.0.4
+Production images copied to the update folder.
+Clock ID editing merged into Test Environment.
+====================
+
+4.0.3
+Build environments generated per module combination, processor and modules selected in rtc_setup.
+Dark rtc_setup theme.
+====================
+
+4.0.2
+rtc_setup: Test Environment checkbox, Auto-Upload and upload retries.
+====================
+
+4.0.1
+Manual brightness mapped to the four light levels.
+Wrong or missing Wi-Fi passwords and unsupported networks reported correctly.
+====================
+
+4.0.0
+ESP32 support.
+Passwordless networks, settings applied only after the clock confirms them, access point and OTA credentials moved to rtc_secrets.
+Timer and pinout fixes.
+====================
+
+3.1.9
+Brightness module improvements.
+====================
+
+3.1.8
+Animation after a time update changed.
+====================
+
+3.1.7
+ESP32 core compatibility preparation.
+Password input and minimum width fixes.
+Example folders removed from the vendor libraries.
+====================
+
+3.1.6
+Temperature sensor value and GPS module fixes.
+====================
+
+3.1.5
+rtc_setup changes.
+====================
+
+3.1.4
+The temperature module no longer delays every loop cycle.
+Display functions moved to their own source file.
+====================
+
+3.1.3
+GPS module fix.
+Files are prepared before the builds start.
+====================
+
+3.1.2
+Build fixes, constants for the config files, updated debug messages and restructured variables.
+Temperature module changes and a network popup password fix.
+====================
+
+3.1.1
+File system operation checks, build flags and minor fixes.
+====================
+
+3.1.0
+Network list in the web UI.
+Serial monitor in rtc_setup.
+====================
+
+3.0.3
+GPS module rework and fixes.
+File setup script rework.
+====================
+
+3.0.2
+Daylight saving fixes.
+====================
+
+3.0.1
+Vendor libraries updated and trimmed down.
+====================
+
+3.0.0
+PlatformIO integration and code restructure into source and header modules.
+====================
+
+2.3.3
+Less heap allocation, network reconnection improvements and a responsive web UI on bad connections.
+====================
+
+2.3.2
+Improved soft access point and station connectivity.
+====================
+
+2.3.1
+Less String use in the file system functions.
+Timezone fix and extended file setup script.
+====================
+
+2.3.0
+Software update button in the web UI, disabled by default.
+Setup script refactored.
+====================
+
+2.2.1
+JavaScript optimized and restructured.
+Web requests use the fetch API.
+====================
+
+2.2.0
+Additional settings side panel in the web UI.
+Daylight saving works without NTP.
+Timer and web UI fixes.
+====================
+
+2.1.0
+Info panel in the web UI with network, signal, IP, MAC and clock time, also when not connected to the clock.
+Daylight saving change update.
+====================
+
+2.0.0
+Timer work mode: countdown up to 99 hours with start, pause and resume, in a new web UI tab.
+====================
+
+1.2.4
+Web UI fixes for mobile phones.
+Audio module preparation removed from the web UI.
+====================
+
+1.2.3
+Small web UI changes.
+====================
+
+1.2.2
+Audio module web UI preparation, not usable yet.
+====================
+
+1.2.1
+Longer connection and request timeouts.
+Daylight saving fix while connected.
+Manual brightness defaults to maximum.
+====================
+
+1.2.0
+Option to connect to hidden networks.
+All display segments shown in the start-up check.
+====================
+
+1.1.2
+Minor optimizations and a file setup fix.
+====================
+
+1.1.1
+NTP day leap and daylight saving fixes.
+Delayed access point start to prevent hanging.
+Network reconnect when the time is updated through NTP.
+====================
+
+1.1.0
+Automatic reconnect after the network disconnects.
+The network can be changed while connected.
+Web request handling fixes, including GPS sync requests on clocks without GPS.
+====================
+
+1.0.1
+Daylight saving and auto brightness control fixes.
+Settings editing function refactored.
+Audio module leftovers removed.
+====================
+
+1.0.0
+Rework of the initial and additional functions, the GPS and temperature modules, the web request handlers and the web UI.
+Configuration header files and a new file setup script.
+====================
+
+0.4.1
+Vendor libraries updated.
+====================
+
+0.4.0
+First version in the repository: ESP8266 clock with RTC, display, NTP time sync and web UI, plus GPS, temperature and light sensor addons.
+====================
+
+0.3.0
+Added webpage responses, not available in the repository.
+====================
+
+0.2.2
+Server handling and core logic improvements, not available in the repository.
+====================
+
+0.2.1
+HandleWebInterface() refactored, not available in the repository.
+====================
+
+0.2.0
+Web UI version 2.0, not available in the repository.
+====================
+
+0.1.0
+Initial version of the project, not available in the repository.
+====================

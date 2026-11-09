@@ -63,6 +63,11 @@ Keep README.md and docs/ in step with changes to features, build targets or libr
 
 ## 2. Build system and compile-time modules
 
+### Versions (since Nov 2026)
+- `version_log.txt` (repository root) lists the software versions newest first: the version `<major>.<minor>.<bugfix/improvement>`, its description with one sentence per line (up to 3 sentences, 30 words), `====================`, and an empty line before the next version (none after the last). Its first line is the current version; the first version in the repository is 0.4.0. Major: a big rework or big new feature; minor: a small feature (also web UI load speed); bugfix/improvement: fixes, small changes, tooling. Changes below 5 lines ride along with the next version; one version per working day. Every version has an annotated git tag `v<version>` on the last commit of its day (from 4.2.1 on, the user tags after committing).
+- The clock's label is `CURRENT_VERSION` in `Globals.h`: `<version>-p<1|2><modules>`, `p1` = ESP8266, `p2` = ESP32, module letters in the order `b` (Brightness), `t` (Temperature), `g` (GPS), `a1` / `a2` (Audio Base / Extended), or `n` without modules; e.g. `4.2.1-p2btga1`, `4.2.1-p2ba2`, `4.2.1-p1bt`, `4.2.1-p1n`. The repository holds `"dev"`; rtc_setup writes the label into the copied `Globals.h` (`set_version()`), so a build outside rtc_setup shows `dev`. Test Environment builds carry the same label.
+- The info panel shows the number part (`/info` cuts the label at the first `-`), `/m` the whole label. Renumbered from the first commit in Nov 2026: the old labels (1.1 … 1.13.x, the `main.cpp` comment) are not used any more.
+
 ### Targets (generated environments, since Oct 2026)
 `platformio.ini` has only two build environments, `env:esp32` and `env:esp8266` (no modules; `default_envs` = both), plus one section per module. Every module section has the same four options:
 
@@ -187,14 +192,14 @@ Many paths block (Wi-Fi connect up to 18 s, scans, NTP wait 1.5 s x up to 5, upd
 |---|---|
 | `/` no args | streams `/index.html.gz` with `Content-Encoding: gzip` when the request's `Accept-Encoding` contains `gzip` and the file exists (the browser unpacks it; collected header), otherwise `/index.html`; both with the cookie `rtcId=<8 hex digits>` (random per boot, `espRandom()` in `initializeServers()`; see the page cache in section 10) |
 | `/` with args | dispatch below, plain-text reply in Bulgarian |
-| `/info` | `ssid|rssi|ip|mac|HH:MM:SS` (`-|-0|-|...` when not connected; rssi without sign) |
+| `/info` | `ssid|rssi|ip|mac|HH:MM:SS|version` (`-|-0|-|...` when not connected; rssi without sign; version = `CURRENT_VERSION` up to the first `-`, shown as `Версия:` below the time in the info panel) |
 | `/additional-settings` | `timezone|true/false` (creds file exists) |
 | `/networks` | chunked lines `ssid|rssi\n` (reuses a running/finished scan, else blocking scan) |
 | `/delete-creds` | removes `/creds.txt`, `WiFi.disconnect(true)` |
 | `/timeout`, `/extend` | end session (deauth) / refresh activity timestamp |
 | `/activate-update` | starts OTA server, replies `OK` |
 | `/settings` | raw `espSettings.xml` |
-| `/m` | heap: max block, free heap, fragmentation %; `Reset reason: <reason>` (`espResetReason()`; the ESP8266 has no brownout reason) |
+| `/m` | `Version: <CURRENT_VERSION>` (the whole label), then heap: max block, free heap, fragmentation %; `Reset reason: <reason>` (`espResetReason()`; the ESP8266 has no brownout reason) |
 | `/body.html`, `/mainStyle.css`, `/mainScript.js`, their packed copies `/body.html.gz`, `/mainStyle.css.gz`, `/mainScript.js.gz` (`application/gzip`, no `Content-Encoding`, so Range counts the packed bytes and a cut transfer resumes), `/neonLogoIcon.ico` | static, with HTTP Range support; full (200) and partial (206) answers go through the same write loop in `streamFileToClient()`, which stops after `STREAM_STALL_TIMEOUT` (8 s) without send progress on the ESP8266 (`client.setTimeout()`; the ESP32 core keeps its own ~10 s). `server.streamFile()` is not used: on the ESP8266 it gives up after the file's 1 s stream timeout. `/neonLogoIcon.ico` also sends `Cache-Control: max-age=2592000` (30 days in the browser's own cache) |
 
 `handleWebInterface()` argument dispatch (order matters, `else if` chain):

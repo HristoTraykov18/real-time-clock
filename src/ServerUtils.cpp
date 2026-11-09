@@ -70,7 +70,8 @@ void handleDeviceMonitoring() {
   espResetReason(reset_reason, sizeof(reset_reason)); // Esp Utils
 
   snprintf(response_buf, sizeof(response_buf),
-    "Max free block size: %u\nCurrent Free Heap: %u\nHeap fragmentation: %u\nReset reason: %s",
+    "Version: %s\nMax free block size: %u\nCurrent Free Heap: %u\nHeap fragmentation: %u\nReset reason: %s",
+    CURRENT_VERSION,
     (unsigned) espMaxAllocHeap(), // Esp Utils
     (unsigned) ESP.getFreeHeap(),
     (unsigned) espHeapFragmentation(), // Esp Utils
@@ -364,18 +365,23 @@ void sendClockInfo() {
   snprintf(mac_buf, sizeof(mac_buf), "%02X:%02X:%02X:%02X:%02X:%02X",
           mac_raw[0], mac_raw[1], mac_raw[2], mac_raw[3], mac_raw[4], mac_raw[5]);
 
+  // The version number only (no platform and modules)
+  const char* version_end = strchr(CURRENT_VERSION, '-');
+  const int version_length = version_end ? (int)(version_end - CURRENT_VERSION) : (int)strlen(CURRENT_VERSION);
+
   DateTime now = rtc.now();
-  char response[90];
+  char response[110];
   char ssid_buf[33];
   espStationSsid(ssid_buf);
 
-  snprintf(response, sizeof(response), "%s|%s%d|%s|%s|%02d:%02d:%02d",
+  snprintf(response, sizeof(response), "%s|%s%d|%s|%s|%02d:%02d:%02d|%.*s",
            is_connected ? ssid_buf : "-",
            is_connected ? "" : "-",
            is_connected ? abs(WiFi.RSSI()) : 0,
            ip_buf,
            mac_buf,
-           now.hour(), now.minute(), now.second());
+           now.hour(), now.minute(), now.second(),
+           version_length, CURRENT_VERSION);
 
   server.send(200, "text/plain", response);
   last_http_activity_ms = millis();

@@ -63,6 +63,7 @@ The Clock ID row, the Base / Extended switch and the network info inputs sit in 
    - always `OTA_USER` and `OTA_PASS` (the repo holds the placeholders `admin` / `ChangeMe1234`);
    - with a clock ID also `ESP_SSID` → `"NBG_CLOCK_%05d"` and `ESP_PASS` → `ap_password`. Without an ID the repo access point values (`Test`/`Test1234`) ship.
    - `read_secrets()` uses `ConfigParser(interpolation=None)` (passwords may contain `%`) and rejects missing values, quotes, backslashes, non-printable or non-ASCII characters, and an `ap_password` outside 8–63 characters (WPA2 limits). Values are inserted with a callable `re.sub` replacement, so no regex escaping applies.
+6. `set_version`: writes `CURRENT_VERSION` in the copied `include/Globals.h` as `version_label` = `read_version()` + `-` + `p1`/`p2` (`PLATFORM_CODES`) + the module letters in the order of `MODULE_LETTERS` (`b`, `t`, `g`, `a1`, `a2`; tokens of the environment) or `n`, report line `Version 4.2.1-p2btg`. `read_version()` returns the first line of `version_log.txt` (`VERSION_LOG_FILE`, read as UTF-8 with an optional BOM) and fails the preparation when the file is missing or the line is not `<number>.<number>.<number>`; a missing `CURRENT_VERSION` in `Globals.h` fails it too.
 
 ### `prepare_filesystem()` — folder `data`
 1. Reset and copy `data/`, skipping `*.old.*` and `*Addon.*` files, then `write_build_config` (the file system targets need the generated environment too).

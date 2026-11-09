@@ -22,6 +22,7 @@ MINIFIER_PACKAGES = ["rjsmin", "rcssmin"]  # Webpage minifiers, installed with p
 TASK_RUNNER = os.path.abspath(__file__)  # Run as a script inside the build terminal, see run_terminal_task()
 BUILD_CONFIG_FILE = "rtc_build.ini"  # Environment of the current build, loaded by platformio.ini (extra_configs)
 UPDATE_FOLDER = "update"  # Production builds copy their image here: <clock ID>.bin and FS.bin
+VERSION_LOG_FILE = "version_log.txt"  # Software versions, newest first
 
 # Processors offered by the launcher: label -> plain platform environment in platformio.ini
 PLATFORMS = {"ESP32": "esp32", "ESP8266": "esp8266"}
@@ -158,6 +159,20 @@ def run_terminal_task(task_path):
         pass
 
 
+def read_version():
+    """ The current software version, <major>.<minor>.<bugfix/improvement>: the first line of VERSION_LOG_FILE """
+    try:
+        with open(VERSION_LOG_FILE, "r", encoding="utf-8-sig") as log_file:  # -sig: a BOM from Notepad is skipped
+            version = log_file.readline().strip()
+    except OSError:
+        raise ValueError(f"{VERSION_LOG_FILE} not found in the project root") from None
+
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise ValueError(f"The first line of {VERSION_LOG_FILE} has to be a version like 4.2.1, not \"{version}\"")
+
+    return version
+
+
 def minify_index_page(page, jsmin):
     """
     Minify index.html to one line: the scripts go through jsmin, the markup loses its comments and
@@ -210,6 +225,10 @@ class CompileFolder:
     TEST_DISPLAY_SOURCES = [os.path.join("src", "CoreUtils.cpp"), os.path.join("src", "DisplayUtils.cpp")]
     SETTINGS_XML = os.path.join("data", "espSettings.xml")
     CREDS_FILE = os.path.join("data", "creds.txt")  # CREDS_FILE in Globals.h
+
+    # Version label parts: <version>-<platform code><module letters, or n without modules>
+    PLATFORM_CODES = {"esp8266": "p1", "esp32": "p2"}
+    MODULE_LETTERS = [("bright", "b"), ("temp", "t"), ("gps", "g"), ("audio_base", "a1"), ("audio_extended", "a2")]
 
     # Webpage files with addon markers
     WEBPAGE_MAIN_FILES = ["body.html", "mainScript.js", "mainStyle.css"]
@@ -434,6 +453,7 @@ class CompileFolder:
         self.set_debug_messages()
         self.set_test_display()
         self.set_credentials()
+        self.set_version()
 
         return self.report
 
@@ -511,6 +531,33 @@ class CompileFolder:
         self.apply_substitutions(self.compiled(self.GLOBALS_HEADER), *substitutions)
         self.report.append("Software update login set from " + SECRETS_FILE)
         self.report.append(f"Clock ID set to {ssid}" if self.clock_id is not None else "Clock ID not changed")
+
+    def set_version(self):
+        """ Write the version label into CURRENT_VERSION of the copied Globals.h """
+        label = self.version_label
+        header = self.compiled(self.GLOBALS_HEADER)
+        replaced = []
+
+        def transform(content):
+            content, count = re.subn(r'(CURRENT_VERSION\s*=\s*)"[^"]*"', lambda match: f'{match.group(1)}"{label}"', content)
+            replaced.append(count)
+
+            return content
+
+        self.rewrite_file(header, transform)
+
+        if replaced != [1]:
+            raise ValueError(f"CURRENT_VERSION not found in {self.GLOBALS_HEADER}")
+
+        self.report.append(f"Version {label}")
+
+    @property
+    def version_label(self):
+        """ <major>.<minor>.<bugfix/improvement>-p<1|2><module letters in the order b, t, g, a1/a2, or n> """
+        tokens = [token for token, _ in self.module_entries]
+        letters = "".join(letter for token, letter in self.MODULE_LETTERS if token in tokens)
+
+        return f"{read_version()}-{self.PLATFORM_CODES[self.platform]}{letters or 'n'}"
 
     def set_debug_messages(self):
         """ Turn the debug serial output off for production firmware, leave it on otherwise """

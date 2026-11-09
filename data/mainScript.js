@@ -641,6 +641,7 @@ function openInfoPanel(event) {
             document.getElementById("js-info-ip").innerText = "IP адрес: " + parts[2];
             document.getElementById("js-info-mac").innerText = "MAC адрес: " + parts[3];
             document.getElementById("js-info-time").innerText = "Час: " + parts[4];
+            document.getElementById("js-info-version").innerText = "Версия: " + (parts[5] || "-");
 
             let timeParts = parts[4].split(":");
             infoPanelSeconds = parseInt(timeParts[0], 10) * 3600
